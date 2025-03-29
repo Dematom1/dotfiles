@@ -10,17 +10,6 @@ DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Terminal dotfiles
 # ------------------------------
 echo "🔗 Linking terminal dotfiles..."
-for file in .zshrc .tmux.conf .gitconfig; do
-  target="$HOME/$file"
-  source="$DOTFILES_DIR/home/$file"
-
-  if [ -e "$target" ] && [ ! -L "$target" ]; then
-    echo "📦 Backing up existing $target to $target.backup"
-    mv "$target" "$target.backup"
-  fi
-
-  ln -sf "$source" "$target"
-done
 
 # ------------------------------
 # Neovim config with LazyVim
