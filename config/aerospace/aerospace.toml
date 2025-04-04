@@ -7,12 +7,22 @@
 # You can use it to add commands that run after login to macOS user session.
 # 'start-at-login' needs to be 'true' for 'after-login-command' to work
 # Available commands: https://nikitabobko.github.io/AeroSpace/commands
+
+
 after-login-command = []
 
 # You can use it to add commands that run after AeroSpace startup.
 # 'after-startup-command' is run after 'after-login-command'
 # Available commands : https://nikitabobko.github.io/AeroSpace/commands
-after-startup-command = []
+# Launch SketchyBar on startup
+after-startup-command = ['exec-and-forget /opt/homebrew/opt/sketchybar/bin/sketchybar']
+
+exec-on-workspace-change = [
+    '/bin/bash',
+    '-c',
+    '/opt/homebrew/opt/sketchybar/bin/sketchybar --trigger aerospace_workspace_change AEROSPACE_FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE AEROSPACE_PREV_WORKSPACE=$AEROSPACE_PREV_WORKSPACE',
+]
+
 
 # Start AeroSpace at login
 start-at-login = true
@@ -170,3 +180,4 @@ run = "move-node-to-workspace T"
 [[on-window-detected]]
 if.app-id = "app.zen-browser.zen"
 run = "move-node-to-workspace B"
+
