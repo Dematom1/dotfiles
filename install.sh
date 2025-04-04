@@ -10,6 +10,20 @@ DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Terminal dotfiles
 # ------------------------------
 echo "🔗 Linking terminal dotfiles..."
+for dir in ~/dotfiles/config/*; do
+  name=$(basename "$dir")
+  target="$HOME/.config/$name"
+
+  if [ -L "$target" ]; then
+    echo "Symlink already exists: $target"
+  elif [ -e "$target" ]; then
+    echo "Backing up existing: $target -> $target.bak"
+    mv "$target" "$target.bak"
+    ln -s "$dir" "$target"
+  else
+    ln -s "$dir" "$target"
+  fi
+done
 
 # ------------------------------
 # Neovim config with LazyVim
