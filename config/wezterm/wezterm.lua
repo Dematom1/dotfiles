@@ -5,7 +5,7 @@ local wezterm = require("wezterm")
 local config = wezterm.config_builder()
 
 -- This is where you actually apply your config choices
--- config.color_scheme = "Spiderman"
+-- config.color_scheme = "Monokai (dark) (terminal.sexy)"
 
 config.font = wezterm.font("MesloLGS Nerd Font Mono")
 config.font_size = 19
@@ -25,7 +25,7 @@ config.colors = {
 	brights = { "#214969", "#E52E2E", "#44FFB1", "#FFE073", "#A277FF", "#a277ff", "#24EAF7", "#24EAF7" },
 }
 
--- config.window_decorations = "RESIZE"
+config.window_decorations = "RESIZE"
 
 -- config.window_background_opacity = 0.9
 config.macos_window_background_blur = 10
