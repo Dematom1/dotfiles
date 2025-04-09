@@ -9,31 +9,37 @@ DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # ------------------------------
 # Terminal dotfiles
 # ------------------------------
-echo "🔗 Linking terminal dotfiles..."
-for dir in ~/dotfiles/config/*; do
+echo "🔗 Linking ~/.config entries from $DOTFILES_DIR..."
+mkdir -p ~/.config
+
+for dir in "$DOTFILES_DIR"/*; do
   name=$(basename "$dir")
   target="$HOME/.config/$name"
 
-  if [ -L "$target" ]; then
-    echo "Symlink already exists: $target"
-  elif [ -e "$target" ]; then
-    echo "Backing up existing: $target -> $target.bak"
-    mv "$target" "$target.bak"
-    ln -s "$dir" "$target"
-  else
-    ln -s "$dir" "$target"
+  # Only link if it's a directory (e.g., nvim/, wezterm/)
+  if [ -d "$dir" ]; then
+    if [ -L "$target" ]; then
+      if $FORCE; then
+        echo "♻️ Replacing existing symlink: $target"
+        rm "$target"
+        ln -s "$dir" "$target"
+      else
+        echo "⏩ Symlink already exists: $target"
+      fi
+    elif [ -e "$target" ]; then
+      echo "📦 Backing up existing: $target -> $target.bak"
+      mv "$target" "$target.bak"
+      ln -s "$dir" "$target"
+      echo "🔗 Linked: $target → $dir"
+    else
+      ln -s "$dir" "$target"
+      echo "🔗 Linked: $target → $dir"
+    fi
   fi
 done
 
 # ------------------------------
-# Neovim config with LazyVim
-# ------------------------------
-echo "🔗 Linking Neovim config..."
-mkdir -p ~/.config
-ln -sf "$DOTFILES_DIR/config/nvim" ~/.config/nvim
-
-# ------------------------------
-# Lazy.nvim bootstrap (in case it's missing)
+# Lazy.nvim bootstrap (optional)
 # ------------------------------
 LAZY_DIR="$HOME/.local/share/nvim/lazy/lazy.nvim"
 if [ ! -d "$LAZY_DIR" ]; then
