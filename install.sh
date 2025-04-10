@@ -39,6 +39,37 @@ for dir in "$DOTFILES_DIR"/*; do
 done
 
 # ------------------------------
+# Dotfiles (non-dirs) → ~/.*
+# ------------------------------
+echo "🔗 Linking standalone dotfiles to ~ ..."
+for file in "$DOTFILES_DIR"/.*; do
+  name=$(basename "$file")
+
+  # Skip .git, .DS_Store, etc.
+  [[ "$name" == "." || "$name" == ".." || "$name" == ".git" || "$name" == ".config" ]] && continue
+
+  target="$HOME/$name"
+
+  if [ -L "$target" ]; then
+    if $FORCE; then
+      echo "♻️ Replacing existing symlink: $target"
+      rm "$target"
+      ln -s "$file" "$target"
+    else
+      echo "⏩ Symlink already exists: $target"
+    fi
+  elif [ -e "$target" ]; then
+    echo "📦 Backing up existing: $target -> $target.bak"
+    mv "$target" "$target.bak"
+    ln -s "$file" "$target"
+    echo "🔗 Linked: $target → $file"
+  else
+    ln -s "$file" "$target"
+    echo "🔗 Linked: $target → $file"
+  fi
+done
+
+# ------------------------------
 # Lazy.nvim bootstrap (optional)
 # ------------------------------
 LAZY_DIR="$HOME/.local/share/nvim/lazy/lazy.nvim"
