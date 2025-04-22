@@ -44,6 +44,7 @@ return {
 				"helm_ls",
 				"rust_analyzer",
 				"jinja_lsp",
+				"ts_ls",
 			},
 		})
 
