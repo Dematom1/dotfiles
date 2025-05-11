@@ -8,6 +8,10 @@ return {
 			"nvim-neotest/nvim-nio",
 			"williamboman/mason.nvim",
 		},
+		opts = {
+			ensure_installed = { "cppdbg", "node2", "python" },
+			automatic_setup = true,
+		},
 		config = function()
 			local dap = require("dap")
 			local ui = require("dapui")
@@ -29,6 +33,7 @@ return {
 			map("n", "<leader>dB", dap.step_back, { desc = "DAP: Step Back" })
 			map("n", "<leader>dr", dap.restart, { desc = "DAP: Restart" })
 			map("n", "<leader>dT", dap.terminate, { desc = "DAP: Terminate" })
+			map("n", "<leader>du", require("dapui").toggle, { desc = "DAP: Toggle UI" })
 
 			-- Optional: open REPL
 			map("n", "<leader>dp", dap.repl.open, { desc = "DAP: Open REPL" })
