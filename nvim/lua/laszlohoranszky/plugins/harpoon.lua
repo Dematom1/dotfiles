@@ -23,19 +23,11 @@ return {
 			map("n", "<leader>h", function()
 				harpoon.ui:toggle_quick_menu(harpoon:list())
 			end, { desc = "Harpoon menu" })
-
-			map("n", "<C-h><C-h>", function()
-				harpoon:list():select(1)
-			end, opts)
-			map("n", "<C-h><C-j>", function()
-				harpoon:list():select(2)
-			end, opts)
-			map("n", "<C-h><C-k>", function()
-				harpoon:list():select(3)
-			end, opts)
-			map("n", "<C-h><C-l>", function()
-				harpoon:list():select(4)
-			end, opts)
+			for _, idx in ipairs({ 1, 2, 3, 4, 5 }) do
+				vim.keymap.set("n", string.format("<space>%d", idx), function()
+					harpoon:list():select(idx)
+				end)
+			end
 		end,
 	},
 }
