@@ -45,6 +45,7 @@ return {
 				"rust_analyzer",
 				"jinja_lsp",
 				"ts_ls",
+				"r_language_server",
 			},
 		})
 
