@@ -1,8 +1,7 @@
 return {
 	"williamboman/mason.nvim",
-	version = "1.11.0", -- pin to last v1 version
 	dependencies = {
-		{ "williamboman/mason-lspconfig.nvim", version = "1.32.0" }, -- pin compatible version
+		"williamboman/mason-lspconfig.nvim",
 		"WhoIsSethDaniel/mason-tool-installer.nvim",
 	},
 	config = function()
@@ -45,7 +44,6 @@ return {
 				"rust_analyzer",
 				"jinja_lsp",
 				"ts_ls",
-				"r_language_server",
 			},
 		})
 

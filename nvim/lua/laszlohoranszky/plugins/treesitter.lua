@@ -46,6 +46,7 @@ return {
 				"vimdoc",
 				"c",
 				"make",
+				"regex",
 			},
 			incremental_selection = {
 				enable = true,
@@ -55,6 +56,9 @@ return {
 					scope_incremental = false,
 					node_decremental = "<bs>",
 				},
+				highlight = { enable = true },
+				indent = { enable = true },
+				textobjects = { enable = true },
 			},
 		})
 	end,

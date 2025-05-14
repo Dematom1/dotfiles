@@ -13,6 +13,7 @@ vim.opt.rtp:prepend(lazypath)
 
 -- Set color column at 80 characters
 vim.opt.colorcolumn = "80"
+vim.o.sessionoptions = "blank,buffers,curdir,folds,help,tabpages,winsize,winpos,terminal,localoptions"
 
 -- Highlight it with red background in terminal (ctermbg = 9)
 vim.cmd([[highlight ColorColumn ctermbg=9]])
