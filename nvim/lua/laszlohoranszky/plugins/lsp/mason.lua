@@ -32,7 +32,9 @@ return {
 				"svelte",
 				"lua_ls",
 				"graphql",
-				"emmet_ls",
+				"gopls",
+				"templ",
+				-- "emmet_ls",
 				"prismals",
 				"pyright",
 				"jsonls",
@@ -44,6 +46,8 @@ return {
 				"rust_analyzer",
 				"jinja_lsp",
 				"ts_ls",
+				"oxlint",
+				"docker_compose_language_service",
 			},
 		})
 
