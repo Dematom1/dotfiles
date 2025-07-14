@@ -1,0 +1,17 @@
+font-size = 18
+window-padding-color = background
+window-colorspace = "display-p3"
+theme = catppuccin-mocha
+font-feature = -liga
+background-blur-radius = 10
+keybind = global:cmd+s=toggle_quick_terminal
+font-family = BerkleyMono Nerd Font
+mouse-hide-while-typing = true
+
+background = 011423
+foreground = CBE0F0
+cursor-color = 47FF9C
+adjust-cursor-thickness = 2
+selection-foreground = CBE0F0
+selection-background = 033259
+window-decoration = false
