@@ -34,7 +34,7 @@ return {
 				"graphql",
 				"gopls",
 				"templ",
-				-- "emmet_ls",
+				"emmet_ls",
 				"prismals",
 				"pyright",
 				"jsonls",
@@ -44,10 +44,13 @@ return {
 				"bashls",
 				"helm_ls",
 				"rust_analyzer",
+				"codelldb",
 				"jinja_lsp",
 				"ts_ls",
 				"oxlint",
 				"docker_compose_language_service",
+				"zls",
+				"eslint",
 			},
 		})
 
@@ -60,6 +63,8 @@ return {
 				"ruff",
 				"pylint", -- python linter
 				"eslint_d", -- js linter
+				"cpptools", -- rust
+				"luaformatter", -- lua
 			},
 		})
 	end,
