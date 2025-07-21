@@ -47,15 +47,14 @@ return {
         ["<Tab>"] = cmp.mapping.select_next_item(),   -- Tab also selects the next item.
       }),
       sources = cmp.config.sources({
-        { name = "nvim_lsp",                   keyword_length = 3 },
+        { name = "nvim_lsp",               keyword_length = 3 },
         { name = "luasnip" },
         { name = "nvim_lsp_signature_help" }, -- display function signatures with current parameter emphasized
-        { name = "buffer",                     keyword_length = 2 },
-        { name = "path",                       keyword_length = 2 },
-        { name = "nvim_lua",                   keyword_length = 2 }, -- <<-- NEW: Enable nvim_lua source
-        { name = "cmp_nvim_lsp_signature_help" },                    -- <<-- NEW: Enable signature help source
-        { name = "vsnip",                      keyword_length = 2 }, -- nvim-cmp source for vim-vsnip
-        { name = "calc" },                                           -- source for math calculation
+        { name = "buffer",                 keyword_length = 2 },
+        { name = "path",                   keyword_length = 2 },
+        { name = "nvim_lua",               keyword_length = 2 }, -- <<-- NEW: Enable nvim_lua source
+        { name = "vsnip",                  keyword_length = 2 }, -- nvim-cmp source for vim-vsnip
+        { name = "calc" },                                       -- source for math calculation
       }),
       formatting = {
         fields = { "menu", "abbr", "kind" },
@@ -68,7 +67,8 @@ return {
             calc = "+",
             nvim_lua = "∞",
             cmp_nvim_lsp_signature_help = "✎",
-            dadbod = "🗄", -- dadbod
+            dadbod = "🗄",
+            codecompanion = "🤖",
           }
           item.menu = menu_icon[entry.source.name]
           return item
@@ -88,6 +88,16 @@ return {
       -- mapping = cmp.mapping.preset.insert({
       --   ["<C-j>"] = cmp.mapping.select_next_item(), -- Example: override key for SQL only
       -- }),
+    })
+    cmp.setup.filetype({ "codecompanion" }, {
+      sources = cmp.config.sources({
+        { name = "codecompanion" },                    -- This assumes 'codecompanion' registers a cmp source
+        { name = "buffer",       keyword_length = 2 }, -- Useful for general text completion
+        -- You might also include path here, or even nvim_lsp if CodeCompanion provides an LSP.
+        -- { name = "path" },
+      }),
+      -- You can add any other settings specific to codecompanion filetype here,
+      -- e.g., different keymaps, completion options etc.
     })
   end,
 }
