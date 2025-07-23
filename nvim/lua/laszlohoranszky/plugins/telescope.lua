@@ -6,6 +6,7 @@ return {
     { "nvim-telescope/telescope-fzf-native.nvim", build = "make" },
     "nvim-tree/nvim-web-devicons",
     "folke/todo-comments.nvim",
+    { "polirritmico/telescope-lazy-plugins.nvim" },
   },
   config = function()
     local telescope = require("telescope")
@@ -47,5 +48,6 @@ return {
     keymap.set("n", "<leader>fc", "<cmd>Telescope grep_string<cr>", { desc = "Find string under cursor in cwd" })
     keymap.set("n", "<leader>fh", "<cmd>Telescope harpoon marks<cr>", { desc = "Find Harpoon marks" })
     keymap.set("n", "<leader>fk", "<cmd>Telescope keymaps<cr>", { desc = "Find Keymaps" })
+    keymap.set("n", "<leader>fp", "<Cmd>Telescope lazy_plugins<CR>", { desc = "Telescope: Plugins configurations" })
   end,
 }
