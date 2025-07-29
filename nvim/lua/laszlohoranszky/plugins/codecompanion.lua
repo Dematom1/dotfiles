@@ -3,7 +3,24 @@
 return {
   "olimorris/codecompanion.nvim",
   -- `opts = {}` here means you could add global setup options later if needed.
-  opts = {},
+  opts = {
+    mcphub = {
+      callback = "mcp.extenstions.codecompanion",
+      opts = {
+        show_result_in_chat = true,
+        make_vars = true,
+        make_slash_commands = true
+      }
+    },
+    strategies = {
+      chat = {
+        adapter = "ollama",
+      },
+      inline = {
+        adapter = "ollama",
+      },
+    },
+  },
   dependencies = {
     "nvim-lua/plenary.nvim",           -- General utility library (common dependency)
     "nvim-treesitter/nvim-treesitter", -- Used by CodeCompanion for parsing
