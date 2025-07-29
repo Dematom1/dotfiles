@@ -7,6 +7,7 @@ return {
     "nvim-tree/nvim-web-devicons",
     "folke/todo-comments.nvim",
     { "polirritmico/telescope-lazy-plugins.nvim" },
+    "andrew-george/telescope-themes",
   },
   config = function()
     local telescope = require("telescope")
@@ -38,6 +39,7 @@ return {
 
     telescope.load_extension("fzf")
     telescope.load_extension("harpoon")
+    telescope.load_extension("themes")
 
     -- set keymaps
     local keymap = vim.keymap -- for conciseness
@@ -49,5 +51,7 @@ return {
     keymap.set("n", "<leader>fh", "<cmd>Telescope harpoon marks<cr>", { desc = "Find Harpoon marks" })
     keymap.set("n", "<leader>fk", "<cmd>Telescope keymaps<cr>", { desc = "Find Keymaps" })
     keymap.set("n", "<leader>fp", "<Cmd>Telescope lazy_plugins<CR>", { desc = "Telescope: Plugins configurations" })
+    keymap.set("n", "<leader>ths", "<cmd>Telescope themes<CR>",
+      { noremap = true, silent = true, desc = "Theme Switcher" })
   end,
 }
