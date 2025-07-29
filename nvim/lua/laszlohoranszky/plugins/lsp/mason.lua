@@ -29,13 +29,11 @@ return {
         "html",
         "cssls",
         "tailwindcss",
-        "svelte",
-        "lua_ls",
         "graphql",
         "gopls",
         "templ",
-        "emmet_ls",
         "prismals",
+        "eslint-lsp",
         "jsonls",
         "dockerls",
         "marksman",
@@ -61,6 +59,7 @@ return {
         "luaformatter", -- lua
         "delve",        -- go
         "debugpy",      -- python
+        "js-debug-adapter",
       },
     })
   end,

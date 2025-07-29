@@ -5,6 +5,7 @@ return {
     "hrsh7th/cmp-nvim-lsp",
     { "antosha417/nvim-lsp-file-operations", config = true },
     { "folke/neodev.nvim",                   opts = {} },
+    "williamboman/mason.nvim",
   },
   config = function()
     -- import lspconfig plugin
@@ -87,9 +88,6 @@ return {
     -- Setup mason-lspconfig with modern config
     mason_lspconfig.setup({
       ensure_installed = {
-        "lua_ls",
-        "graphql",
-        "svelte",
         "emmet_ls",
         -- add any others here
       },
@@ -98,33 +96,6 @@ return {
 
     -- Optional manual overrides for specific servers
     local lspconfig = require("lspconfig")
-
-    lspconfig.svelte.setup({
-      capabilities = capabilities,
-      on_attach = function(client, bufnr)
-        vim.api.nvim_create_autocmd("BufWritePost", {
-          pattern = { "*.js", "*.ts" },
-          callback = function(ctx)
-            client.notify("$/onDidChangeTsOrJsFile", { uri = ctx.match })
-          end,
-        })
-      end,
-    })
-
-    lspconfig.graphql.setup({
-      capabilities = capabilities,
-      filetypes = { "graphql", "gql", "svelte", "typescriptreact", "javascriptreact" },
-    })
-
-    lspconfig.emmet_ls.setup({
-      capabilities = capabilities,
-      filetypes = {
-        "html",
-        "typescriptreact",
-        "javascriptreact",
-        "css",
-      },
-    })
 
     lspconfig.lua_ls.setup({
       capabilities = capabilities,
