@@ -10,6 +10,7 @@ return {
     "hrsh7th/cmp-nvim-lsp-signature-help", -- <<-- NEW: For LSP signature help
     "hrsh7th/cmp-calc",
     "hrsh7th/cmp-vsnip",
+    "hrsh7th/cmp-cmdline",
     {
       "L3MON4D3/LuaSnip",
       version = "v2.*",
@@ -98,6 +99,24 @@ return {
       }),
       -- You can add any other settings specific to codecompanion filetype here,
       -- e.g., different keymaps, completion options etc.
+    })
+    -- `/` cmdline setup.
+    cmp.setup.cmdline('/', {
+      mapping = cmp.mapping.preset.cmdline(),
+      sources = {
+        { name = 'buffer' }
+      }
+    })
+
+    -- `:` cmdline setup.
+    cmp.setup.cmdline(':', {
+      mapping = cmp.mapping.preset.cmdline(),
+      sources = cmp.config.sources({
+        { name = 'path' }
+      }, {
+        { name = 'cmdline' }
+      }),
+      matching = { disallow_symbol_nonprefix_matching = false }
     })
   end,
 }
