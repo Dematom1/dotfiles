@@ -1,7 +1,7 @@
 font-size = 21
 window-padding-color = background
 window-colorspace = "display-p3"
-theme = catppuccin-mocha
+theme = Catpuccin Mocha
 font-feature = -liga
 background-blur-radius = 10
 keybind = global:cmd+s=toggle_quick_terminal
@@ -14,4 +14,5 @@ cursor-color = 47FF9C
 adjust-cursor-thickness = 2
 selection-foreground = CBE0F0
 selection-background = 033259
-window-decoration = false
+window-decoration = true
+macos-titlebar-style = transparent

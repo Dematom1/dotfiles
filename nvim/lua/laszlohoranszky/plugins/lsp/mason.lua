@@ -33,6 +33,7 @@ return {
         "gopls",
         "templ",
         "prismals",
+        "basedpyright",
         "eslint-lsp",
         "jsonls",
         "dockerls",

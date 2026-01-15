@@ -14,6 +14,7 @@ keymap.set("n", "<leader>nh", ":nohl<CR>", { desc = "Clear search highlights" })
 
 keymap.set("n", "<C-d>", "<C-d>zz")
 keymap.set("n", "<C-u>", "<C-u>zz")
+keymap.set('n', 'gl', vim.diagnostic.open_float, { desc = 'Open floating diagnostic window' })
 
 keymap.set("n", "n", "nzzzv", { noremap = true })
 keymap.set("n", "N", "Nzzzv", { noremap = true })
