@@ -12,6 +12,7 @@ return {
 
 			require("oil").setup({
 				columns = { "icon" },
+				delete_to_trash = true,
 				keymaps = {
 					["<C-h>"] = false,
 					["<C-l>"] = false,
