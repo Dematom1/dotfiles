@@ -74,8 +74,24 @@ return {
           max_type_length = types_enabled and -1 or 0,
         })
       end
+      local function get_python_path()
+        -- Check if uv project exists
+        if vim.fn.filereadable('pyproject.toml') == 1 or vim.fn.filereadable('uv.lock') == 1 then
+          local handle = io.popen('uv run which python 2>/dev/null')
+          if handle then
+            local path = handle:read('*a'):gsub('\n', '')
+            handle:close()
+            if path ~= '' then
+              return path
+            end
+          end
+        end
 
-      require("dap-python").setup("python3")
+        -- Fallback to system python
+        return 'python3'
+      end
+
+      require("dap-python").setup(get_python_path())
       require("overseer").setup()
 
       dap.set_log_level("DEBUG")
@@ -150,6 +166,25 @@ return {
           name = "Attach to running Neovim instance (port = 8086)",
           port = 8086,
         },
+      }
+
+      -- R
+      dap.adapters.r = {
+        type = "executable",
+        command = "R",
+        args = { "--slave", "-e", "vscDebugger::.vsc.listen()" }
+      }
+
+      dap.configurations.r = {
+
+        {
+          type = "r",
+          request = "launch",
+          name = "Launch R",
+          program = "${file}",
+          console = "integratedTerminal",
+        }
+
       }
 
       require("dapui").setup({

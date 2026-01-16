@@ -4,9 +4,9 @@ return {
   "voldikss/vim-floaterm",
   -- Keymap to toggle a floaterm window.
   keys = {
-    { "<leader>ft", "<cmd>FloatermToggle<CR>",                                                   desc = "Toggle Floaterm" },
-    { "<leader>fs", "<cmd>FloatermNew --title=Shell --height=0.8 --width=0.8 --autoclose=0<CR>", desc = "New Shell Floaterm" },
-    { "<leader>fk", "<cmd>FloatermKill<CR>",                                                     desc = "Kill Floaterm Process" },
+    { "<leader>ft", "<cmd>FloatermToggle<CR>", desc = "Toggle Floaterm" },
+    -- { "<leader>fs", "<cmd>FloatermNew --title=Shell --height=0.8 --width=0.8 --autoclose=0<CR>", desc = "New Shell Floaterm" },
+    { "<leader>fk", "<cmd>FloatermKill<CR>",   desc = "Kill Floaterm Process" },
     -- Add more floaterm specific keybindings if needed
   },
   config = function()
