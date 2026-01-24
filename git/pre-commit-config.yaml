@@ -1,0 +1,62 @@
+# Pre-commit config template
+# Copy to your project as .pre-commit-config.yaml
+# Then run: prek install
+#
+# Usage:
+#   prek run              # Run on staged files
+#   prek run --all-files  # Run on all files
+#   prek auto-update  # Update hook versions
+
+repos:
+  # =============================================================================
+  # General
+  # =============================================================================
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  # =============================================================================
+  # Python (uncomment if using Python)
+  # =============================================================================
+  # - repo: https://github.com/astral-sh/ruff-pre-commit
+  #   rev: v0.9.1
+  #   hooks:
+  #     - id: ruff        # Linter
+  #       args: [--fix]
+  #     - id: ruff-format # Formatter
+
+  # =============================================================================
+  # JavaScript/TypeScript (uncomment if using JS/TS)
+  # =============================================================================
+  # - repo: https://github.com/biomejs/pre-commit
+  #   rev: v0.6.1
+  #   hooks:
+  #     - id: biome-check
+  #       additional_dependencies: ["@biomejs/biome@1.9.4"]
+
+  # =============================================================================
+  # Shell
+  # =============================================================================
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+
+  # =============================================================================
+  # Commit message format (conventional commits)
+  # =============================================================================
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.0.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: [feat, fix, docs, style, refactor, perf, test, chore, ci, build]

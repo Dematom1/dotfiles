@@ -100,6 +100,7 @@ brew "trash"              # Safe delete
 # -----------------------------------------------------------------------------
 # Build / Dev Dependencies
 # -----------------------------------------------------------------------------
+brew "prek"               # Fast pre-commit (Rust)
 brew "shellcheck"         # Shell script linter
 brew "gnupg"              # GPG for git signing
 

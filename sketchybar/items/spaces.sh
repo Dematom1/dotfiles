@@ -52,7 +52,7 @@ for m in $(aerospace list-monitors | awk '{print $1}'); do
   for i in $(aerospace list-workspaces --monitor $m --empty); do
     sketchybar --set space.$i display=0
   done
-  
+
 done
 
 

@@ -14,7 +14,7 @@ update() {
     # sketchybar --set $NAME icon.highlight=$SELECTED \
     #                        label.highlight=$SELECTED \
     #                        background.border_color=$COLOR
-    
+
     sketchybar --set space.$(aerospace list-workspaces --focused) icon.highlight=true \
                       label.highlight=true \
                       background.border_color="$GREY"
