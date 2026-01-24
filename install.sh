@@ -9,6 +9,63 @@ NC='\033[0m' # No Color
 
 DOTFILES="$HOME/Code/dotfiles"
 
+# -----------------------------------------------------------------------------
+# Parse arguments
+# -----------------------------------------------------------------------------
+CLEAN=false
+
+usage() {
+    echo "Usage: ./install.sh [OPTIONS]"
+    echo ""
+    echo "Options:"
+    echo "  --clean    Remove existing configs before installing (fresh start)"
+    echo "  --help     Show this help message"
+    exit 0
+}
+
+for arg in "$@"; do
+    case $arg in
+        --clean)
+            CLEAN=true
+            shift
+            ;;
+        --help|-h)
+            usage
+            ;;
+    esac
+done
+
+# -----------------------------------------------------------------------------
+# Clean mode - remove existing configs
+# -----------------------------------------------------------------------------
+if [ "$CLEAN" = true ]; then
+    echo -e "${YELLOW}🧹 Clean mode: removing existing configs...${NC}"
+    echo ""
+
+    # Config directories
+    rm -rf "$HOME/.config/nvim"
+    rm -rf "$HOME/.config/ghostty"
+    rm -rf "$HOME/.config/yazi"
+    rm -rf "$HOME/.config/bat"
+    rm -rf "$HOME/.config/atuin"
+    rm -rf "$HOME/.config/direnv"
+    rm -rf "$HOME/.config/aerospace"
+    rm -rf "$HOME/.config/sketchybar"
+
+    # Config files
+    rm -f "$HOME/.tmux.conf"
+    rm -f "$HOME/.wezterm.lua"
+    rm -f "$HOME/.direnvrc"
+    rm -f "$HOME/.zshrc"
+
+    # Remove backups too
+    rm -f "$HOME/.zshrc.backup"
+    rm -f "$HOME/.tmux.conf.backup"
+
+    echo -e "${GREEN}  ✓ Cleaned existing configs${NC}"
+    echo ""
+fi
+
 echo "🔧 Installing dotfiles from $DOTFILES"
 echo ""
 
