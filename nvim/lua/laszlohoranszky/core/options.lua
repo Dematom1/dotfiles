@@ -52,3 +52,8 @@ vim.cmd([[highlight ColorColumn ctermbg=9]])
 
 -- session options
 vim.o.sessionoptions = "blank,buffers,curdir,folds,help,tabpages,winsize,winpos,terminal,localoptions"
+
+-- project-local config
+-- Loads .nvim.lua from project root (trusted files only)
+-- Use :trust to mark a file as trusted
+opt.exrc = true
