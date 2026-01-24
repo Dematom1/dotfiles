@@ -144,10 +144,83 @@ sudo bandwhich
 sudo bandwhich & htop
 ```
 
+## Memory Profiling
+
+### memray (Python)
+
+Profile memory allocations and find leaks.
+
+```bash
+# Basic profiling
+memray run script.py
+
+# Live view - watch allocations in real-time
+memray run --live script.py
+
+# Generate flamegraph
+memray flamegraph memray-script.py.*.bin
+open memray-flamegraph-*.html
+
+# Summary stats
+memray stats memray-script.py.*.bin
+
+# Find leaks
+memray run --trace-python-allocators script.py
+```
+
+**Reading Memory Flamegraphs:**
+- Width = bytes allocated (wider = more memory)
+- Look for functions that allocate repeatedly
+- Growing collections are often the culprit
+
+### leaks (macOS built-in)
+
+Check any process for memory leaks.
+
+```bash
+# Check a running process
+leaks <pid>
+
+# Run command and check at exit
+leaks --atExit -- ./my-program
+
+# Quiet mode (just show leaks)
+leaks -q <pid>
+```
+
+### vmmap (macOS built-in)
+
+See memory regions of a process.
+
+```bash
+# Full memory map
+vmmap <pid>
+
+# Summary only
+vmmap --summary <pid>
+```
+
+## Practice Examples
+
+Sample scripts in `examples/profiling/`:
+
+```bash
+cd ~/Code/dotfiles/examples/profiling
+
+# Memory leak demo
+memray run --live memory_leak.py
+
+# CPU benchmark: slow vs fast
+hyperfine 'python3 cpu_heavy.py slow' 'python3 cpu_heavy.py fast'
+
+# CPU flamegraph
+samply record -- python3 cpu_heavy.py
+```
+
 ## Installation
 
 ```bash
-brew install hyperfine samply tokei bandwhich
+brew install hyperfine samply tokei bandwhich memray
 ```
 
 ## See Also

@@ -104,6 +104,7 @@ brew "hyperfine"          # CLI benchmarking
 brew "samply"             # CPU profiler (flamegraphs)
 brew "tokei"              # Code statistics
 brew "bandwhich"          # Network monitor by process
+brew "memray"             # Python memory profiler
 
 # -----------------------------------------------------------------------------
 # Build / Dev Dependencies

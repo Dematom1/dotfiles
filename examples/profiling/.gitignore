@@ -1,0 +1,5 @@
+# Generated profiling files
+memray-*.bin
+memray-*.html
+*.pyc
+__pycache__/
