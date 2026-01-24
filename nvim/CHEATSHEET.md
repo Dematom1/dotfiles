@@ -319,6 +319,7 @@
 
 | Keys | Action |
 |------|--------|
+| `<leader>hc` | Open this cheatsheet |
 | `<leader>nh` | Clear search highlight |
 | `jk` | Exit insert mode |
 | `n / N` | Next/Prev search (centered) |
