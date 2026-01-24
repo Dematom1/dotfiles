@@ -8,6 +8,9 @@ keybind = global:cmd+s=toggle_quick_terminal
 font-family = BerkleyMono Nerd Font
 mouse-hide-while-typing = true
 
+# Option key acts as Alt (for tmux Alt+number, etc.)
+macos-option-as-alt = true
+
 background = 011423
 foreground = CBE0F0
 cursor-color = 47FF9C

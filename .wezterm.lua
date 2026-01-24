@@ -12,6 +12,10 @@ config.font_size = 19
 
 config.enable_tab_bar = false
 
+-- Option key acts as Alt (for tmux Alt+number, etc.)
+config.send_composed_key_when_left_alt_is_pressed = false
+config.send_composed_key_when_right_alt_is_pressed = false
+
 -- my coolnight colorscheme:
 config.colors = {
   foreground = "#CBE0F0",
