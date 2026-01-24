@@ -98,6 +98,14 @@ brew "sevenzip"           # Archive tool
 brew "trash"              # Safe delete
 
 # -----------------------------------------------------------------------------
+# Profiling / Performance
+# -----------------------------------------------------------------------------
+brew "hyperfine"          # CLI benchmarking
+brew "samply"             # CPU profiler (flamegraphs)
+brew "tokei"              # Code statistics
+brew "bandwhich"          # Network monitor by process
+
+# -----------------------------------------------------------------------------
 # Build / Dev Dependencies
 # -----------------------------------------------------------------------------
 brew "prek"               # Fast pre-commit (Rust)
