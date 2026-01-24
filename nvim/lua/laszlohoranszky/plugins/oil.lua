@@ -1,6 +1,7 @@
 return {
 	{
 		"stevearc/oil.nvim",
+		lazy = false, -- Load immediately for file navigation
 		dependencies = { "nvim-tree/nvim-web-devicons" },
 		config = function()
 			CustomOilBar = function()
@@ -32,11 +33,9 @@ return {
 				},
 			})
 
-			-- Open parent directory in current window
-			vim.keymap.set("n", "-", "<CMD>Oil<CR>", { desc = "Open parent directory" })
-
-			-- Open parent directory in floating window
-			vim.keymap.set("n", "<space>-", require("oil").toggle_float)
+			-- Keymaps
+			vim.keymap.set("n", "-", "<cmd>Oil<cr>", { desc = "Open parent directory" })
+			vim.keymap.set("n", "<leader>-", require("oil").toggle_float, { desc = "Oil float" })
 		end,
 	},
 }
