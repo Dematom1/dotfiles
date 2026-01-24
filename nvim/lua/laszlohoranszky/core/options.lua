@@ -45,3 +45,10 @@ opt.swapfile = false
 
 vim.wo.foldmethod = "expr"
 vim.wo.foldexpr = "nvim_treesitter#foldexpr()"
+
+-- color column
+opt.colorcolumn = "80"
+vim.cmd([[highlight ColorColumn ctermbg=9]])
+
+-- session options
+vim.o.sessionoptions = "blank,buffers,curdir,folds,help,tabpages,winsize,winpos,terminal,localoptions"

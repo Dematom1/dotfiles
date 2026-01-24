@@ -6,14 +6,9 @@ return {
     { "antosha417/nvim-lsp-file-operations", config = true },
     { "folke/neodev.nvim",                   opts = {} },
     "williamboman/mason.nvim",
+    "williamboman/mason-lspconfig.nvim",
   },
   config = function()
-    -- import lspconfig plugin
-    local lspconfig = require("lspconfig")
-
-    -- import mason_lspconfig plugin
-    local mason_lspconfig = require("mason-lspconfig")
-
     -- import cmp-nvim-lsp plugin
     local cmp_nvim_lsp = require("cmp_nvim_lsp")
 
@@ -68,8 +63,9 @@ return {
       end,
     })
 
-    -- used to enable autocompletion (assign to every lsp server config)
+    -- Set capabilities for all LSP servers (Neovim 0.11+)
     local capabilities = cmp_nvim_lsp.default_capabilities()
+    vim.lsp.config("*", { capabilities = capabilities })
 
     vim.diagnostic.config({
       virtual_text = true,
@@ -85,20 +81,10 @@ return {
       update_in_insert = false,
       severity_sort = true,
     })
-    -- Setup mason-lspconfig with modern config
-    mason_lspconfig.setup({
-      ensure_installed = {
-        "emmet_ls",
-        -- add any others here
-      },
-      automatic_enable = true, -- now uses vim.lsp.enable() under the hood
-    })
 
-    -- Optional manual overrides for specific servers
-    local lspconfig = require("lspconfig")
-
-    lspconfig.lua_ls.setup({
-      capabilities = capabilities,
+    -- Configure servers that need custom settings (Neovim 0.11+)
+    -- Note: mason.lua handles ensure_installed and automatic_enable
+    vim.lsp.config("lua_ls", {
       settings = {
         Lua = {
           diagnostics = { globals = { "vim" } },

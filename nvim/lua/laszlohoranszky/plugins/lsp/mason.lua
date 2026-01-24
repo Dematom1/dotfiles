@@ -34,7 +34,6 @@ return {
         "templ",
         "prismals",
         "basedpyright",
-        "eslint-lsp",
         "jsonls",
         "dockerls",
         "marksman",
@@ -48,7 +47,11 @@ return {
         "docker_compose_language_service",
         "zls",
         "eslint",
+        "emmet_ls",
+        "lua_ls",
       },
+      -- Use new vim.lsp.enable() under the hood (Neovim 0.11+)
+      automatic_enable = true,
     })
 
     mason_tool_installer.setup({
