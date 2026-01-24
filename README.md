@@ -44,6 +44,9 @@ cd ~/Code/dotfiles
 
 # Run install script
 ./install.sh
+
+# Or clean install (removes existing configs first)
+./install.sh --clean
 ```
 
 ### Manual Setup

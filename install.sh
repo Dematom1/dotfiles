@@ -35,14 +35,10 @@ for arg in "$@"; do
     esac
 done
 
-# -----------------------------------------------------------------------------
-# Clean mode - remove existing configs
-# -----------------------------------------------------------------------------
 if [ "$CLEAN" = true ]; then
     echo -e "${YELLOW}🧹 Clean mode: removing existing configs...${NC}"
     echo ""
 
-    # Config directories
     rm -rf "$HOME/.config/nvim"
     rm -rf "$HOME/.config/ghostty"
     rm -rf "$HOME/.config/yazi"
@@ -52,13 +48,11 @@ if [ "$CLEAN" = true ]; then
     rm -rf "$HOME/.config/aerospace"
     rm -rf "$HOME/.config/sketchybar"
 
-    # Config files
     rm -f "$HOME/.tmux.conf"
     rm -f "$HOME/.wezterm.lua"
     rm -f "$HOME/.direnvrc"
     rm -f "$HOME/.zshrc"
 
-    # Remove backups too
     rm -f "$HOME/.zshrc.backup"
     rm -f "$HOME/.tmux.conf.backup"
 
@@ -69,31 +63,23 @@ fi
 echo "🔧 Installing dotfiles from $DOTFILES"
 echo ""
 
-# Helper function
 link() {
     local src="$1"
     local dst="$2"
 
-    # Create parent directory if needed
     mkdir -p "$(dirname "$dst")"
 
-    # Backup existing file if it's not a symlink
     if [ -e "$dst" ] && [ ! -L "$dst" ]; then
         echo -e "${YELLOW}  Backing up existing $dst${NC}"
         mv "$dst" "$dst.backup"
     fi
 
-    # Remove existing symlink
     [ -L "$dst" ] && rm "$dst"
 
-    # Create symlink
     ln -sf "$src" "$dst"
     echo -e "${GREEN}  ✓ $dst${NC}"
 }
 
-# -----------------------------------------------------------------------------
-# Config directories (~/.config/*)
-# -----------------------------------------------------------------------------
 echo "📁 Linking config directories..."
 
 link "$DOTFILES/nvim" "$HOME/.config/nvim"
@@ -103,9 +89,6 @@ link "$DOTFILES/bat" "$HOME/.config/bat"
 link "$DOTFILES/aerospace" "$HOME/.config/aerospace"
 link "$DOTFILES/sketchybar" "$HOME/.config/sketchybar"
 
-# -----------------------------------------------------------------------------
-# Individual config files
-# -----------------------------------------------------------------------------
 echo ""
 echo "📄 Linking config files..."
 
@@ -115,9 +98,6 @@ link "$DOTFILES/atuin/config.toml" "$HOME/.config/atuin/config.toml"
 link "$DOTFILES/direnv/direnvrc" "$HOME/.direnvrc"
 link "$DOTFILES/direnv/direnv.toml" "$HOME/.config/direnv/direnv.toml"
 
-# -----------------------------------------------------------------------------
-# Zsh
-# -----------------------------------------------------------------------------
 echo ""
 echo "🐚 Setting up zsh..."
 
@@ -135,18 +115,12 @@ source ~/Code/dotfiles/zsh/zshrc
 EOF
 echo -e "${GREEN}  ✓ ~/.zshrc${NC}"
 
-# -----------------------------------------------------------------------------
-# Git
-# -----------------------------------------------------------------------------
 echo ""
 echo "🔀 Setting up git..."
 
 git config --global include.path "$DOTFILES/git/config"
 echo -e "${GREEN}  ✓ Git include path set${NC}"
 
-# -----------------------------------------------------------------------------
-# Secrets file
-# -----------------------------------------------------------------------------
 echo ""
 echo "🔐 Setting up secrets..."
 
@@ -159,9 +133,6 @@ else
     echo -e "${GREEN}  ✓ ~/.secrets already exists${NC}"
 fi
 
-# -----------------------------------------------------------------------------
-# Bat theme cache
-# -----------------------------------------------------------------------------
 echo ""
 echo "🦇 Building bat theme cache..."
 
@@ -170,9 +141,6 @@ if command -v bat &> /dev/null; then
     echo -e "${GREEN}  ✓ Bat cache built${NC}"
 fi
 
-# -----------------------------------------------------------------------------
-# Done
-# -----------------------------------------------------------------------------
 echo ""
 echo -e "${GREEN}✅ Dotfiles installed!${NC}"
 echo ""
