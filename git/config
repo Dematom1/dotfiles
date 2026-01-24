@@ -1,0 +1,20 @@
+# Git config with delta for better diffs
+# Copy to ~/.gitconfig or include via [include] path = ~/Code/dotfiles/git/config
+
+[core]
+    pager = delta
+
+[interactive]
+    diffFilter = delta --color-only
+
+[delta]
+    navigate = true          # Use n/N to jump between diff sections
+    side-by-side = true      # Side-by-side view
+    line-numbers = true      # Show line numbers
+    syntax-theme = tokyonight_night  # Match your bat/nvim theme
+
+[merge]
+    conflictstyle = zdiff3   # Better conflict markers
+
+[diff]
+    colorMoved = default     # Detect moved lines

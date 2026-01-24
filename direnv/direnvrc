@@ -1,0 +1,72 @@
+# Direnv standard library extensions
+# Symlink to ~/.direnvrc
+
+# Use uv for Python projects (preferred)
+use_uv() {
+  # Create venv if it doesn't exist
+  if [ ! -d ".venv" ]; then
+    echo "direnv: creating venv with uv..."
+    uv venv
+  fi
+
+  # Activate the venv
+  source .venv/bin/activate
+
+  # Sync dependencies if lockfile exists
+  if [ -f "uv.lock" ]; then
+    uv sync --quiet
+  elif [ -f "pyproject.toml" ]; then
+    uv pip install -e . --quiet 2>/dev/null || true
+  elif [ -f "requirements.txt" ]; then
+    uv pip install -r requirements.txt --quiet
+  fi
+}
+
+# Use specific Python version with uv
+use_python() {
+  local version="${1:-3.13}"
+
+  if [ ! -d ".venv" ]; then
+    echo "direnv: creating venv with Python $version..."
+    uv venv --python "$version"
+  fi
+
+  source .venv/bin/activate
+}
+
+# Use Node version from .nvmrc or .node-version
+use_node() {
+  local version="$1"
+  if [ -f ".nvmrc" ]; then
+    version=$(cat .nvmrc)
+  elif [ -f ".node-version" ]; then
+    version=$(cat .node-version)
+  fi
+
+  if [ -n "$version" ] && command -v fnm &> /dev/null; then
+    eval "$(fnm env)"
+    fnm use "$version" --silent-if-unchanged
+  fi
+}
+
+# Load .env file
+dotenv() {
+  local envfile="${1:-.env}"
+  if [ -f "$envfile" ]; then
+    set -o allexport
+    source "$envfile"
+    set +o allexport
+  fi
+}
+
+# Load from 1Password (requires op CLI)
+op_env() {
+  local ref="$1"  # e.g., "op://vault/item/field"
+  op read "$ref"
+}
+
+# Add local bin directories to PATH
+layout_python_uv() {
+  use_uv
+  PATH_add .venv/bin
+}

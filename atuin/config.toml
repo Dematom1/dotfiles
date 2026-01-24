@@ -1,0 +1,41 @@
+# Atuin configuration
+# Symlink to ~/.config/atuin/config.toml
+
+## Search settings
+[settings]
+# Search mode: prefix, fulltext, fuzzy, skim
+search_mode = "fuzzy"
+
+# Filter mode: global (all history), host (this machine), session, directory
+filter_mode = "global"
+
+# Style: auto, full, compact
+style = "compact"
+
+# Show preview of full command
+show_preview = true
+
+# Inline height (number of lines)
+inline_height = 20
+
+# Key bindings style: auto, emacs, vim
+keymap_mode = "auto"
+
+# Don't sync (local only) - set to true if you want cloud sync
+sync_address = ""
+auto_sync = false
+
+# History settings
+history_filter = [
+  "^ls",
+  "^cd",
+  "^pwd",
+  "^exit",
+  "^clear",
+]
+
+# Ignore commands with secrets
+secrets_filter = true
+
+# Enter shell mode (execute command) on enter
+enter_accept = true
