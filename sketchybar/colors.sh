@@ -1,11 +1,21 @@
 #!/bin/bash
 
+# Base colors
 export WHITE=0xffffffff
+export BLACK=0xff000000
+export RED=0xffff6b6b
+export GREEN=0xff69db7c
+export BLUE=0xff74c0fc
+export YELLOW=0xffffd43b
+export GREY=0xff8b949e
+export TRANSPARENT=0x00000000
 
 # -- Teal Scheme --
 export BAR_COLOR=0xff001f30
 export ITEM_BG_COLOR=0xff003547
 export ACCENT_COLOR=0xff2cf9ed
+export BACKGROUND_1=0xff003547
+export BACKGROUND_2=0xff004d66
 
 # -- Gray Scheme --
 # export BAR_COLOR=0xff101314

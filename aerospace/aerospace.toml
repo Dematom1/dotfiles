@@ -14,6 +14,9 @@ after-login-command = []
 # Available commands : https://nikitabobko.github.io/AeroSpace/commands
 after-startup-command = []
 
+# Notify sketchybar on workspace change
+exec-on-workspace-change = ['/bin/bash', '-c', 'sketchybar --trigger aerospace_workspace_change']
+
 # Start AeroSpace at login
 start-at-login = true
 

@@ -84,6 +84,9 @@ source "$ITEM_DIR/spaces.sh"
 # https://felixkratz.github.io/SketchyBar/config/items#adding-items-to-sketchybar
 
 source "$ITEM_DIR/calender.sh"
+source "$ITEM_DIR/tailscale.sh"
+source "$ITEM_DIR/wifi.sh"
+source "$ITEM_DIR/git.sh"
 source "$ITEM_DIR/volume.sh"
 source "$ITEM_DIR/battery.sh"
 source "$ITEM_DIR/cpu.sh"

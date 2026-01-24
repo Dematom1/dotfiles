@@ -61,6 +61,13 @@ source <(kubectl completion zsh)
 # Bun completions
 [[ -s "$HOME/.bun/_bun" ]] && source "$HOME/.bun/_bun"
 
+# Sketchybar git branch integration
+function update_sketchybar_pwd() {
+  echo "$PWD" > /tmp/sketchybar_pwd
+}
+add-zsh-hook chpwd update_sketchybar_pwd
+update_sketchybar_pwd  # Run on shell start
+
 # -----------------------------------------------------------------------------
 # FZF Configuration
 # -----------------------------------------------------------------------------
