@@ -27,12 +27,11 @@ My development environment configuration.
 # Install Homebrew
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-# Install core tools
-brew install neovim tmux zsh fzf fd ripgrep bat eza zoxide \
-             git-delta atuin direnv thefuck yazi jq gh btop tlrc
+# Install all tools from Brewfile
+brew bundle install
 
-# Install fonts
-brew install --cask font-meslo-lg-nerd-font font-berkeley-mono-nerd-font
+# Or install uv separately (not in Brewfile - uses installer)
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 ### Setup
@@ -129,6 +128,7 @@ dotfiles/
 ├── sketchybar/
 ├── .wezterm.lua
 ├── .tmux.conf
+├── Brewfile           # Homebrew packages
 ├── install.sh
 └── README.md
 ```
@@ -159,6 +159,10 @@ direnv allow
 ```bash
 cd ~/Code/dotfiles
 git pull
+
+# Homebrew packages
+brew bundle install
+brew upgrade
 
 # Neovim plugins
 nvim --headless "+Lazy sync" +qa

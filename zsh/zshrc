@@ -47,8 +47,6 @@ export PNPM_HOME="$HOME/Library/pnpm"
 # Tool Initialization
 # -----------------------------------------------------------------------------
 eval "$(fzf --zsh)"
-eval "$(pyenv init -)"
-eval "$(pyenv virtualenv-init -)"
 eval "$(direnv hook zsh)"
 eval "$(thefuck --alias)"
 eval "$(thefuck --alias fk)"
