@@ -31,10 +31,9 @@ source $ZSH/oh-my-zsh.sh
 export EDITOR="nvim"
 
 # -----------------------------------------------------------------------------
-# Path
+# Path (cargo/volta set in ~/.zshenv)
 # -----------------------------------------------------------------------------
 export PATH="$HOME/.local/bin:$PATH"
-export PATH="$HOME/.cargo/bin:$PATH"
 export PATH="$HOME/go/bin:$PATH"
 export PATH="$HOME/.bun/bin:$PATH"
 export PATH="/usr/local/zig:$PATH"
@@ -53,8 +52,7 @@ eval "$(thefuck --alias fk)"
 eval "$(zoxide init zsh)"
 eval "$(atuin init zsh)"
 
-# SSH agent
-eval "$(ssh-agent -s)" > /dev/null 2>&1
+# SSH agent (1Password)
 export SSH_AUTH_SOCK=~/Library/Group\ Containers/2BUA8C4S2C.com.1password/t/agent.sock
 
 # Kubectl
@@ -62,9 +60,6 @@ source <(kubectl completion zsh)
 
 # Bun completions
 [[ -s "$HOME/.bun/_bun" ]] && source "$HOME/.bun/_bun"
-
-# Rye (Python)
-source "$HOME/.rye/env"
 
 # -----------------------------------------------------------------------------
 # FZF Configuration
