@@ -46,6 +46,7 @@ if [ "$CLEAN" = true ]; then
     rm -rf "$HOME/.config/direnv"
     rm -rf "$HOME/.config/aerospace"
     rm -rf "$HOME/.config/sketchybar"
+    rm -rf "$HOME/.config/karabiner"
 
     rm -f "$HOME/.tmux.conf"
     rm -f "$HOME/.wezterm.lua"
@@ -87,6 +88,7 @@ link "$DOTFILES/yazi" "$HOME/.config/yazi"
 link "$DOTFILES/bat" "$HOME/.config/bat"
 link "$DOTFILES/aerospace" "$HOME/.config/aerospace"
 link "$DOTFILES/sketchybar" "$HOME/.config/sketchybar"
+link "$DOTFILES/karabiner" "$HOME/.config/karabiner"
 
 echo ""
 echo "📄 Linking config files..."
