@@ -52,6 +52,7 @@ if [ "$CLEAN" = true ]; then
     rm -f "$HOME/.wezterm.lua"
     rm -f "$HOME/.direnvrc"
     rm -f "$HOME/.zshrc"
+    rm -f "$HOME/.p10k.zsh"
 
     rm -f "$HOME/.zshrc.backup"
     rm -f "$HOME/.tmux.conf.backup"
@@ -115,6 +116,8 @@ source ~/Code/dotfiles/zsh/zshrc
 # [[ -f ~/.zshrc.local ]] && source ~/.zshrc.local
 EOF
 echo -e "${GREEN}  ✓ ~/.zshrc${NC}"
+
+link "$DOTFILES/zsh/p10k.zsh" "$HOME/.p10k.zsh"
 
 echo ""
 echo "🔀 Setting up git..."
