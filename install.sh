@@ -57,6 +57,12 @@ if [ "$CLEAN" = true ]; then
     rm -f "$HOME/.zshrc.backup"
     rm -f "$HOME/.tmux.conf.backup"
 
+    rm -rf "$HOME/.claude/skills/learning-opportunities"
+    rm -rf "$HOME/.claude/skills/direct-response-copy"
+    rm -rf "$HOME/.agents/skills/learning-opportunities"
+    rm -rf "$HOME/.agents/skills/direct-response-copy"
+    rm -f "$HOME/.claude/settings.json"
+
     echo -e "${GREEN}  ✓ Cleaned existing configs${NC}"
     echo ""
 fi
@@ -138,6 +144,18 @@ else
 fi
 
 echo ""
+echo "🤖 Setting up Claude Code..."
+
+# Custom skills
+link "$DOTFILES/.agents/skills/learning-opportunities" "$HOME/.agents/skills/learning-opportunities"
+link "$DOTFILES/.agents/skills/direct-response-copy" "$HOME/.agents/skills/direct-response-copy"
+link "$DOTFILES/.claude/skills/learning-opportunities" "$HOME/.claude/skills/learning-opportunities"
+link "$DOTFILES/.claude/skills/direct-response-copy" "$HOME/.claude/skills/direct-response-copy"
+
+# Settings
+link "$DOTFILES/claude/settings.json" "$HOME/.claude/settings.json"
+
+echo ""
 echo "🦇 Building bat theme cache..."
 
 if command -v bat &> /dev/null; then
@@ -153,3 +171,4 @@ echo "  1. Restart your terminal or run: source ~/.zshrc"
 echo "  2. In tmux, press prefix + I to install plugins"
 echo "  3. In nvim, run :Lazy sync"
 echo "  4. Add your secrets to ~/.secrets"
+echo "  5. Run claude/skills-manifest.sh to install marketplace skills"
