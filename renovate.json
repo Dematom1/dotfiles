@@ -1,0 +1,102 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "docker:enableMajor",
+    ":separateMajorReleases"
+  ],
+  "labels": ["dependencies"],
+  "schedule": ["before 9am on monday"],
+  "timezone": "Europe/London",
+  "prHourlyLimit": 5,
+  "prConcurrentLimit": 10,
+  "minimumReleaseAge": "7 days",
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 5am on the first day of the month"]
+  },
+  "packageRules": [
+    {
+      "description": "Group TanStack packages",
+      "groupName": "TanStack",
+      "matchPackagePatterns": ["^@tanstack/"]
+    },
+    {
+      "description": "Group Drizzle packages",
+      "groupName": "Drizzle",
+      "matchPackagePatterns": ["^drizzle"]
+    },
+    {
+      "description": "Group React packages",
+      "groupName": "React",
+      "matchPackageNames": ["react", "react-dom", "@types/react", "@types/react-dom"]
+    },
+    {
+      "description": "Group Tailwind packages",
+      "groupName": "Tailwind CSS",
+      "matchPackageNames": [
+        "tailwindcss",
+        "@tailwindcss/vite",
+        "tailwind-merge",
+        "prettier-plugin-tailwindcss"
+      ]
+    },
+    {
+      "description": "Group Vite packages",
+      "groupName": "Vite",
+      "matchPackagePatterns": ["^vite", "^@vitejs/"]
+    },
+    {
+      "description": "Group ESLint packages",
+      "groupName": "ESLint",
+      "matchPackagePatterns": ["eslint"]
+    },
+    {
+      "description": "Group TypeScript packages",
+      "groupName": "TypeScript",
+      "matchPackageNames": ["typescript", "typescript-eslint"]
+    },
+    {
+      "description": "Group type definitions",
+      "groupName": "Type definitions",
+      "matchPackagePatterns": ["^@types/"],
+      "excludePackageNames": ["@types/react", "@types/react-dom"]
+    },
+    {
+      "description": "Group Pydantic packages",
+      "groupName": "Pydantic",
+      "matchPackagePatterns": ["^pydantic"]
+    },
+    {
+      "description": "Group psycopg packages",
+      "groupName": "psycopg",
+      "matchPackagePatterns": ["^psycopg"]
+    },
+    {
+      "description": "Group SQLAlchemy and Alembic",
+      "groupName": "SQLAlchemy",
+      "matchPackageNames": ["sqlalchemy", "alembic"]
+    },
+    {
+      "description": "Group FastAPI and Uvicorn",
+      "groupName": "FastAPI",
+      "matchPackageNames": ["fastapi", "uvicorn"]
+    },
+    {
+      "description": "Group Python testing tools",
+      "groupName": "Python testing",
+      "matchPackageNames": ["pytest", "pytest-asyncio", "httpx"]
+    },
+    {
+      "description": "Group Python linting/typing tools",
+      "groupName": "Python linting",
+      "matchPackageNames": ["ruff", "ty"]
+    },
+    {
+      "description": "Group Docker base images",
+      "groupName": "Docker images",
+      "matchDatasources": ["docker"],
+      "matchPackagePatterns": ["^python$", "^postgres$", "^node$"]
+    }
+  ]
+}
