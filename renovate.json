@@ -5,7 +5,7 @@
     "docker:enableMajor",
     ":separateMajorReleases"
   ],
-  "labels": ["dependencies"],
+  "labels": ["dependencies", "agent-task"],
   "schedule": ["before 9am on monday"],
   "timezone": "Europe/London",
   "prHourlyLimit": 5,
