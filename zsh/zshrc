@@ -120,7 +120,6 @@ bindkey '^[[B' history-search-forward
 # Aliases
 # -----------------------------------------------------------------------------
 # Navigation
-alias cd=z
 alias ..='cd ..'
 alias ...='cd ../..'
 
@@ -259,3 +258,11 @@ source /opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh
 
 # iTerm2 integration
 test -e "${HOME}/.iterm2_shell_integration.zsh" && source "${HOME}/.iterm2_shell_integration.zsh"
+export UIDOTSH_TOKEN="hGiQNuM0D10mBlwsq4OnkyiY3V9AJHlS"
+export HEADROOM_OUTPUT_SHAPER=1
+# Route Claude Code through Headroom via wrap (starts proxy, sets env, keeps
+# on-demand tool loading + 1M context) instead of a global ANTHROPIC_BASE_URL.
+alias claude='headroom wrap claude --1m --'
+export MEMTRACE_MEMDB_ENDPOINT=http://127.0.0.1:50151
+export MEMTRACE_MEMDB_LOOPBACK_PORT=50151
+export MEMTRACE_UI_PORT=3131
