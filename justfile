@@ -87,6 +87,7 @@ update: update-skills update-firstmate
 setup-firstmate:
     #!/usr/bin/env bash
     set -euo pipefail
+    set +h   # don't cache command locations - we install tools then use them
     for c in git gh jq node npm curl; do
       command -v "$c" >/dev/null || { echo "missing base dep: $c (add in nix + ./rebuild.sh)"; exit 1; }
     done
@@ -124,6 +125,7 @@ setup-firstmate:
 update-firstmate:
     #!/usr/bin/env bash
     set -euo pipefail
+    set +h   # don't cache command locations (updaters may replace binaries)
     ws="$HOME/kun-agent-workspace"
     if [[ -d "$ws/.git" ]]; then git -C "$ws" pull --ff-only; fi
     pi update --self
