@@ -85,6 +85,12 @@ in
     # was ~/.zshenv (volta/cargo) — ported so it survives home-manager taking over
     envExtra = ''
       . "$HOME/.cargo/env"
+
+      # Put nix + user bins on PATH for NON-interactive shells too (agents, git
+      # hooks, tool subprocesses). init.zsh only runs for interactive shells, so
+      # anything launched outside a terminal couldn't find gh/just/prek/etc.
+      typeset -U path PATH
+      path=("/etc/profiles/per-user/$USER/bin" "$HOME/.local/bin" $path)
     '';
 
     history = {
