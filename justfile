@@ -109,6 +109,9 @@ setup-firstmate:
     chrome-devtools-axi setup hooks
     lavish-axi setup hooks
 
+    echo "==> extra global npm tools"
+    npm install -g gnhf
+
     ws="$HOME/kun-agent-workspace"
     echo "==> workspace: $ws"
     if [[ ! -d "$ws/.git" ]]; then
@@ -132,6 +135,6 @@ update-firstmate:
     herdr update
     treehouse update
     no-mistakes update
-    npm update -g gh-axi chrome-devtools-axi lavish-axi tasks-axi quota-axi
+    npm update -g gh-axi chrome-devtools-axi lavish-axi tasks-axi quota-axi gnhf
     herdr integration install pi   # refresh Pi integration after a herdr update
     echo "FirstMate stack updated."
