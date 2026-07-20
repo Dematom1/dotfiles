@@ -12,7 +12,7 @@ in
     # core cli
     just doppler tmux jq bat fd fzf eza zoxide atuin direnv delta
     # git
-    git-crypt lazygit lazydocker
+    git git-crypt lazygit lazydocker
     # kubernetes / infra
     argocd kubernetes-helm k9s kubectx tailscale
     # dev / build
@@ -21,7 +21,7 @@ in
     # upstream pipx 1.8.0 test suite is broken in this nixpkgs pin; skip its checks
     (pipx.overridePythonAttrs (_: { doCheck = false; }))
     # net
-    websocat
+    websocat curl
     # window manager (was a homebrew cask from nikitabobko/tap — native in nixpkgs)
     aerospace
 

@@ -72,3 +72,64 @@ update-ui-skill:
     : "${UIDOTSH_TOKEN:?UIDOTSH_TOKEN not set - run refresh-secrets first}"
     npx -y @uidotsh/install --token="$UIDOTSH_TOKEN"
     echo "Done. Review:  git status {{skills-dir}}"
+
+# ---------------------------------------------------------------------------
+# FirstMate + Herdr + Pi agent stack. These are npm globals + curl installers
+# that self-update; the base deps (git/gh/jq/node/curl) come from nix. Tools
+# install to ~/.local/bin (already on PATH via zsh/init.zsh).
+# ---------------------------------------------------------------------------
+
+# Update EVERYTHING in one shot - skills + the FirstMate stack.
+update: update-skills update-firstmate
+    @echo "Everything updated."
+
+# One-time setup of the FirstMate stack. Re-runnable. Run `gh auth login` after.
+setup-firstmate:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for c in git gh jq node npm curl; do
+      command -v "$c" >/dev/null || { echo "missing base dep: $c (add in nix + ./rebuild.sh)"; exit 1; }
+    done
+
+    # keep global npm installs user-owned (nix's node can't write to its store)
+    mkdir -p "$HOME/.local/bin"
+    npm config set prefix "$HOME/.local"
+
+    echo "==> Pi + Herdr"
+    npm install -g --ignore-scripts @earendil-works/pi-coding-agent
+    curl -fsSL https://herdr.dev/install.sh | sh
+    herdr integration install pi
+
+    echo "==> Treehouse + No Mistakes + AXI tools"
+    curl -fsSL https://kunchenguid.github.io/treehouse/install.sh | sh
+    curl -fsSL https://raw.githubusercontent.com/kunchenguid/no-mistakes/main/docs/install.sh | sh
+    npm install -g gh-axi chrome-devtools-axi lavish-axi tasks-axi quota-axi
+    gh-axi setup hooks
+    chrome-devtools-axi setup hooks
+    lavish-axi setup hooks
+
+    ws="$HOME/kun-agent-workspace"
+    echo "==> workspace: $ws"
+    if [[ ! -d "$ws/.git" ]]; then
+      git clone https://github.com/kunchenguid/firstmate.git "$ws"
+    fi
+    mkdir -p "$ws/config"
+    printf 'herdr\n' > "$ws/config/backend"
+    printf 'pi\n'    > "$ws/config/crew-harness"
+
+    echo
+    echo "Done. Next:  gh auth login   then   cd $ws && herdr   (run 'pi' in pane 1)"
+
+# Update the FirstMate stack via each tool's native updater (guide's order).
+update-firstmate:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ws="$HOME/kun-agent-workspace"
+    if [[ -d "$ws/.git" ]]; then git -C "$ws" pull --ff-only; fi
+    pi update --self
+    herdr update
+    treehouse update
+    no-mistakes update
+    npm update -g gh-axi chrome-devtools-axi lavish-axi tasks-axi quota-axi
+    herdr integration install pi   # refresh Pi integration after a herdr update
+    echo "FirstMate stack updated."
