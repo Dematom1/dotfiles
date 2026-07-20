@@ -1,4 +1,4 @@
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, profile, ... }:
 
 let
   dotfiles = "${config.home.homeDirectory}/Code/dotfiles";
@@ -12,9 +12,9 @@ in
     # core cli
     just doppler tmux jq bat fd fzf eza zoxide atuin direnv delta
     # git
-    git-crypt lazygit
+    git-crypt lazygit lazydocker
     # kubernetes / infra
-    argocd argo-workflows kubernetes-helm k9s kubectx velero hcloud tailscale
+    argocd kubernetes-helm k9s kubectx tailscale
     # dev / build
     neovim gh prek cmake lld luarocks protobuf
     nodejs_24 python311 memray zoxide wezterm
@@ -26,6 +26,16 @@ in
     aerospace
 
     nerd-fonts.hack
+  ]
+  # personal Mac only (the Homebrew equivalent lives in hosts/personal.nix)
+  ++ lib.optionals (profile == "personal") [
+    # personal-only nix packages
+    argo-workflows velero hcloud
+  ]
+  # work Mac only (the Homebrew equivalent lives in hosts/work.nix)
+  ++ lib.optionals (profile == "work") [
+    # work-only nix packages
+    awscli2
   ];
   fonts.fontconfig.enable = true;
   home.sessionVariables.EDITOR = "nvim";
@@ -50,6 +60,13 @@ in
     # ~ home-dir dotfiles
     ".wezterm.lua".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/.wezterm.lua";
     ".tmux.conf".source   = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/.tmux.conf";
+
+    # AI tooling — one AGENTS.md shared across Claude + Codex
+    ".config/herdr".source         = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/herdr";
+    ".claude/settings.json".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/claude/settings.json";
+    # Claude gets a composition entrypoint (shared AGENTS.md + Claude-only RTK)
+    ".claude/CLAUDE.md".source     = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/claude/CLAUDE.md";
+    ".codex/AGENTS.md".source      = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/AGENTS.md";
   };
 
   # ---------------------------------------------------------------------------
