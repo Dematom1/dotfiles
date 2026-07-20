@@ -67,6 +67,9 @@ in
     # Claude gets a composition entrypoint (shared AGENTS.md + Claude-only RTK)
     ".claude/CLAUDE.md".source     = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/claude/CLAUDE.md";
     ".codex/AGENTS.md".source      = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/AGENTS.md";
+    # agent-agnostic skill set (SKILL.md dirs) - the one source of truth;
+    # opencode gets the same skills via per-skill symlinks in opencode/skills
+    ".claude/skills".source        = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/.agents/skills";
   };
 
   # ---------------------------------------------------------------------------
