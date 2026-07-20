@@ -4,42 +4,41 @@ One agent-agnostic skill set lives in `.agents/skills/` (SKILL.md dirs). Every
 agent reads the same source:
 
 - Claude   -> `~/.claude/skills` symlinks to `.agents/skills` (see `home.nix`)
-- opencode -> per-skill symlinks in `opencode/skills/`
+- opencode -> per-skill symlinks in `opencode/skills/` (created by `just update-skills`)
 
-Edit a skill and both agents see it live (no rebuild - it's `mkOutOfStoreSymlink`).
+## Not committed - regenerated from source
+
+The skill *content* is gitignored (`.agents/skills/*`, `opencode/skills/*`); only
+the recipe, wiring, and this doc are committed - like committing `package.json`,
+not `node_modules`. This keeps the authed/licensed skills (ui.sh, memtrace) out of
+this public repo, with 1Password + the update recipe as the reproducible source.
+
+Reproduce on a fresh machine:
+
+1. `./rebuild.sh`                   # activates ~/.claude/skills -> .agents/skills
+2. `op signin && refresh-secrets`   # pull tokens from 1Password into ~/.secrets
+3. `just update-skills`             # fetch/generate every skill + wire opencode
 
 ## Maintaining
 
 - `just skills`        - list installed skills + descriptions
 - `just check-skills`  - validate each has a SKILL.md with name + description
-- `just update-skills` - refresh EVERY skill from source, then `git diff` + commit
-
-Vendored skills are excluded from the whitespace/eof pre-commit hooks, so a
-re-fetch produces a clean diff (only real upstream changes) instead of noise.
+- `just update-skills` - refresh EVERY skill from source (and re-wire opencode)
 
 ## Provenance
 
-| Skill | Type | Source | Update with |
+| Skill | Type | Source | Auth |
 |---|---|---|---|
-| learning-opportunities | git repo | `git@github.com:DrCatHicks/learning-opportunities.git` | `just update-skills` |
-| memtrace-* (opencode)  | tool-generated | memtrace (`memtrace doctor --fix --repair-install`) | `just update-skills` |
-| ui.sh (pending)        | authed npx | `@uidotsh/install` (token in `~/.secrets`) | `just update-skills` |
+| learning-opportunities | git repo | `git@github.com:DrCatHicks/learning-opportunities.git` | ssh key |
+| ui.sh (design, ideas, ...) | authed npx | `@uidotsh/install` | `UIDOTSH_TOKEN` (1Password) |
+| memtrace-* (opencode) | tool-generated | `memtrace doctor --fix --repair-install` | memtrace license |
 
 The memtrace-* skills declare `compatibility: opencode` and stay in
 `opencode/skills/`; memtrace owns them, so they are not shared into Claude.
 
 ## Adding a new skill
 
-All shared skills land in `.agents/skills` so they stay agent-agnostic. Pick the
-lane by how the skill is delivered, then add its refresh step to
-`just update-skills`:
-
-1. **Public git repo** -> clone + rsync into `.agents/skills/<name>` inside
-   `update-skills` (keeps everything one command). Alternative: pin it as a flake
-   input and `nix flake update <name>` - more reproducible, but no longer one command.
-2. **Authed / npx installer** (like ui.sh) -> a step that sources the token from
-   `~/.secrets` and runs the installer.
-3. **Tool-generated** (like memtrace) -> call the tool's reinstall command.
-4. **Your own** -> create `.agents/skills/<name>/SKILL.md` and edit in place.
-
-Then add a row to the Provenance table so it is never lost.
+Add its refresh step to `just update-skills` so one command keeps everything
+current, then add a Provenance row. Sources fall into: public git repo (clone),
+authed/npx installer (token from `~/.secrets`), tool-generated (call the tool),
+or your own - the last is the only case you'd actually commit the SKILL.md.

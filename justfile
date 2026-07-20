@@ -54,10 +54,15 @@ update-skills:
     : "${UIDOTSH_TOKEN:?UIDOTSH_TOKEN not set - run refresh-secrets first}"
     npx -y @uidotsh/install --token="$UIDOTSH_TOKEN"
 
+    echo "==> wire shared skills into opencode (regenerated, not committed)"
+    for d in {{skills-dir}}/*/; do
+      [[ -d "$d" ]] || continue
+      n=$(basename "$d")
+      ln -sfn "../../{{skills-dir}}/$n" "opencode/skills/$n"
+    done
+
     echo
-    echo "All updated. Validate + review:"
-    echo "  just check-skills"
-    echo "  git diff .agents/skills opencode/skills   # then commit"
+    echo "All updated (skill content is gitignored). Validate:  just check-skills"
 
 # Refresh ONLY the ui.sh skill (authed npx installer). Token from ~/.secrets.
 update-ui-skill:
