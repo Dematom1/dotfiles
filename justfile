@@ -31,20 +31,39 @@ check-skills:
     done
     if [[ $fail -eq 0 ]]; then echo "all skills OK"; else exit 1; fi
 
-# Refresh EVERY managed skill from its source (see .agents/SKILLS.md), then
-# review with `git diff .agents/skills` and commit.
-update-skills: update-ui-skill
-    @echo "flake-pinned skills: nix flake update <name>   (none configured yet)"
-    @echo "review:  git diff {{skills-dir}}   then commit"
+# All-in-one: refresh EVERY skill from its source (see .agents/SKILLS.md),
+# then run `just check-skills` and review with `git diff` before committing.
+update-skills:
+    #!/usr/bin/env bash
+    set -euo pipefail
 
-# Refresh the ui.sh skill (authed npx installer). Token is read from ~/.secrets
-# (never hardcoded/committed). ~/.claude/skills is a symlink to .agents/skills,
-# so a Claude-targeted install lands in the shared dir. Run ./rebuild.sh first.
+    echo "==> learning-opportunities  (git: DrCatHicks/learning-opportunities)"
+    tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+    git clone --quiet --depth 1 git@github.com:DrCatHicks/learning-opportunities.git "$tmp/lo"
+    skillmd=$(find "$tmp/lo" -name SKILL.md -not -path '*/.git/*' | head -1)
+    [[ -n "$skillmd" ]] || { echo "ERROR: no SKILL.md found in the repo"; exit 1; }
+    rsync -a --delete --exclude '.git' "$(dirname "$skillmd")/" {{skills-dir}}/learning-opportunities/
+
+    echo "==> memtrace-* skills  (opencode; memtrace owns these)"
+    # memtrace's documented reinstall path. NOTE: also resets its runtime state,
+    # so you may need `memtrace start` afterwards. Adjust if you have a lighter cmd.
+    memtrace doctor --fix --repair-install
+
+    echo "==> ui.sh skill  (authed npx installer; token from ~/.secrets)"
+    [[ -f ~/.secrets ]] && source ~/.secrets
+    : "${UIDOTSH_TOKEN:?UIDOTSH_TOKEN not set - run refresh-secrets first}"
+    npx -y @uidotsh/install --token="$UIDOTSH_TOKEN"
+
+    echo
+    echo "All updated. Validate + review:"
+    echo "  just check-skills"
+    echo "  git diff .agents/skills opencode/skills   # then commit"
+
+# Refresh ONLY the ui.sh skill (authed npx installer). Token from ~/.secrets.
 update-ui-skill:
     #!/usr/bin/env bash
     set -euo pipefail
     [[ -f ~/.secrets ]] && source ~/.secrets
     : "${UIDOTSH_TOKEN:?UIDOTSH_TOKEN not set - run refresh-secrets first}"
     npx -y @uidotsh/install --token="$UIDOTSH_TOKEN"
-    echo
     echo "Done. Review:  git status {{skills-dir}}"
