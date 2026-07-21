@@ -112,6 +112,29 @@ refresh-secrets:
 bootstrap: refresh-secrets setup-firstmate update-skills
     @echo "Bootstrap done. If GitHub isn't authed yet: gh auth login"
 
+# Focused regression checks for setup hooks and deployment tag errors.
+check-regressions:
+    ./tests/regressions.sh
+
+# Run setup hooks only when the AXI tool advertises them, and preserve failures.
+_setup-axi-hooks tool:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tool='{{tool}}'
+    help=$("$tool" setup --help 2>&1 || true)
+    if ! grep -Eq '(^|[[:space:]])setup[[:space:]]+hooks([[:space:]]|$)' <<<"$help"; then
+      echo "    - $tool (no setup hooks)"
+      exit 0
+    fi
+    if output=$("$tool" setup hooks 2>&1); then
+      echo "    ✓ $tool"
+    else
+      status=$?
+      [[ -z "$output" ]] || printf '%s\n' "$output" >&2
+      echo "ERROR: $tool setup hooks failed (exit $status)" >&2
+      exit "$status"
+    fi
+
 # One-time setup of the FirstMate stack. Re-runnable. Run `gh auth login` after.
 setup-firstmate:
     #!/usr/bin/env bash
@@ -138,7 +161,7 @@ setup-firstmate:
     # (a few legitimately have no such subcommand)
     echo "==> AXI setup hooks"
     for t in {{axi-tools}}; do
-      "$t" setup hooks >/dev/null 2>&1 && echo "    ✓ $t" || echo "    - $t (no setup hooks)"
+      just _setup-axi-hooks "$t"
     done
 
     # AXI tools installed from GitHub (npm spec != binary name)
@@ -146,7 +169,7 @@ setup-firstmate:
     for spec in {{axi-tools-git}}; do
       npm install -g "$spec"
       bin="$(basename "$spec")"
-      "$bin" setup hooks >/dev/null 2>&1 && echo "    ✓ $bin" || echo "    - $bin (no setup hooks)"
+      just _setup-axi-hooks "$bin"
     done
 
     # work-only AXI tools (same ~/.config/dotfiles-profile marker rebuild.sh reads)
@@ -156,7 +179,7 @@ setup-firstmate:
       echo "==> work-only AXI tools (slack/aws/gws/notion)"
       npm install -g {{axi-tools-work}}
       for t in {{axi-tools-work}}; do
-        "$t" setup hooks >/dev/null 2>&1 && echo "    ✓ $t" || echo "    - $t (no setup hooks)"
+        just _setup-axi-hooks "$t"
       done
     fi
 
@@ -187,11 +210,11 @@ update-firstmate:
     treehouse update
     no-mistakes update
     npm update -g {{axi-tools}} gnhf
-    for t in {{axi-tools}}; do "$t" setup hooks >/dev/null 2>&1 || true; done   # refresh hooks
+    for t in {{axi-tools}}; do just _setup-axi-hooks "$t"; done   # refresh hooks
     if [[ -f ~/.config/dotfiles-profile && "$(<~/.config/dotfiles-profile)" == work ]]; then
       npm update -g {{axi-tools-work}}
-      for t in {{axi-tools-work}}; do "$t" setup hooks >/dev/null 2>&1 || true; done
+      for t in {{axi-tools-work}}; do just _setup-axi-hooks "$t"; done
     fi
-    for spec in {{axi-tools-git}}; do npm install -g "$spec"; "$(basename "$spec")" setup hooks >/dev/null 2>&1 || true; done
+    for spec in {{axi-tools-git}}; do npm install -g "$spec"; just _setup-axi-hooks "$(basename "$spec")"; done
     herdr integration install pi   # refresh Pi integration after a herdr update
     echo "FirstMate stack updated."

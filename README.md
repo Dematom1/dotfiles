@@ -30,7 +30,8 @@ git clone https://github.com/Dematom1/dotfiles.git ~/Code/dotfiles
 cd ~/Code/dotfiles
 
 # 2. (work Mac only) select the work profile
-echo work > ~/.config/dotfiles-profile
+mkdir -p "$HOME/.config"
+printf 'work\n' > "$HOME/.config/dotfiles-profile"
 
 # 3. Build system + home - installs tools, symlinks every config
 ./rebuild.sh

@@ -125,8 +125,11 @@ deploy() {
   echo "🚀 Deploying ${app_name} to ${env}..."
   [[ -n "$image" ]] && echo "   Image: $image" || echo "   All images"
   echo "   Tag: $tag"; echo ""
-  if ! git tag "$tag" 2>/dev/null; then
+  if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
     echo "❌ Tag $tag already exists"; return 1
+  fi
+  if ! git tag "$tag"; then
+    echo "❌ Failed to create tag $tag"; return 1
   fi
   if git push origin "$tag"; then
     echo "✅ Tag pushed! GitHub Actions will build & push."
