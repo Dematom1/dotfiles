@@ -1,6 +1,7 @@
 # Dotfiles
 
-My development environment configuration.
+My macOS development environment, managed with **nix-darwin + home-manager**
+(Determinate Nix) plus a `just`-driven agent-tooling layer.
 
 ## What's Included
 
@@ -8,9 +9,8 @@ My development environment configuration.
 |------|---------|
 | **nvim** | Neovim config with LSP, DAP, Treesitter |
 | **tmux** | Terminal multiplexer |
-| **zsh** | Shell configuration |
-| **ghostty** | Terminal emulator |
-| **wezterm** | Terminal emulator (backup) |
+| **zsh** | Shell (Powerlevel10k; declared in `home.nix` + `zsh/init.zsh`) |
+| **ghostty** / **wezterm** | Terminal emulators |
 | **atuin** | Shell history search |
 | **direnv** | Per-project environments |
 | **git** | Git config with delta |
@@ -21,67 +21,33 @@ My development environment configuration.
 
 ## Installation
 
-### Prerequisites
+Prerequisites: [Determinate Nix](https://determinate.systems/) and Homebrew
+(nix-darwin drives Homebrew casks via `brew bundle`, but does not install brew).
 
 ```bash
-# Install Homebrew
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-# Install all tools from Brewfile
-brew bundle install
-
-# Or install uv separately (not in Brewfile - uses installer)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-### Setup
-
-```bash
-# Clone dotfiles
-git clone https://github.com/yourusername/dotfiles.git ~/Code/dotfiles
+# 1. Clone
+git clone https://github.com/Dematom1/dotfiles.git ~/Code/dotfiles
 cd ~/Code/dotfiles
 
-# Run install script
-./install.sh
+# 2. (work Mac only) select the work profile
+echo work > ~/.config/dotfiles-profile
 
-# Or clean install (removes existing configs first)
-./install.sh --clean
+# 3. Build system + home - installs tools, symlinks every config
+./rebuild.sh
+
+# 4. Secrets + agent tooling
+op signin && just bootstrap   # ~/.secrets + FirstMate stack + all skills
 ```
 
-### Manual Setup
-
-If you prefer manual setup:
-
-```bash
-# Symlink configs
-ln -sf ~/Code/dotfiles/nvim ~/.config/nvim
-ln -sf ~/Code/dotfiles/ghostty ~/.config/ghostty
-ln -sf ~/Code/dotfiles/.tmux.conf ~/.tmux.conf
-ln -sf ~/Code/dotfiles/.wezterm.lua ~/.wezterm.lua
-ln -sf ~/Code/dotfiles/atuin/config.toml ~/.config/atuin/config.toml
-ln -sf ~/Code/dotfiles/direnv/direnvrc ~/.direnvrc
-ln -sf ~/Code/dotfiles/direnv/direnv.toml ~/.config/direnv/direnv.toml
-ln -sf ~/Code/dotfiles/yazi ~/.config/yazi
-ln -sf ~/Code/dotfiles/bat ~/.config/bat
-
-# Git config (adds include)
-git config --global include.path "~/Code/dotfiles/git/config"
-
-# Zsh (source from dotfiles)
-echo 'source ~/Code/dotfiles/zsh/zshrc' > ~/.zshrc
-
-# Create secrets file (never committed)
-touch ~/.secrets
-chmod 600 ~/.secrets
-```
+`home.nix` symlinks configs live from this repo (`mkOutOfStoreSymlink`), so most
+edits apply without a rebuild.
 
 ## Key Bindings
 
 ### Neovim
 
-See [nvim/CHEATSHEET.md](nvim/CHEATSHEET.md) for full keybindings.
+See [nvim/CHEATSHEET.md](nvim/CHEATSHEET.md). Quick reference:
 
-Quick reference:
 - `<Space>` - Leader key
 - `<leader>ff` - Find files
 - `<leader>fs` - Live grep
@@ -90,8 +56,7 @@ Quick reference:
 ### Tmux
 
 - `Ctrl-Space` - Prefix
-- `prefix + |` - Split vertical
-- `prefix + -` - Split horizontal
+- `prefix + |` / `prefix + -` - Split vertical / horizontal
 - `prefix + r` - Reload config
 - `Alt+1-5` - Switch windows
 - `prefix + C-j` - Session switcher
@@ -107,74 +72,48 @@ Quick reference:
 
 ```
 dotfiles/
-├── nvim/              # Neovim configuration
-│   ├── lua/
-│   └── CHEATSHEET.md
+├── flake.nix            # nix-darwin + home-manager flake
+├── configuration.nix    # system-level (macOS defaults, Homebrew casks/brews)
+├── home.nix             # user-level (packages, dotfile symlinks, zsh)
+├── hosts/               # per-machine deltas (personal.nix, work.nix)
+├── rebuild.sh           # darwin-rebuild wrapper (picks the profile)
+├── justfile             # bootstrap / update / skills / FirstMate recipes
+├── .agents/             # agent-agnostic skills + SKILLS.md
+├── nvim/                # Neovim configuration
 ├── zsh/
-│   └── zshrc          # Main shell config
-├── ghostty/
-│   └── config
-├── atuin/
-│   └── config.toml
-├── direnv/
-│   ├── direnvrc       # Helper functions (use_uv, dotenv)
-│   ├── direnv.toml
-│   └── example.envrc
-├── git/
-│   └── config         # Delta diff viewer
-├── yazi/
-├── bat/
-├── aerospace/
-├── sketchybar/
+│   ├── init.zsh         # live-sourced shell extras (functions, PATH, env)
+│   └── p10k.zsh         # Powerlevel10k config
+├── ghostty/ atuin/ direnv/ git/ yazi/ bat/
+├── aerospace/ sketchybar/ karabiner/
 ├── .wezterm.lua
 ├── .tmux.conf
-├── Brewfile           # Homebrew packages
-├── install.sh
 └── README.md
 ```
 
 ## Secrets
 
-Secrets are stored in `~/.secrets` (never committed):
+Secrets live in `~/.secrets` (never committed), generated from 1Password:
 
 ```bash
-# ~/.secrets
-export API_KEY="..."
-export DATABASE_URL="..."
+op signin && just refresh-secrets   # renders zsh/secrets.tpl -> ~/.secrets
 ```
 
-This file is sourced by zshrc automatically.
-
-For project-specific secrets, use `.env` files with direnv:
-
-```bash
-# In project directory
-echo 'dotenv' > .envrc
-echo 'DATABASE_URL=...' > .env
-direnv allow
-```
+`~/.secrets` is sourced automatically by the home-manager zsh init. For
+project-specific secrets, use `.env` + direnv (`echo dotenv > .envrc`).
 
 ## Updating
 
 ```bash
-cd ~/Code/dotfiles
-git pull
-
-# Homebrew packages
-brew bundle install
-brew upgrade
-
-# Neovim plugins
-nvim --headless "+Lazy sync" +qa
-
-# Tmux plugins
-~/.tmux/plugins/tpm/bin/update_plugins all
+cd ~/Code/dotfiles && git pull
+./rebuild.sh    # rebuild system + home from the flake
+just update     # refresh skills + FirstMate agent stack
 ```
 
 ## Credits
 
 - [Neovim](https://neovim.io/)
 - [Tmux](https://github.com/tmux/tmux)
-- [Oh My Zsh](https://ohmyz.sh/)
 - [Powerlevel10k](https://github.com/romkatv/powerlevel10k)
 - [Tokyo Night](https://github.com/folke/tokyonight.nvim)
+- [nix-darwin](https://github.com/nix-darwin/nix-darwin)
+- [home-manager](https://github.com/nix-community/home-manager)

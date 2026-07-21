@@ -32,6 +32,8 @@
     trackpad.Clicking = true;              # tap to click
   };
   homebrew = {
+    # nix-homebrew is imported but intentionally not enabled, so this drives an
+    # EXISTING Homebrew install (a prerequisite on a fresh Mac) via `brew bundle`.
     enable = true;
     onActivation.cleanup = "zap";  # remove anything not listed here
     onActivation.autoUpdate = true;

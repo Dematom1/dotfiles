@@ -1,5 +1,5 @@
 # =============================================================================
-# Zsh extras — live-editable (functions, PATH, tool init, env).
+# Zsh extras - live-editable (functions, PATH, tool init, env).
 # Structure (prompt, plugins, aliases, history) is declared in home.nix.
 # Sourced at the end of the home-manager-generated ~/.zshrc.
 # =============================================================================
@@ -88,7 +88,7 @@ repo-tmux() {
     if ! tmux has-session -t "$session_name" 2>/dev/null; then
       tmux new-session -d -s "$session_name" -c "$repo"
     fi
-    BUFFER="tmux attach-session -t $session_name"
+    BUFFER="tmux attach-session -t ${(q)session_name}"
     zle accept-line
   else
     zle reset-prompt
@@ -125,12 +125,14 @@ deploy() {
   echo "🚀 Deploying ${app_name} to ${env}..."
   [[ -n "$image" ]] && echo "   Image: $image" || echo "   All images"
   echo "   Tag: $tag"; echo ""
-  if git tag "$tag" 2>/dev/null; then
-    git push origin "$tag"
+  if ! git tag "$tag" 2>/dev/null; then
+    echo "❌ Tag $tag already exists"; return 1
+  fi
+  if git push origin "$tag"; then
     echo "✅ Tag pushed! GitHub Actions will build & push."
     echo "   🔗 Watch: https://github.com/${GITHUB_ORG}/${app_name}/actions"
   else
-    echo "❌ Tag $tag already exists"; return 1
+    echo "❌ Push failed; removing local tag $tag"; git tag -d "$tag" >/dev/null; return 1
   fi
 }
 alias deploy-prod='deploy prod'

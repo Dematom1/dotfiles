@@ -60,6 +60,7 @@ in
     # ~ home-dir dotfiles
     ".wezterm.lua".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/.wezterm.lua";
     ".tmux.conf".source   = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/.tmux.conf";
+    ".p10k.zsh".source    = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/zsh/p10k.zsh";
 
     # AI tooling — one AGENTS.md shared across Claude + Codex
     ".config/herdr".source         = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/herdr";
@@ -84,7 +85,7 @@ in
 
     # was ~/.zshenv (volta/cargo) — ported so it survives home-manager taking over
     envExtra = ''
-      . "$HOME/.cargo/env"
+      [ -r "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 
       # Put nix + user bins on PATH for NON-interactive shells too (agents, git
       # hooks, tool subprocesses). init.zsh only runs for interactive shells, so

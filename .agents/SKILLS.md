@@ -29,9 +29,10 @@ Reproduce on a fresh machine:
 
 | Skill | Type | Source | Auth |
 |---|---|---|---|
-| learning-opportunities | git repo | `git@github.com:DrCatHicks/learning-opportunities.git` | ssh key |
+| learning-opportunities | git repo | `https://github.com/DrCatHicks/learning-opportunities.git` | none (public) |
 | ui.sh (design, ideas, ...) | authed npx | `@uidotsh/install` | `UIDOTSH_TOKEN` (1Password) |
 | whathappened | git repo (skills CLI) | `kunchenguid/whathappened` via `npx skills add -g` | none |
+| vercel-labs skills | skills CLI | `vercel-labs/agent-skills`, `vercel-labs/skills` via `npx skills add -g` | none |
 | memtrace-* (opencode) | tool-generated | `memtrace doctor --fix --repair-install` | memtrace license |
 
 The memtrace-* skills declare `compatibility: opencode` and stay in
@@ -41,5 +42,6 @@ The memtrace-* skills declare `compatibility: opencode` and stay in
 
 Add its refresh step to `just update-skills` so one command keeps everything
 current, then add a Provenance row. Sources fall into: public git repo (clone),
-authed/npx installer (token from `~/.secrets`), tool-generated (call the tool),
-or your own - the last is the only case you'd actually commit the SKILL.md.
+authed/npx installer (token from `~/.secrets`), or tool-generated (call the tool).
+For a hand-authored skill you want to keep, `git add -f .agents/skills/<name>` -
+the dir is gitignored, so tracking a first-party skill is a deliberate force-add.

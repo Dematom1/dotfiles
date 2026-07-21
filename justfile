@@ -51,7 +51,7 @@ update-skills:
 
     echo "==> learning-opportunities  (git: DrCatHicks/learning-opportunities)"
     tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
-    git clone --quiet --depth 1 git@github.com:DrCatHicks/learning-opportunities.git "$tmp/lo"
+    git clone --quiet --depth 1 https://github.com/DrCatHicks/learning-opportunities.git "$tmp/lo"
     skillmd=$(find "$tmp/lo" -name SKILL.md -not -path '*/.git/*' | head -1)
     [[ -n "$skillmd" ]] || { echo "ERROR: no SKILL.md found in the repo"; exit 1; }
     rsync -a --delete --exclude '.git' "$(dirname "$skillmd")/" {{skills-dir}}/learning-opportunities/
@@ -66,8 +66,10 @@ update-skills:
     : "${UIDOTSH_TOKEN:?UIDOTSH_TOKEN not set - run refresh-secrets first}"
     npx -y @uidotsh/install --token="$UIDOTSH_TOKEN"
 
-    echo "==> whathappened skill (skills CLI)"
+    echo "==> npx skills CLI (whathappened + vercel-labs)"
     npx -y skills add kunchenguid/whathappened -g
+    npx -y skills add vercel-labs/agent-skills -g
+    npx -y skills add vercel-labs/skills -g
 
     echo "==> wire shared skills into opencode (regenerated, not committed)"
     for d in {{skills-dir}}/*/; do
