@@ -1,0 +1,4 @@
+# herdr writes runtime state here (dir is symlinked from ~/.config/herdr)
+*.log
+*.sock
+session.json
