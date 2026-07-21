@@ -94,6 +94,18 @@ update-ui-skill:
 update: update-skills update-firstmate
     @echo "Everything updated."
 
+# Refresh ~/.secrets from 1Password (needs `op signin` first).
+refresh-secrets:
+    op inject -f -i ~/Code/dotfiles/zsh/secrets.tpl -o ~/.secrets
+    @echo "✓ ~/.secrets refreshed"
+
+# Bring a fresh machine fully online. Run the two interactive prereqs first:
+#   ./rebuild.sh          # nix: install tools + activate symlinks (needs sudo)
+#   op signin             # 1Password
+# then `just bootstrap` does the rest: secrets + FirstMate stack + every skill.
+bootstrap: refresh-secrets setup-firstmate update-skills
+    @echo "Bootstrap done. If GitHub isn't authed yet: gh auth login"
+
 # One-time setup of the FirstMate stack. Re-runnable. Run `gh auth login` after.
 setup-firstmate:
     #!/usr/bin/env bash

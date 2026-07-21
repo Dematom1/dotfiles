@@ -15,9 +15,9 @@ this public repo, with 1Password + the update recipe as the reproducible source.
 
 Reproduce on a fresh machine:
 
-1. `./rebuild.sh`                   # activates ~/.claude/skills -> .agents/skills
-2. `op signin && refresh-secrets`   # pull tokens from 1Password into ~/.secrets
-3. `just update-skills`             # fetch/generate every skill + wire opencode
+1. `./rebuild.sh`     # nix: install tools, activate symlinks
+2. `op signin`        # 1Password
+3. `just bootstrap`   # secrets + FirstMate stack + fetch every skill
 
 ## Maintaining
 
