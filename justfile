@@ -22,7 +22,7 @@ default:
 skills:
     #!/usr/bin/env bash
     set -euo pipefail
-    for d in {{skills-dir}}/*/; do
+    for d in {{ skills-dir }}/*/; do
       [[ -f "$d/SKILL.md" ]] || continue
       name=$(basename "$d")
       desc=$(sed -n 's/^description:[[:space:]]*//p' "$d/SKILL.md" | head -1)
@@ -34,7 +34,7 @@ check-skills:
     #!/usr/bin/env bash
     set -euo pipefail
     fail=0
-    for d in {{skills-dir}}/*/; do
+    for d in {{ skills-dir }}/*/; do
       name=$(basename "$d")
       f="$d/SKILL.md"
       if [[ ! -f "$f" ]]; then echo "FAIL $name: no SKILL.md"; fail=1; continue; fi
@@ -54,7 +54,7 @@ update-skills:
     git clone --quiet --depth 1 https://github.com/DrCatHicks/learning-opportunities.git "$tmp/lo"
     skillmd=$(find "$tmp/lo" -name SKILL.md -not -path '*/.git/*' | head -1)
     [[ -n "$skillmd" ]] || { echo "ERROR: no SKILL.md found in the repo"; exit 1; }
-    rsync -a --delete --exclude '.git' "$(dirname "$skillmd")/" {{skills-dir}}/learning-opportunities/
+    rsync -a --delete --exclude '.git' "$(dirname "$skillmd")/" {{ skills-dir }}/learning-opportunities/
 
     echo "==> memtrace-* skills  (opencode; memtrace owns these)"
     # memtrace's documented reinstall path. NOTE: also resets its runtime state,
@@ -72,10 +72,10 @@ update-skills:
     npx -y skills add vercel-labs/skills -g
 
     echo "==> wire shared skills into opencode (regenerated, not committed)"
-    for d in {{skills-dir}}/*/; do
+    for d in {{ skills-dir }}/*/; do
       [[ -d "$d" ]] || continue
       n=$(basename "$d")
-      ln -sfn "../../{{skills-dir}}/$n" "opencode/skills/$n"
+      ln -sfn "../../{{ skills-dir }}/$n" "opencode/skills/$n"
     done
 
     echo
@@ -88,7 +88,7 @@ update-ui-skill:
     [[ -f ~/.secrets ]] && source ~/.secrets
     : "${UIDOTSH_TOKEN:?UIDOTSH_TOKEN not set - run refresh-secrets first}"
     npx -y @uidotsh/install --token="$UIDOTSH_TOKEN"
-    echo "Done. Review:  git status {{skills-dir}}"
+    echo "Done. Review:  git status {{ skills-dir }}"
 
 # ---------------------------------------------------------------------------
 # FirstMate + Herdr + Pi agent stack. These are npm globals + curl installers
@@ -120,7 +120,7 @@ check-regressions:
 _setup-axi-hooks tool:
     #!/usr/bin/env bash
     set -euo pipefail
-    tool='{{tool}}'
+    tool='{{ tool }}'
     if help=$("$tool" setup --help 2>&1); then
       probe_status=0
     else
@@ -180,17 +180,17 @@ setup-firstmate:
     echo "==> Treehouse + No Mistakes + AXI tools"
     curl -fsSL https://kunchenguid.github.io/treehouse/install.sh | sh
     curl -fsSL https://raw.githubusercontent.com/kunchenguid/no-mistakes/main/docs/install.sh | sh
-    npm install -g {{axi-tools}}
+    npm install -g {{ axi-tools }}
     # each AXI tool installs its agent hooks via `setup hooks`; report per tool
     # (a few legitimately have no such subcommand)
     echo "==> AXI setup hooks"
-    for t in {{axi-tools}}; do
+    for t in {{ axi-tools }}; do
       just _setup-axi-hooks "$t"
     done
 
     # AXI tools installed from GitHub (npm spec != binary name)
     echo "==> GitHub AXI tools"
-    for spec in {{axi-tools-git}}; do
+    for spec in {{ axi-tools-git }}; do
       npm install -g "$spec"
       bin="$(basename "$spec")"
       just _setup-axi-hooks "$bin"
@@ -201,8 +201,8 @@ setup-firstmate:
     if [[ -f ~/.config/dotfiles-profile ]]; then profile="$(<~/.config/dotfiles-profile)"; fi
     if [[ "$profile" == work ]]; then
       echo "==> work-only AXI tools (slack/aws/gws/notion)"
-      npm install -g {{axi-tools-work}}
-      for t in {{axi-tools-work}}; do
+      npm install -g {{ axi-tools-work }}
+      for t in {{ axi-tools-work }}; do
         just _setup-axi-hooks "$t"
       done
     fi
@@ -233,12 +233,12 @@ update-firstmate:
     herdr update
     treehouse update
     no-mistakes update
-    npm update -g {{axi-tools}} gnhf
-    for t in {{axi-tools}}; do just _setup-axi-hooks "$t"; done   # refresh hooks
+    npm update -g {{ axi-tools }} gnhf
+    for t in {{ axi-tools }}; do just _setup-axi-hooks "$t"; done   # refresh hooks
     if [[ -f ~/.config/dotfiles-profile && "$(<~/.config/dotfiles-profile)" == work ]]; then
-      npm update -g {{axi-tools-work}}
-      for t in {{axi-tools-work}}; do just _setup-axi-hooks "$t"; done
+      npm update -g {{ axi-tools-work }}
+      for t in {{ axi-tools-work }}; do just _setup-axi-hooks "$t"; done
     fi
-    for spec in {{axi-tools-git}}; do npm install -g "$spec"; just _setup-axi-hooks "$(basename "$spec")"; done
+    for spec in {{ axi-tools-git }}; do npm install -g "$spec"; just _setup-axi-hooks "$(basename "$spec")"; done
     herdr integration install pi   # refresh Pi integration after a herdr update
     echo "FirstMate stack updated."

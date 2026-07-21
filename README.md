@@ -47,12 +47,7 @@ edits apply without a rebuild.
 
 ### Neovim
 
-See [nvim/CHEATSHEET.md](nvim/CHEATSHEET.md). Quick reference:
-
-- `<Space>` - Leader key
-- `<leader>ff` - Find files
-- `<leader>fs` - Live grep
-- `<leader>hc` - Open cheatsheet
+See [nvim/CHEATSHEET.md](nvim/CHEATSHEET.md) for the authoritative keybinding reference.
 
 ### Tmux
 

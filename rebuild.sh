@@ -10,8 +10,7 @@ fi
 
 # Which machine this is: "personal" (default) or "work". Both configs are
 # committed under ./hosts, so either Mac rebuilds straight from git. This
-# one-word marker just picks which to build - set it once per machine:
-#   echo work > ~/.config/dotfiles-profile
+# one-word marker just picks which to build. See README.md for safe setup.
 PROFILE="personal"
 if [[ -f "$HOME/.config/dotfiles-profile" ]]; then
   PROFILE="$(<"$HOME/.config/dotfiles-profile")"
