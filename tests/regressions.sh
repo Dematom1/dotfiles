@@ -57,6 +57,26 @@ fi
 exit 24
 EOF
 
+cat > "$tmp/mixed-auth-probe-axi" <<'EOF'
+#!/usr/bin/env bash
+if [[ "$*" == "setup --help" ]]; then
+  echo "authentication failed while loading configuration" >&2
+  echo "unknown command: setup" >&2
+  exit 39
+fi
+exit 24
+EOF
+
+cat > "$tmp/mixed-runtime-probe-axi" <<'EOF'
+#!/usr/bin/env bash
+if [[ "$*" == "setup --help" ]]; then
+  echo "unknown command: setup" >&2
+  echo "runtime failure while initializing plugins" >&2
+  exit 38
+fi
+exit 24
+EOF
+
 cat > "$tmp/ambiguous-probe-axi" <<'EOF'
 #!/usr/bin/env bash
 if [[ "$*" == "setup --help" ]]; then
@@ -121,6 +141,7 @@ exit 24
 EOF
 chmod +x "$tmp/failing-axi" "$tmp/unsupported-axi" "$tmp/broken-probe-axi" \
   "$tmp/misleading-probe-axi" "$tmp/incidental-probe-axi" \
+  "$tmp/mixed-auth-probe-axi" "$tmp/mixed-runtime-probe-axi" \
   "$tmp/ambiguous-probe-axi" "$tmp/empty-probe-axi" \
   "$tmp/explicitly-unsupported-axi" "$tmp/unknown-command-axi" \
   "$tmp/reverse-unsupported-axi" "$tmp/quota-axi"
@@ -163,6 +184,19 @@ set -e
 [[ $output == *"setup: unsupported command syntax"* ]] || fail "incidental probe error output was hidden"
 [[ $output == *"capability probe failed"* ]] || fail "incidental probe failure was not reported"
 [[ $output != *"no setup hooks"* ]] || fail "incidental unsupported-command phrase suppressed a probe failure"
+
+for case in "mixed-auth-probe-axi:39:authentication failed" "mixed-runtime-probe-axi:38:runtime failure"; do
+  IFS=: read -r tool expected_status expected_error <<<"$case"
+  set +e
+  output=$(cd "$repo" && just _setup-axi-hooks "$tmp/$tool" 2>&1)
+  status=$?
+  set -e
+  [[ $status -eq $expected_status ]] || fail "$tool returned $status instead of $expected_status"
+  [[ $output == *"$expected_error"* ]] || fail "$tool error output was hidden"
+  [[ $output == *"unknown command: setup"* ]] || fail "$tool unsupported-command output was hidden"
+  [[ $output == *"capability probe failed"* ]] || fail "$tool failure was not reported"
+  [[ $output != *"no setup hooks"* ]] || fail "$tool mixed output suppressed a probe failure"
+done
 
 for tool in ambiguous-probe-axi empty-probe-axi; do
   set +e

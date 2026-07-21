@@ -126,8 +126,10 @@ _setup-axi-hooks tool:
     else
       probe_status=$?
     fi
-    if grep -Eiq "^[[:space:]]*((error|fatal):[[:space:]]*)?(unknown|unrecognized|invalid|unsupported|no such)[[:space:]]+(sub)?command[[:space:]]*(:[[:space:]]*|[[:space:]]+)['\"]?setup([[:space:]]+hooks)?['\"]?\.?[[:space:]]*$" <<<"$help" \
-      || grep -Eiq "^[[:space:]]*((error|fatal):[[:space:]]*)?['\"]?setup([[:space:]]+hooks)?['\"]?[[:space:]]+(is[[:space:]]+)?(an?[[:space:]]+)?(unknown|unrecognized|invalid|unsupported|no such)[[:space:]]+(sub)?command\.?[[:space:]]*$" <<<"$help"; then
+    normalized_help=${help//$'\r'/}
+    if [[ "$normalized_help" != *$'\n'* ]] \
+      && { grep -Eiq "^[[:space:]]*((error|fatal):[[:space:]]*)?(unknown|unrecognized|invalid|unsupported|no such)[[:space:]]+(sub)?command[[:space:]]*(:[[:space:]]*|[[:space:]]+)['\"]?setup([[:space:]]+hooks)?['\"]?\.?[[:space:]]*$" <<<"$normalized_help" \
+        || grep -Eiq "^[[:space:]]*((error|fatal):[[:space:]]*)?['\"]?setup([[:space:]]+hooks)?['\"]?[[:space:]]+(is[[:space:]]+)?(an?[[:space:]]+)?(unknown|unrecognized|invalid|unsupported|no such)[[:space:]]+(sub)?command\.?[[:space:]]*$" <<<"$normalized_help"; }; then
       echo "    - $tool (no setup hooks)"
       exit 0
     fi
