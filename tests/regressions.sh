@@ -218,6 +218,53 @@ output=$(cd "$repo" && just _setup-axi-hooks "$tmp/quota-axi" 2>&1)
 [[ $output == *"no setup hooks"* ]] || fail "quota-axi top-level help was not identified"
 [[ ! -e "$tmp/quota-ran" ]] || fail "quota-axi setup hooks were executed"
 
+for recipe in update-skills update-ui-skill; do
+  output=$(cd "$repo" && just --dry-run "$recipe" 2>&1)
+  [[ $output == *"npx -y @uidotsh/install"* ]] || fail "$recipe does not invoke the UI installer"
+  [[ $output != *"--token"* ]] || fail "$recipe passes the UI token through argv"
+  [[ $output != *"UIDOTSH_TOKEN"* ]] || fail "$recipe reads the UI token instead of using the interactive prompt"
+done
+
+cat > "$tmp/wezterm-regression.lua" <<'EOF'
+local callback
+local wezterm = {
+  action = {
+    IncreaseFontSize = "increase-font-size",
+    ResetFontSize = "reset-font-size",
+    SendKey = function(value) return value end,
+  },
+  config_builder = function() return {} end,
+  font = function(name) return name end,
+  on = function(event, handler)
+    assert(event == "user-var-changed")
+    callback = handler
+  end,
+}
+package.preload.wezterm = function() return wezterm end
+assert(dofile(os.getenv("WEZTERM_CONFIG")))
+assert(callback)
+
+local performed = {}
+local applied
+local window = {}
+function window:get_config_overrides() return {} end
+function window:perform_action(action) table.insert(performed, action) end
+function window:set_config_overrides(overrides) applied = overrides end
+
+for _, value in ipairs({ "not-a-number", "+invalid", "" }) do
+  assert(pcall(callback, window, {}, "ZEN_MODE", value))
+end
+assert(#performed == 0)
+
+callback(window, {}, "ZEN_MODE", "+2")
+assert(#performed == 2 and applied.enable_tab_bar == false)
+callback(window, {}, "ZEN_MODE", "-1")
+assert(performed[3] == "reset-font-size" and applied.enable_tab_bar == true)
+callback(window, {}, "ZEN_MODE", "19")
+assert(applied.font_size == 19 and applied.enable_tab_bar == false)
+EOF
+WEZTERM_CONFIG="$repo/.wezterm.lua" nvim --headless -u NONE -l "$tmp/wezterm-regression.lua"
+
 fake_bin="$tmp/fake-bin"
 mkdir -p "$fake_bin"
 cat > "$fake_bin/stack-command" <<'EOF'
@@ -252,7 +299,7 @@ for recipe in setup-firstmate update-firstmate; do
   [[ $output != *"FirstMate stack updated."* ]] || fail "$recipe reported update success after a hook failure"
 done
 
-INIT_ZSH="$repo/zsh/init.zsh" TEST_TMP="$tmp" zsh -f <<'EOF'
+INIT_ZSH="$repo/zsh/init.zsh" TEST_TMP="$tmp" SKETCHYBAR_PWD_FILE="$tmp/sketchybar_pwd" zsh -f <<'EOF'
 fzf() { return 0 }
 direnv() { return 0 }
 zoxide() { return 0 }
@@ -290,6 +337,21 @@ output=$(deploy prod 2>&1)
 rc=$?
 [[ $rc -ne 0 ]] || { print -u2 "FAIL: existing tag returned success"; exit 1; }
 [[ $output == *"Tag $tag already exists"* ]] || { print -u2 "FAIL: existing tag was not identified"; exit 1; }
+
+git tag -d "$tag" >/dev/null
+rejecting_remote="$TEST_TMP/rejecting-remote.git"
+git init --bare -q "$rejecting_remote"
+cat > "$rejecting_remote/hooks/pre-receive" <<'HOOK'
+#!/usr/bin/env bash
+exit 1
+HOOK
+chmod +x "$rejecting_remote/hooks/pre-receive"
+git remote set-url origin "$rejecting_remote"
+output=$(deploy prod 2>&1)
+rc=$?
+[[ $rc -ne 0 ]] || { print -u2 "FAIL: rejected push returned success"; exit 1; }
+[[ $output == *"Push failed; removing local tag $tag"* ]] || { print -u2 "FAIL: rejected push cleanup was not reported"; exit 1; }
+! git rev-parse -q --verify "refs/tags/$tag" >/dev/null || { print -u2 "FAIL: rejected push left the local tag behind"; exit 1; }
 EOF
 
 echo "shell regressions OK"

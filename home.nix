@@ -22,7 +22,7 @@ in
     (pipx.overridePythonAttrs (_: { doCheck = false; }))
     # net
     websocat curl
-    # window manager (was a homebrew cask from nikitabobko/tap — native in nixpkgs)
+    # window manager (was a homebrew cask from nikitabobko/tap - native in nixpkgs)
     aerospace
 
     nerd-fonts.hack
@@ -41,7 +41,7 @@ in
   home.sessionVariables.EDITOR = "nvim";
 
   # Edit-in-place: the real files stay in the repo, ~ just points at them
-  # (mkOutOfStoreSymlink, so edits don't need a rebuild — unlike a store copy).
+  # (mkOutOfStoreSymlink, so edits don't need a rebuild - unlike a store copy).
   home.file = {
     # ~/.config/* app configs
     ".config/nvim".source       = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/nvim";
@@ -62,7 +62,7 @@ in
     ".tmux.conf".source   = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/.tmux.conf";
     ".p10k.zsh".source    = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/zsh/p10k.zsh";
 
-    # AI tooling — one AGENTS.md shared across Claude + Codex
+    # AI tooling - one AGENTS.md shared across Claude + Codex
     ".config/herdr".source         = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/herdr";
     # ~/.claude/settings.json is intentionally NOT managed here: the AXI tools
     # (`gh-axi setup hooks` etc.) mutate it, so it's tool-owned like the skills.
@@ -75,7 +75,7 @@ in
   };
 
   # ---------------------------------------------------------------------------
-  # Zsh — declarative structure; imperative extras live-sourced from the repo.
+  # Zsh - declarative structure; imperative extras live-sourced from the repo.
   # home-manager now owns ~/.zshrc and ~/.zshenv.
   # ---------------------------------------------------------------------------
   programs.zsh = {
@@ -83,7 +83,7 @@ in
     autosuggestion.enable = true;      # ghost-text suggestions from history
     syntaxHighlighting.enable = true;  # valid commands highlighted green
 
-    # was ~/.zshenv (volta/cargo) — ported so it survives home-manager taking over
+    # was ~/.zshenv (volta/cargo) - ported so it survives home-manager taking over
     envExtra = ''
       [ -r "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 
@@ -136,7 +136,7 @@ in
     ];
 
     initContent = lib.mkMerge [
-      # runs first — p10k instant prompt must precede any output
+      # runs first - p10k instant prompt must precede any output
       (lib.mkBefore ''
         # p10k instant-prompt verbosity is owned by ~/.p10k.zsh (set to quiet there)
         ENABLE_CORRECTION="true"
@@ -145,7 +145,7 @@ in
           source "''${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-''${(%):-%n}.zsh"
         fi
       '')
-      # runs last — live-editable extras + machine-local escape hatches
+      # runs last - live-editable extras + machine-local escape hatches
       (lib.mkAfter ''
         source "$HOME/Code/dotfiles/zsh/init.zsh"
         [[ -f ~/.p10k.zsh ]]     && source ~/.p10k.zsh

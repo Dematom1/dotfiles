@@ -32,7 +32,7 @@
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
             # First switch renames any existing file/symlink in the way to *.bak
-            # instead of erroring — lets nix take over the manual symlinks.
+            # instead of erroring - lets nix take over the manual symlinks.
             home-manager.backupFileExtension = "bak";
             # tell home.nix which machine this is, so home.packages can differ
             home-manager.extraSpecialArgs = { inherit profile; };

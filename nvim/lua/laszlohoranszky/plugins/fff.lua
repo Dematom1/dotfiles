@@ -51,7 +51,7 @@ return {
 					},
 				})
 			end,
-			desc = "Live fffuzy grep",
+			desc = "Live fuzzy grep",
 		},
 	},
 }

@@ -1,3 +1,5 @@
+# Claude Code Instructions
+
 <!--
 Claude Code entrypoint. Composes the shared, tool-agnostic instructions
 with Claude-only additions (e.g. RTK, a Claude Code tool). Codex/opencode

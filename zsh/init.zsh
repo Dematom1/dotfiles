@@ -32,7 +32,7 @@ bindkey '^[[A' history-search-backward
 bindkey '^[[B' history-search-forward
 
 # --- Sketchybar: expose cwd for git-branch integration ---
-function update_sketchybar_pwd() { echo "$PWD" > /tmp/sketchybar_pwd; }
+function update_sketchybar_pwd() { echo "$PWD" > "${SKETCHYBAR_PWD_FILE:-/tmp/sketchybar_pwd}"; }
 add-zsh-hook chpwd update_sketchybar_pwd
 update_sketchybar_pwd
 

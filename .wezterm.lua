@@ -48,8 +48,11 @@ config.macos_window_background_blur = 10
 wezterm.on("user-var-changed", function(window, pane, name, value)
 	local overrides = window:get_config_overrides() or {}
 	if name == "ZEN_MODE" then
-		local incremental = value:find("+")
 		local number_value = tonumber(value)
+		if number_value == nil then
+			return
+		end
+		local incremental = value:find("+", 1, true)
 		if incremental ~= nil then
 			while number_value > 0 do
 				window:perform_action(wezterm.action.IncreaseFontSize, pane)

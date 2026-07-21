@@ -61,10 +61,8 @@ update-skills:
     # so you may need `memtrace start` afterwards. Adjust if you have a lighter cmd.
     memtrace doctor --fix --repair-install
 
-    echo "==> ui.sh skill  (authed npx installer; token from ~/.secrets)"
-    [[ -f ~/.secrets ]] && source ~/.secrets
-    : "${UIDOTSH_TOKEN:?UIDOTSH_TOKEN not set - run refresh-secrets first}"
-    npx -y @uidotsh/install --token="$UIDOTSH_TOKEN"
+    echo "==> ui.sh skill  (paste the token into the installer's masked prompt)"
+    npx -y @uidotsh/install
 
     echo "==> npx skills CLI (whathappened + vercel-labs)"
     npx -y skills add kunchenguid/whathappened -g
@@ -72,6 +70,7 @@ update-skills:
     npx -y skills add vercel-labs/skills -g
 
     echo "==> wire shared skills into opencode (regenerated, not committed)"
+    find opencode/skills -maxdepth 1 -type l -delete
     for d in {{ skills-dir }}/*/; do
       [[ -d "$d" ]] || continue
       n=$(basename "$d")
@@ -81,13 +80,11 @@ update-skills:
     echo
     echo "All updated (skill content is gitignored). Validate:  just check-skills"
 
-# Refresh ONLY the ui.sh skill (authed npx installer). Token from ~/.secrets.
+# Refresh ONLY the ui.sh skill; paste the token into the masked installer prompt.
 update-ui-skill:
     #!/usr/bin/env bash
     set -euo pipefail
-    [[ -f ~/.secrets ]] && source ~/.secrets
-    : "${UIDOTSH_TOKEN:?UIDOTSH_TOKEN not set - run refresh-secrets first}"
-    npx -y @uidotsh/install --token="$UIDOTSH_TOKEN"
+    npx -y @uidotsh/install
     echo "Done. Review:  git status {{ skills-dir }}"
 
 # ---------------------------------------------------------------------------

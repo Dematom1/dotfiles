@@ -140,7 +140,7 @@
 ### Spectre (Project-wide Replace)
 | Keys | Action |
 |------|--------|
-| `<leader>sr` | Open Spectre |
+| `<leader>sR` | Open Spectre |
 | `<leader>sw` | Search word under cursor |
 | `<leader>sp` | Search in current file |
 
