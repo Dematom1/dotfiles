@@ -48,6 +48,15 @@ fi
 exit 24
 EOF
 
+cat > "$tmp/incidental-probe-axi" <<'EOF'
+#!/usr/bin/env bash
+if [[ "$*" == "setup --help" ]]; then
+  echo "setup: unsupported command syntax" >&2
+  exit 40
+fi
+exit 24
+EOF
+
 cat > "$tmp/ambiguous-probe-axi" <<'EOF'
 #!/usr/bin/env bash
 if [[ "$*" == "setup --help" ]]; then
@@ -75,6 +84,26 @@ touch "$tmp/explicitly-unsupported-ran"
 exit 24
 EOF
 
+cat > "$tmp/unknown-command-axi" <<EOF
+#!/usr/bin/env bash
+if [[ "\$*" == "setup --help" ]]; then
+  echo "unknown command: setup"
+  exit 2
+fi
+touch "$tmp/unknown-command-ran"
+exit 24
+EOF
+
+cat > "$tmp/reverse-unsupported-axi" <<EOF
+#!/usr/bin/env bash
+if [[ "\$*" == "setup --help" ]]; then
+  echo "'setup hooks' is an unknown subcommand."
+  exit 2
+fi
+touch "$tmp/reverse-unsupported-ran"
+exit 24
+EOF
+
 cat > "$tmp/quota-axi" <<EOF
 #!/usr/bin/env bash
 if [[ "\$*" == "setup --help" ]]; then
@@ -91,9 +120,10 @@ touch "$tmp/quota-ran"
 exit 24
 EOF
 chmod +x "$tmp/failing-axi" "$tmp/unsupported-axi" "$tmp/broken-probe-axi" \
-  "$tmp/misleading-probe-axi" "$tmp/ambiguous-probe-axi" "$tmp/empty-probe-axi" \
-  "$tmp/explicitly-unsupported-axi" \
-  "$tmp/quota-axi"
+  "$tmp/misleading-probe-axi" "$tmp/incidental-probe-axi" \
+  "$tmp/ambiguous-probe-axi" "$tmp/empty-probe-axi" \
+  "$tmp/explicitly-unsupported-axi" "$tmp/unknown-command-axi" \
+  "$tmp/reverse-unsupported-axi" "$tmp/quota-axi"
 
 set +e
 output=$(cd "$repo" && just _setup-axi-hooks "$tmp/failing-axi" 2>&1)
@@ -125,6 +155,15 @@ set -e
 [[ $output == *"capability probe failed"* ]] || fail "misleading probe failure was not reported"
 [[ $output != *"no setup hooks"* ]] || fail "unrelated unsupported-command text suppressed a probe failure"
 
+set +e
+output=$(cd "$repo" && just _setup-axi-hooks "$tmp/incidental-probe-axi" 2>&1)
+status=$?
+set -e
+[[ $status -eq 40 ]] || fail "incidental probe failure returned $status instead of 40"
+[[ $output == *"setup: unsupported command syntax"* ]] || fail "incidental probe error output was hidden"
+[[ $output == *"capability probe failed"* ]] || fail "incidental probe failure was not reported"
+[[ $output != *"no setup hooks"* ]] || fail "incidental unsupported-command phrase suppressed a probe failure"
+
 for tool in ambiguous-probe-axi empty-probe-axi; do
   set +e
   output=$(cd "$repo" && just _setup-axi-hooks "$tmp/$tool" 2>&1)
@@ -135,9 +174,11 @@ for tool in ambiguous-probe-axi empty-probe-axi; do
   [[ $output != *"no setup hooks"* ]] || fail "$tool was reported as unsupported hooks"
 done
 
-output=$(cd "$repo" && just _setup-axi-hooks "$tmp/explicitly-unsupported-axi" 2>&1)
-[[ $output == *"no setup hooks"* ]] || fail "explicit zero-exit unsupported output was not identified"
-[[ ! -e "$tmp/explicitly-unsupported-ran" ]] || fail "explicitly unsupported setup hooks were executed"
+for tool in explicitly-unsupported-axi unknown-command-axi reverse-unsupported-axi; do
+  output=$(cd "$repo" && just _setup-axi-hooks "$tmp/$tool" 2>&1)
+  [[ $output == *"no setup hooks"* ]] || fail "$tool explicit unsupported output was not identified"
+  [[ ! -e "$tmp/${tool%-axi}-ran" ]] || fail "$tool unsupported setup hooks were executed"
+done
 
 output=$(cd "$repo" && just _setup-axi-hooks "$tmp/quota-axi" 2>&1)
 [[ $output == *"no setup hooks"* ]] || fail "quota-axi top-level help was not identified"

@@ -126,7 +126,8 @@ _setup-axi-hooks tool:
     else
       probe_status=$?
     fi
-    if grep -Eiq "(unknown|unrecognized|invalid|unsupported|no such)[[:space:]]+(sub)?command[[:space:]]+(['\"]setup([[:space:]]+hooks)?['\"]|setup([[:space:]]+hooks)?[[:space:]]*$)|(['\"]setup([[:space:]]+hooks)?['\"]|setup([[:space:]]+hooks)?)[[:space:]]*(:|is)?[[:space:]]*(an?[[:space:]]+)?(unknown|unrecognized|invalid|unsupported|no such)[[:space:]]+(sub)?command" <<<"$help"; then
+    if grep -Eiq "^[[:space:]]*((error|fatal):[[:space:]]*)?(unknown|unrecognized|invalid|unsupported|no such)[[:space:]]+(sub)?command[[:space:]]*(:[[:space:]]*|[[:space:]]+)['\"]?setup([[:space:]]+hooks)?['\"]?\.?[[:space:]]*$" <<<"$help" \
+      || grep -Eiq "^[[:space:]]*((error|fatal):[[:space:]]*)?['\"]?setup([[:space:]]+hooks)?['\"]?[[:space:]]+(is[[:space:]]+)?(an?[[:space:]]+)?(unknown|unrecognized|invalid|unsupported|no such)[[:space:]]+(sub)?command\.?[[:space:]]*$" <<<"$help"; then
       echo "    - $tool (no setup hooks)"
       exit 0
     fi
