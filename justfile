@@ -2,6 +2,10 @@
 
 skills-dir := ".agents/skills"
 
+# AXI agent tools (npm globals, https://axi.md) relevant to this stack:
+# github, chrome, k8s, postgres, docker, npm + FirstMate's lavish/tasks/quota.
+axi-tools := "gh-axi chrome-devtools-axi lavish-axi tasks-axi quota-axi kubernetes-axi pg-axi docker-axi npm-axi"
+
 # Show available tasks.
 default:
     @just --list
@@ -107,10 +111,10 @@ setup-firstmate:
     echo "==> Treehouse + No Mistakes + AXI tools"
     curl -fsSL https://kunchenguid.github.io/treehouse/install.sh | sh
     curl -fsSL https://raw.githubusercontent.com/kunchenguid/no-mistakes/main/docs/install.sh | sh
-    npm install -g gh-axi chrome-devtools-axi lavish-axi tasks-axi quota-axi
-    gh-axi setup hooks
-    chrome-devtools-axi setup hooks
-    lavish-axi setup hooks
+    npm install -g {{axi-tools}}
+    # install ambient-context hooks for the AXI tools that support it (tolerate
+    # the ones that don't have a `setup hooks` subcommand)
+    for t in {{axi-tools}}; do "$t" setup hooks 2>/dev/null || true; done
 
     echo "==> extra global npm tools"
     npm install -g gnhf
@@ -138,6 +142,6 @@ update-firstmate:
     herdr update
     treehouse update
     no-mistakes update
-    npm update -g gh-axi chrome-devtools-axi lavish-axi tasks-axi quota-axi gnhf
+    npm update -g {{axi-tools}} gnhf
     herdr integration install pi   # refresh Pi integration after a herdr update
     echo "FirstMate stack updated."
