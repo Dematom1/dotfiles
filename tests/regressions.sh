@@ -39,6 +39,15 @@ fi
 exit 24
 EOF
 
+cat > "$tmp/misleading-probe-axi" <<'EOF'
+#!/usr/bin/env bash
+if [[ "$*" == "setup --help" ]]; then
+  echo "setup failed while loading config: unsupported command syntax" >&2
+  exit 41
+fi
+exit 24
+EOF
+
 cat > "$tmp/ambiguous-probe-axi" <<'EOF'
 #!/usr/bin/env bash
 if [[ "$*" == "setup --help" ]]; then
@@ -82,7 +91,8 @@ touch "$tmp/quota-ran"
 exit 24
 EOF
 chmod +x "$tmp/failing-axi" "$tmp/unsupported-axi" "$tmp/broken-probe-axi" \
-  "$tmp/ambiguous-probe-axi" "$tmp/empty-probe-axi" "$tmp/explicitly-unsupported-axi" \
+  "$tmp/misleading-probe-axi" "$tmp/ambiguous-probe-axi" "$tmp/empty-probe-axi" \
+  "$tmp/explicitly-unsupported-axi" \
   "$tmp/quota-axi"
 
 set +e
@@ -105,6 +115,15 @@ set -e
 [[ $output == *"simulated capability probe failure"* ]] || fail "capability probe error output was hidden"
 [[ $output == *"capability probe failed"* ]] || fail "capability probe failure was not reported"
 [[ $output != *"no setup hooks"* ]] || fail "capability probe failure was reported as unsupported hooks"
+
+set +e
+output=$(cd "$repo" && just _setup-axi-hooks "$tmp/misleading-probe-axi" 2>&1)
+status=$?
+set -e
+[[ $status -eq 41 ]] || fail "misleading probe failure returned $status instead of 41"
+[[ $output == *"setup failed while loading config"* ]] || fail "misleading probe error output was hidden"
+[[ $output == *"capability probe failed"* ]] || fail "misleading probe failure was not reported"
+[[ $output != *"no setup hooks"* ]] || fail "unrelated unsupported-command text suppressed a probe failure"
 
 for tool in ambiguous-probe-axi empty-probe-axi; do
   set +e
