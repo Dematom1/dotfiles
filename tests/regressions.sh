@@ -38,7 +38,35 @@ if [[ "$*" == "setup --help" ]]; then
 fi
 exit 24
 EOF
-chmod +x "$tmp/failing-axi" "$tmp/unsupported-axi" "$tmp/broken-probe-axi"
+
+cat > "$tmp/ambiguous-probe-axi" <<'EOF'
+#!/usr/bin/env bash
+if [[ "$*" == "setup --help" ]]; then
+  echo "usage: ambiguous-probe-axi"
+  exit 0
+fi
+exit 24
+EOF
+
+cat > "$tmp/empty-probe-axi" <<'EOF'
+#!/usr/bin/env bash
+if [[ "$*" == "setup --help" ]]; then
+  exit 0
+fi
+exit 24
+EOF
+
+cat > "$tmp/explicitly-unsupported-axi" <<EOF
+#!/usr/bin/env bash
+if [[ "\$*" == "setup --help" ]]; then
+  echo "error: unsupported command 'setup hooks'"
+  exit 0
+fi
+touch "$tmp/explicitly-unsupported-ran"
+exit 24
+EOF
+chmod +x "$tmp/failing-axi" "$tmp/unsupported-axi" "$tmp/broken-probe-axi" \
+  "$tmp/ambiguous-probe-axi" "$tmp/empty-probe-axi" "$tmp/explicitly-unsupported-axi"
 
 set +e
 output=$(cd "$repo" && just _setup-axi-hooks "$tmp/failing-axi" 2>&1)
@@ -60,6 +88,20 @@ set -e
 [[ $output == *"simulated capability probe failure"* ]] || fail "capability probe error output was hidden"
 [[ $output == *"capability probe failed"* ]] || fail "capability probe failure was not reported"
 [[ $output != *"no setup hooks"* ]] || fail "capability probe failure was reported as unsupported hooks"
+
+for tool in ambiguous-probe-axi empty-probe-axi; do
+  set +e
+  output=$(cd "$repo" && just _setup-axi-hooks "$tmp/$tool" 2>&1)
+  status=$?
+  set -e
+  [[ $status -eq 1 ]] || fail "$tool returned $status instead of 1"
+  [[ $output == *"unrecognized output"* ]] || fail "$tool output was not rejected"
+  [[ $output != *"no setup hooks"* ]] || fail "$tool was reported as unsupported hooks"
+done
+
+output=$(cd "$repo" && just _setup-axi-hooks "$tmp/explicitly-unsupported-axi" 2>&1)
+[[ $output == *"no setup hooks"* ]] || fail "explicit zero-exit unsupported output was not identified"
+[[ ! -e "$tmp/explicitly-unsupported-ran" ]] || fail "explicitly unsupported setup hooks were executed"
 
 fake_bin="$tmp/fake-bin"
 mkdir -p "$fake_bin"
