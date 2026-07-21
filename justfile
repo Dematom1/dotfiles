@@ -10,6 +10,10 @@ axi-tools := "gh-axi chrome-devtools-axi lavish-axi tasks-axi quota-axi kubernet
 # ~/.config/dotfiles-profile says "work" (the same marker rebuild.sh reads).
 axi-tools-work := "slack-axi aws-axi gws-axi notion-axi"
 
+# AXI tools installed from GitHub (npm install owner/repo). The binary name is
+# the repo (basename of the spec), which is what `setup hooks` runs.
+axi-tools-git := "nikolauska/linear-axi"
+
 # Show available tasks.
 default:
     @just --list
@@ -128,9 +132,20 @@ setup-firstmate:
     curl -fsSL https://kunchenguid.github.io/treehouse/install.sh | sh
     curl -fsSL https://raw.githubusercontent.com/kunchenguid/no-mistakes/main/docs/install.sh | sh
     npm install -g {{axi-tools}}
-    # install ambient-context hooks for the AXI tools that support it (tolerate
-    # the ones that don't have a `setup hooks` subcommand)
-    for t in {{axi-tools}}; do "$t" setup hooks 2>/dev/null || true; done
+    # each AXI tool installs its agent hooks via `setup hooks`; report per tool
+    # (a few legitimately have no such subcommand)
+    echo "==> AXI setup hooks"
+    for t in {{axi-tools}}; do
+      "$t" setup hooks >/dev/null 2>&1 && echo "    ✓ $t" || echo "    - $t (no setup hooks)"
+    done
+
+    # AXI tools installed from GitHub (npm spec != binary name)
+    echo "==> GitHub AXI tools"
+    for spec in {{axi-tools-git}}; do
+      npm install -g "$spec"
+      bin="$(basename "$spec")"
+      "$bin" setup hooks >/dev/null 2>&1 && echo "    ✓ $bin" || echo "    - $bin (no setup hooks)"
+    done
 
     # work-only AXI tools (same ~/.config/dotfiles-profile marker rebuild.sh reads)
     profile=personal
@@ -138,7 +153,9 @@ setup-firstmate:
     if [[ "$profile" == work ]]; then
       echo "==> work-only AXI tools (slack/aws/gws/notion)"
       npm install -g {{axi-tools-work}}
-      for t in {{axi-tools-work}}; do "$t" setup hooks 2>/dev/null || true; done
+      for t in {{axi-tools-work}}; do
+        "$t" setup hooks >/dev/null 2>&1 && echo "    ✓ $t" || echo "    - $t (no setup hooks)"
+      done
     fi
 
     echo "==> extra global npm tools"
@@ -168,8 +185,11 @@ update-firstmate:
     treehouse update
     no-mistakes update
     npm update -g {{axi-tools}} gnhf
+    for t in {{axi-tools}}; do "$t" setup hooks >/dev/null 2>&1 || true; done   # refresh hooks
     if [[ -f ~/.config/dotfiles-profile && "$(<~/.config/dotfiles-profile)" == work ]]; then
       npm update -g {{axi-tools-work}}
+      for t in {{axi-tools-work}}; do "$t" setup hooks >/dev/null 2>&1 || true; done
     fi
+    for spec in {{axi-tools-git}}; do npm install -g "$spec"; "$(basename "$spec")" setup hooks >/dev/null 2>&1 || true; done
     herdr integration install pi   # refresh Pi integration after a herdr update
     echo "FirstMate stack updated."
