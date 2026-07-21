@@ -31,6 +31,7 @@ Reproduce on a fresh machine:
 |---|---|---|---|
 | learning-opportunities | git repo | `git@github.com:DrCatHicks/learning-opportunities.git` | ssh key |
 | ui.sh (design, ideas, ...) | authed npx | `@uidotsh/install` | `UIDOTSH_TOKEN` (1Password) |
+| whathappened | git repo (skills CLI) | `kunchenguid/whathappened` via `npx skills add -g` | none |
 | memtrace-* (opencode) | tool-generated | `memtrace doctor --fix --repair-install` | memtrace license |
 
 The memtrace-* skills declare `compatibility: opencode` and stay in

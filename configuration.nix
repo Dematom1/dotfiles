@@ -41,6 +41,9 @@
       "herdr"
       "rtk"
     ];
+    taps = [
+      "kunchenguid/tap"
+    ];
     casks = [
       "wezterm"
       "claude-code"
@@ -51,6 +54,7 @@
       "postico"
       "opensuperwhisper"
       "agentsview"
+      "kunchenguid/tap/baby-menu"
       # fonts
       "font-hack-nerd-font"
       "font-meslo-lg-nerd-font"

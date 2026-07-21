@@ -54,6 +54,9 @@ update-skills:
     : "${UIDOTSH_TOKEN:?UIDOTSH_TOKEN not set - run refresh-secrets first}"
     npx -y @uidotsh/install --token="$UIDOTSH_TOKEN"
 
+    echo "==> whathappened skill (skills CLI)"
+    npx -y skills add kunchenguid/whathappened -g
+
     echo "==> wire shared skills into opencode (regenerated, not committed)"
     for d in {{skills-dir}}/*/; do
       [[ -d "$d" ]] || continue
