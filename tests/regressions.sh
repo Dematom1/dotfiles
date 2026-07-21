@@ -65,8 +65,25 @@ fi
 touch "$tmp/explicitly-unsupported-ran"
 exit 24
 EOF
+
+cat > "$tmp/quota-axi" <<EOF
+#!/usr/bin/env bash
+if [[ "\$*" == "setup --help" ]]; then
+  cat <<'HELP'
+usage: quota-axi [auth] [flags]
+commands[2]:
+  (none)=quota, auth
+flags[2]:
+  --help, -v/--version
+HELP
+  exit 0
+fi
+touch "$tmp/quota-ran"
+exit 24
+EOF
 chmod +x "$tmp/failing-axi" "$tmp/unsupported-axi" "$tmp/broken-probe-axi" \
-  "$tmp/ambiguous-probe-axi" "$tmp/empty-probe-axi" "$tmp/explicitly-unsupported-axi"
+  "$tmp/ambiguous-probe-axi" "$tmp/empty-probe-axi" "$tmp/explicitly-unsupported-axi" \
+  "$tmp/quota-axi"
 
 set +e
 output=$(cd "$repo" && just _setup-axi-hooks "$tmp/failing-axi" 2>&1)
@@ -102,6 +119,10 @@ done
 output=$(cd "$repo" && just _setup-axi-hooks "$tmp/explicitly-unsupported-axi" 2>&1)
 [[ $output == *"no setup hooks"* ]] || fail "explicit zero-exit unsupported output was not identified"
 [[ ! -e "$tmp/explicitly-unsupported-ran" ]] || fail "explicitly unsupported setup hooks were executed"
+
+output=$(cd "$repo" && just _setup-axi-hooks "$tmp/quota-axi" 2>&1)
+[[ $output == *"no setup hooks"* ]] || fail "quota-axi top-level help was not identified"
+[[ ! -e "$tmp/quota-ran" ]] || fail "quota-axi setup hooks were executed"
 
 fake_bin="$tmp/fake-bin"
 mkdir -p "$fake_bin"

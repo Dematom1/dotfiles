@@ -135,6 +135,13 @@ _setup-axi-hooks tool:
       echo "ERROR: $tool setup hook capability probe failed (exit $probe_status)" >&2
       exit "$probe_status"
     fi
+    if grep -Eq '^usage: quota-axi \[auth\] \[flags\]$' <<<"$help" \
+      && grep -Eq '^commands\[[0-9]+\]:$' <<<"$help" \
+      && grep -Eq '^[[:space:]]+\(none\)=quota, auth$' <<<"$help" \
+      && ! grep -Eq '(^|[[:space:]])setup[[:space:]]+hooks([[:space:]]|$)' <<<"$help"; then
+      echo "    - $tool (no setup hooks)"
+      exit 0
+    fi
     if ! grep -Eq '(^|[[:space:]])setup[[:space:]]+hooks([[:space:]]|$)' <<<"$help"; then
       [[ -z "$help" ]] || printf '%s\n' "$help" >&2
       echo "ERROR: $tool setup hook capability probe returned unrecognized output" >&2
