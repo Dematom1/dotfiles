@@ -5,6 +5,10 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 # the repo lives elsewhere, or ln would nest a stray symlink inside the repo.
 if [[ "$DIR" != "$HOME/Code/dotfiles" ]]; then
   mkdir -p "$HOME/Code"
+  if [[ -e "$HOME/Code/dotfiles" && ! -L "$HOME/Code/dotfiles" ]]; then
+    echo "Refusing to replace existing non-symlink: $HOME/Code/dotfiles" >&2
+    exit 1
+  fi
   ln -sfn "$DIR" "$HOME/Code/dotfiles"
 fi
 

@@ -225,6 +225,31 @@ for recipe in update-skills update-ui-skill; do
   [[ $output != *"UIDOTSH_TOKEN"* ]] || fail "$recipe reads the UI token instead of using the interactive prompt"
 done
 
+rebuild_bin="$tmp/rebuild-bin"
+mkdir -p "$rebuild_bin"
+cat > "$rebuild_bin/sudo" <<EOF
+#!/usr/bin/env bash
+touch "$tmp/rebuild-sudo-ran"
+EOF
+chmod +x "$rebuild_bin/sudo"
+
+rebuild_home="$tmp/rebuild-home"
+mkdir -p "$rebuild_home/Code/dotfiles"
+set +e
+output=$(cd "$repo" && HOME="$rebuild_home" PATH="$rebuild_bin:/usr/bin:/bin" ./rebuild.sh 2>&1)
+status=$?
+set -e
+[[ $status -eq 1 ]] || fail "rebuild with an existing directory returned $status instead of 1"
+[[ $output == *"Refusing to replace existing non-symlink"* ]] || fail "rebuild did not report the conflicting directory"
+[[ ! -e "$rebuild_home/Code/dotfiles/dotfiles" ]] || fail "rebuild nested a symlink in the conflicting directory"
+[[ ! -e "$tmp/rebuild-sudo-ran" ]] || fail "rebuild continued after detecting the conflicting directory"
+
+rm -rf "$rebuild_home/Code/dotfiles"
+HOME="$rebuild_home" PATH="$rebuild_bin:/usr/bin:/bin" "$repo/rebuild.sh"
+[[ -L "$rebuild_home/Code/dotfiles" ]] || fail "rebuild did not link a moved clone"
+[[ $(cd "$rebuild_home/Code/dotfiles" && pwd -P) == "$repo" ]] || fail "rebuild linked the moved clone incorrectly"
+[[ -e "$tmp/rebuild-sudo-ran" ]] || fail "rebuild did not continue after linking the moved clone"
+
 cat > "$tmp/wezterm-regression.lua" <<'EOF'
 local callback
 local wezterm = {
