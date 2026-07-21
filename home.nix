@@ -54,7 +54,7 @@ in
     ".config/atuin".source      = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/atuin";
     ".config/direnv".source     = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/direnv";
     ".config/git".source        = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/git";
-    # only the JSON — let Karabiner keep its assets/ + automatic_backups/ out of the repo
+    # only the JSON - let Karabiner keep its assets/ + automatic_backups/ out of the repo
     ".config/karabiner/karabiner.json".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/karabiner/karabiner.json";
 
     # ~ home-dir dotfiles

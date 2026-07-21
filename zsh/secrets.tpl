@@ -1,4 +1,4 @@
-# 1Password secret template — SAFE TO COMMIT (references only, no real values).
+# 1Password secret template - SAFE TO COMMIT (references only, no real values).
 #
 # Populate ~/.secrets from your vault with:
 #     refresh-secrets          # alias for the op inject command below

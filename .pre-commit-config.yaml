@@ -15,4 +15,4 @@ repos:
     rev: v0.10.0.1
     hooks:
       - id: shellcheck
-        exclude: ^(sketchybar/|zsh/)  # zsh config isn't sh/bash — shellcheck can't parse it
+        exclude: ^(sketchybar/|zsh/)  # zsh config isn't sh/bash - shellcheck can't parse it
