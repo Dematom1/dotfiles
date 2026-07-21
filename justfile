@@ -6,6 +6,10 @@ skills-dir := ".agents/skills"
 # github, chrome, k8s, postgres, docker, npm + FirstMate's lavish/tasks/quota.
 axi-tools := "gh-axi chrome-devtools-axi lavish-axi tasks-axi quota-axi kubernetes-axi pg-axi docker-axi npm-axi"
 
+# work-machine-only AXI tools - installed by setup/update-firstmate only when
+# ~/.config/dotfiles-profile says "work" (the same marker rebuild.sh reads).
+axi-tools-work := "slack-axi aws-axi gws-axi notion-axi"
+
 # Show available tasks.
 default:
     @just --list
@@ -116,6 +120,15 @@ setup-firstmate:
     # the ones that don't have a `setup hooks` subcommand)
     for t in {{axi-tools}}; do "$t" setup hooks 2>/dev/null || true; done
 
+    # work-only AXI tools (same ~/.config/dotfiles-profile marker rebuild.sh reads)
+    profile=personal
+    if [[ -f ~/.config/dotfiles-profile ]]; then profile="$(<~/.config/dotfiles-profile)"; fi
+    if [[ "$profile" == work ]]; then
+      echo "==> work-only AXI tools (slack/aws/gws/notion)"
+      npm install -g {{axi-tools-work}}
+      for t in {{axi-tools-work}}; do "$t" setup hooks 2>/dev/null || true; done
+    fi
+
     echo "==> extra global npm tools"
     npm install -g gnhf
 
@@ -143,5 +156,8 @@ update-firstmate:
     treehouse update
     no-mistakes update
     npm update -g {{axi-tools}} gnhf
+    if [[ -f ~/.config/dotfiles-profile && "$(<~/.config/dotfiles-profile)" == work ]]; then
+      npm update -g {{axi-tools-work}}
+    fi
     herdr integration install pi   # refresh Pi integration after a herdr update
     echo "FirstMate stack updated."
