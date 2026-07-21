@@ -121,7 +121,20 @@ _setup-axi-hooks tool:
     #!/usr/bin/env bash
     set -euo pipefail
     tool='{{tool}}'
-    help=$("$tool" setup --help 2>&1 || true)
+    if help=$("$tool" setup --help 2>&1); then
+      probe_status=0
+    else
+      probe_status=$?
+    fi
+    if [[ $probe_status -ne 0 ]]; then
+      if grep -Eiq "(unknown|unrecognized|invalid|unsupported|no such)[[:space:]]+(sub)?command.*['\"]?setup|setup([[:space:]]+hooks)?.*(unknown|unrecognized|invalid|unsupported|no such)[[:space:]]+(sub)?command" <<<"$help"; then
+        echo "    - $tool (no setup hooks)"
+        exit 0
+      fi
+      [[ -z "$help" ]] || printf '%s\n' "$help" >&2
+      echo "ERROR: $tool setup hook capability probe failed (exit $probe_status)" >&2
+      exit "$probe_status"
+    fi
     if ! grep -Eq '(^|[[:space:]])setup[[:space:]]+hooks([[:space:]]|$)' <<<"$help"; then
       echo "    - $tool (no setup hooks)"
       exit 0

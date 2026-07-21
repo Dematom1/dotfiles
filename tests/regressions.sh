@@ -23,13 +23,22 @@ EOF
 cat > "$tmp/unsupported-axi" <<EOF
 #!/usr/bin/env bash
 if [[ "\$*" == "setup --help" ]]; then
-  echo "usage: unsupported-axi [auth]"
+  echo "error: unrecognized command 'setup'"
   exit 2
 fi
 touch "$tmp/unsupported-ran"
 exit 24
 EOF
-chmod +x "$tmp/failing-axi" "$tmp/unsupported-axi"
+
+cat > "$tmp/broken-probe-axi" <<'EOF'
+#!/usr/bin/env bash
+if [[ "$*" == "setup --help" ]]; then
+  echo "simulated capability probe failure" >&2
+  exit 42
+fi
+exit 24
+EOF
+chmod +x "$tmp/failing-axi" "$tmp/unsupported-axi" "$tmp/broken-probe-axi"
 
 set +e
 output=$(cd "$repo" && just _setup-axi-hooks "$tmp/failing-axi" 2>&1)
@@ -42,6 +51,15 @@ set -e
 output=$(cd "$repo" && just _setup-axi-hooks "$tmp/unsupported-axi" 2>&1)
 [[ $output == *"no setup hooks"* ]] || fail "unsupported hooks were not identified"
 [[ ! -e "$tmp/unsupported-ran" ]] || fail "unsupported setup hooks were executed"
+
+set +e
+output=$(cd "$repo" && just _setup-axi-hooks "$tmp/broken-probe-axi" 2>&1)
+status=$?
+set -e
+[[ $status -eq 42 ]] || fail "capability probe failure returned $status instead of 42"
+[[ $output == *"simulated capability probe failure"* ]] || fail "capability probe error output was hidden"
+[[ $output == *"capability probe failed"* ]] || fail "capability probe failure was not reported"
+[[ $output != *"no setup hooks"* ]] || fail "capability probe failure was reported as unsupported hooks"
 
 fake_bin="$tmp/fake-bin"
 mkdir -p "$fake_bin"
