@@ -4,7 +4,7 @@ The shared agent-agnostic skill set lives in `.agents/skills/` (SKILL.md dirs).
 Each configured agent reads that source:
 
 - Claude   -> `~/.claude/skills` symlinks to `.agents/skills` (see `home.nix`)
-- opencode -> per-skill symlinks in `opencode/skills/` (created by `just update-skills`)
+- opencode -> managed per-skill symlinks in `opencode/skills/` (created by `just update-skills`, without replacing tool-managed entries)
 
 ## Not committed - regenerated from source
 
@@ -27,7 +27,7 @@ Enter the ui.sh token manually when its masked prompt appears.
 
 - `just skills`        - list installed skills + descriptions
 - `just check-skills`  - validate each has a SKILL.md with name + description
-- `just update-skills` - refresh EVERY skill from source (and re-wire opencode)
+- `just update-skills` - refresh EVERY skill from source and re-wire only the opencode links that target `.agents/skills`
 
 ## Provenance
 
@@ -35,8 +35,8 @@ Enter the ui.sh token manually when its masked prompt appears.
 |---|---|---|---|
 | learning-opportunities | git repo | `https://github.com/DrCatHicks/learning-opportunities.git` | none (public) |
 | ui.sh (design, ideas, ...) | authenticated npx | `@uidotsh/install` | manual entry in the masked prompt |
-| whathappened | git repo (skills CLI) | `kunchenguid/whathappened` via `npx skills add -g` | none |
-| vercel-labs skills | skills CLI | `vercel-labs/agent-skills`, `vercel-labs/skills` via `npx skills add -g` | none |
+| whathappened | git repo (skills CLI) | `kunchenguid/whathappened` via non-interactive `npx skills add -g --agent '*'` | none |
+| vercel-labs skills | skills CLI | `vercel-labs/agent-skills`, `vercel-labs/skills` via non-interactive `npx skills add -g --agent '*'` | none |
 | memtrace-* (opencode) | tool-generated | `memtrace doctor --fix --repair-install` | memtrace license |
 
 The memtrace-* skills declare `compatibility: opencode` and stay in

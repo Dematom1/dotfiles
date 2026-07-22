@@ -32,6 +32,7 @@ bindkey '^[[A' history-search-backward
 bindkey '^[[B' history-search-forward
 
 # --- Sketchybar: expose cwd for git-branch integration ---
+# Replace the state atomically without following a pre-existing destination symlink.
 function update_sketchybar_pwd() {
   local target="${SKETCHYBAR_PWD_FILE:-/tmp/sketchybar_pwd}"
   local tmp
