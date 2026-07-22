@@ -103,8 +103,13 @@ setup profile="": (_select-profile profile)
     #!/usr/bin/env bash
     set -euo pipefail
     if ! command -v nix >/dev/null 2>&1; then
-      echo "==> Installing Determinate Nix"
-      curl -fsSL https://install.determinate.systems/nix | sh -s -- install
+      echo "==> Installing Determinate Nix (macOS package)"
+      # Use the macOS .pkg, not the shell installer: the shell path edits
+      # /etc/fstab, which MDM-managed work Macs block, and it needs a TTY to
+      # confirm (fails inside a `just` recipe). The pkg handles both.
+      pkg="$(mktemp -d)/determinate-nix.pkg"
+      curl -fsSL -o "$pkg" https://install.determinate.systems/determinate-pkg/stable/Universal
+      sudo installer -pkg "$pkg" -target /
       # Put nix on PATH for THIS shell so rebuild runs without a relogin.
       for p in /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh \
                /nix/var/nix/profiles/default/etc/profile.d/nix.sh; do
@@ -126,7 +131,9 @@ nix-install:
     if command -v nix >/dev/null 2>&1; then
       echo "nix already installed: $(nix --version)"; exit 0
     fi
-    curl -fsSL https://install.determinate.systems/nix | sh -s -- install
+    pkg="$(mktemp -d)/determinate-nix.pkg"
+    curl -fsSL -o "$pkg" https://install.determinate.systems/determinate-pkg/stable/Universal
+    sudo installer -pkg "$pkg" -target /
     echo "Nix installed. Open a new shell, then run:  just rebuild"
 
 # (internal) If PROFILE is given, validate it and write ~/.config/dotfiles-profile.
