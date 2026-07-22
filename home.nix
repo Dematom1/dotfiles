@@ -2,12 +2,11 @@
 
 let
   dotfiles = "${config.home.homeDirectory}/Code/dotfiles";
-  chromeDevtoolsMcp = pkgs.writeShellApplication {
+  chromeDevtoolsMcp = pkgs.writeTextFile {
     name = "chrome-devtools-mcp";
-    runtimeInputs = [ pkgs.nodejs_24 ];
-    text = ''
-      exec node ${./scripts/chrome-devtools-mcp.js} "$@"
-    '';
+    destination = "/bin/chrome-devtools-mcp";
+    executable = true;
+    text = builtins.readFile ./scripts/chrome-devtools-mcp.js;
   };
 in
 {

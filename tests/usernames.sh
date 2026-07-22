@@ -40,6 +40,8 @@ for profile_user in personal:laszlohoranszky work:laszlo; do
     || fail "$profile profile browser launcher depends on a source checkout path"
   nix build --no-link "$repo#darwinConfigurations.$profile.config.home-manager.users.$user.home.activationPackage"
   [[ -x $launcher ]] || fail "$profile profile browser launcher is not executable"
+  node --check "$launcher" >/dev/null \
+    || fail "$profile profile browser launcher is not a Node-compatible JavaScript entrypoint"
 done
 
 [[ $(nix eval --raw "$repo#darwinConfigurations.personal.config.users.users" \

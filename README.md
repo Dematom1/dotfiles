@@ -146,9 +146,9 @@ The runtime uses a selective diagnostics policy:
   their enabled vendor defaults.
 - Determinate Nix crash and installer diagnostics remain enabled.
 - `chrome-devtools-axi` remains the browser launcher. Home Manager points its
-  supported `CHROME_DEVTOOLS_AXI_MCP_PATH` override at a Nix-managed executable
-  in the profile closure, independent of the dotfiles checkout location. That
-  executable runs `scripts/chrome-devtools-mcp.js`, which passes
+  supported `CHROME_DEVTOOLS_AXI_MCP_PATH` override at a Nix-managed copy of
+  `scripts/chrome-devtools-mcp.js` in the profile closure, independent of the
+  dotfiles checkout location. That JavaScript entrypoint passes
   `--no-usage-statistics` to the MCP server. The vendor opt-out environment
   variable is also exported for direct invocations.
 - Clawdbot is intentionally retired. It is not a package, bootstrap dependency,
