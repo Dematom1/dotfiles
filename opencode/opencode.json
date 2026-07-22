@@ -10,5 +10,16 @@
         "llama3.1:8b": {}
       }
     }
+  },
+  "mcp": {
+    "memtrace": {
+      "type": "local",
+      "command": [
+        "memtrace",
+        "mcp"
+      ],
+      "enabled": true,
+      "environment": {}
+    }
   }
 }

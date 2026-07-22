@@ -123,9 +123,8 @@
 | Keys | Action |
 |------|--------|
 | `ff` | Find files |
-| `fr` | Find from git root |
-| `fd` | Find in directory |
-| `fc` | Change directory |
+| `fs` | Live grep |
+| `fz` | Fuzzy live grep |
 
 ### Harpoon
 | Keys | Action |
@@ -138,19 +137,10 @@
 
 ## Search & Replace
 
-### Telescope
-| Keys | Action |
-|------|--------|
-| `<leader>fs` | Live grep (search in files) |
-| `<leader>fc` | Find string under cursor |
-| `<leader>fh` | Search harpoon marks |
-| `<leader>fk` | Search keymaps |
-| `<leader>fp` | Search lazy plugins |
-
 ### Spectre (Project-wide Replace)
 | Keys | Action |
 |------|--------|
-| `<leader>sr` | Open Spectre |
+| `<leader>sR` | Open Spectre |
 | `<leader>sw` | Search word under cursor |
 | `<leader>sp` | Search in current file |
 

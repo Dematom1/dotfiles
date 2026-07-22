@@ -1,0 +1,15 @@
+# Generated skill content is not committed. See .agents/SKILLS.md for sources,
+# authentication requirements, and regeneration instructions.
+/.agents/skills/*
+!/.agents/skills/.gitkeep
+/opencode/skills/*
+!/opencode/skills/.gitkeep
+
+# Tool-local state, caches, and tool-installed plugins - all regenerated
+# (tokensave index DB, Claude project state, opencode plugins from AXI/memtrace,
+# via `just setup-firstmate` / `just update-skills`).
+/.tokensave/
+/.claude/
+/profile.json.gz
+/opencode/plugin/
+/opencode/plugins/

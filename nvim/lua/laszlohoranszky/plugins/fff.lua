@@ -36,40 +36,22 @@ return {
 			desc = "FFFind files",
 		},
 		{
-			"fr",
+			"fs",
 			function()
-				require("fff").find_in_git_root()
+				require("fff").live_grep()
 			end,
-			desc = "Find files in current git repo",
+			desc = "LiFFFe grep",
 		},
 		{
-			"fd",
+			"fz",
 			function()
-				local path = vim.fn.input("Directory: ", "", "dir")
-				if path ~= "" then
-					require("fff").find_files_in_dir(path)
-				end
+				require("fff").live_grep({
+					grep = {
+						modes = { "fuzzy", "plain" },
+					},
+				})
 			end,
-			desc = "Find files in path",
-		},
-		{
-			"fc",
-			function()
-				-- Prompt for new indexing directory
-				local path = vim.fn.input("Change to directory: ", "", "dir")
-				if path ~= "" then
-					require("fff").change_indexing_directory(path)
-				end
-			end,
-			desc = "FFChange indexing directory",
-		},
-		{
-			"fr",
-			function()
-				local cwd = vim.fn.getcwd()
-				require("fff").change_indexing_directory(cwd)
-			end,
-			desc = "FFChange indexing to current directory",
+			desc = "Live fuzzy grep",
 		},
 	},
 }
