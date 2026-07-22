@@ -2,6 +2,12 @@
 
 let
   dotfiles = "${config.home.homeDirectory}/Code/dotfiles";
+  chromeDevtoolsMcp = pkgs.writeTextFile {
+    name = "chrome-devtools-mcp";
+    destination = "/bin/chrome-devtools-mcp";
+    executable = true;
+    text = builtins.readFile ./scripts/chrome-devtools-mcp.js;
+  };
 in
 {
   # home.username / home.homeDirectory are derived from the profile's
@@ -24,6 +30,7 @@ in
     websocat curl
     # window manager (was a homebrew cask from nikitabobko/tap - native in nixpkgs)
     aerospace
+    chromeDevtoolsMcp
 
     nerd-fonts.hack
   ]
@@ -38,7 +45,13 @@ in
     awscli2
   ];
   fonts.fontconfig.enable = true;
-  home.sessionVariables.EDITOR = "nvim";
+  home.sessionVariables = {
+    EDITOR = "nvim";
+    # chrome-devtools-axi's MCP SDK filters arbitrary inherited variables, so
+    # route it through the tracked launcher that passes the explicit opt-out.
+    CHROME_DEVTOOLS_AXI_MCP_PATH = "${chromeDevtoolsMcp}/bin/chrome-devtools-mcp";
+    CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS = "1";
+  };
 
   # Edit-in-place: the real files stay in the repo, ~ just points at them
   # (mkOutOfStoreSymlink, so edits don't need a rebuild - unlike a store copy).

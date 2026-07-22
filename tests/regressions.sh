@@ -226,6 +226,70 @@ done
 
 ! grep -q 'UIDOTSH_TOKEN' "$repo/zsh/secrets.tpl" || fail "UI token remains in credential automation"
 
+policy_surfaces=()
+while IFS= read -r -d '' surface; do
+  case "$surface" in
+    tests/*|examples/*|*.md|*.lock) continue ;;
+    Brewfile|justfile|package.json|*.nix|*.sh|*.bash|*.zsh|*.plist|*.json|*.toml|*.yaml|*.yml|*.conf|*.config|*rc|scripts/*|zsh/*|hosts/*|.github/workflows/*)
+      policy_surfaces+=("$repo/$surface")
+      ;;
+  esac
+done < <(git -C "$repo" ls-files -z)
+while IFS=$'\t' read -r metadata surface; do
+  [[ ${metadata%% *} == 100755 && "$surface" != tests/* && "$surface" != examples/* ]] || continue
+  policy_surfaces+=("$repo/$surface")
+done < <(git -C "$repo" ls-files --stage)
+
+! grep -Eqi 'DISABLE_TELEMETRY|DISABLE_ERROR_REPORTING|CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC' \
+  "${policy_surfaces[@]}" \
+  || fail "Claude Code diagnostics opt-out was added to managed configuration"
+! grep -Eqi 'DETSYS_IDS_TELEMETRY|NIX_INSTALLER_DIAGNOSTIC_ENDPOINT|--diagnostic-endpoint([=[:space:]]|$)|sentry[-_]report[-_]endpoint' \
+  "${policy_surfaces[@]}" \
+  || fail "Determinate Nix diagnostics opt-out was added to managed configuration"
+
+browser_bin="$tmp/browser-bin"
+mkdir -p "$browser_bin"
+cat > "$browser_bin/npx" <<'EOF'
+#!/usr/bin/env bash
+if [[ -n ${SIGNAL_READY-} ]]; then
+  printf '%s\n' "$$" > "$SIGNAL_CHILD_PID"
+  : > "$SIGNAL_READY"
+  exec sleep 30
+fi
+printf 'args=%s\n' "$*"
+printf 'optout=%s\n' "${CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS-}"
+EOF
+chmod +x "$browser_bin/npx"
+node_bin=$(command -v node)
+output=$(PATH="$browser_bin:/usr/bin:/bin" "$node_bin" "$repo/scripts/chrome-devtools-mcp.js" --isolated --headless)
+[[ "$output" == *"args=-y chrome-devtools-mcp@latest --no-usage-statistics --isolated --headless"* ]] \
+  || fail "chrome-devtools-mcp launcher omitted the explicit usage-statistics opt-out"
+[[ "$output" == *"optout=1"* ]] \
+  || fail "chrome-devtools-mcp launcher omitted the opt-out environment fallback"
+
+signal_ready="$tmp/browser-signal-ready"
+signal_child_pid="$tmp/browser-signal-child-pid"
+SIGNAL_READY="$signal_ready" SIGNAL_CHILD_PID="$signal_child_pid" \
+  PATH="$browser_bin:/usr/bin:/bin" "$node_bin" "$repo/scripts/chrome-devtools-mcp.js" >/dev/null 2>&1 &
+browser_wrapper_pid=$!
+for _ in {1..100}; do
+  [[ -e "$signal_ready" ]] && break
+  sleep 0.01
+done
+[[ -e "$signal_ready" ]] || fail "chrome-devtools-mcp signal probe did not start"
+kill -TERM "$browser_wrapper_pid"
+set +e
+wait "$browser_wrapper_pid"
+status=$?
+set -e
+[[ $status -eq 143 ]] || fail "chrome-devtools-mcp launcher returned $status after SIGTERM instead of 143"
+browser_child_pid=$(<"$signal_child_pid")
+! kill -0 "$browser_child_pid" 2>/dev/null \
+  || fail "chrome-devtools-mcp child remained after forwarded SIGTERM"
+
+! grep -Fqi 'clawdbot' "${policy_surfaces[@]}" \
+  || fail "Clawdbot returned on a tracked configuration surface"
+
 output=$(cd "$repo" && just --dry-run update-skills 2>&1)
 [[ $(grep -c "skills add .* -g -y --agent '\*'" <<<"$output") -eq 3 ]] || fail "skills installers are not explicit and non-interactive"
 [[ $output == *"\$(readlink \"\$link\")"* ]] || fail "skill-link cleanup does not inspect symlink targets"
@@ -383,7 +447,8 @@ for recipe in setup-firstmate update-firstmate; do
   [[ $output != *"FirstMate stack updated."* ]] || fail "$recipe reported update success after a hook failure"
 done
 
-INIT_ZSH="$repo/zsh/init.zsh" TEST_TMP="$tmp" SKETCHYBAR_PWD_FILE="$tmp/sketchybar_pwd" zsh -f <<'EOF'
+CHROME_DEVTOOLS_AXI_MCP_PATH="/nix/store/test-browser-launcher/bin/chrome-devtools-mcp" \
+  INIT_ZSH="$repo/zsh/init.zsh" TEST_TMP="$tmp" SKETCHYBAR_PWD_FILE="$tmp/sketchybar_pwd" zsh -f <<'EOF'
 fzf() { return 0 }
 direnv() { return 0 }
 zoxide() { return 0 }
@@ -393,6 +458,11 @@ add-zsh-hook() { : }
 zle() { : }
 bindkey() { : }
 source "$INIT_ZSH"
+
+[[ "$CHROME_DEVTOOLS_AXI_MCP_PATH" == "/nix/store/test-browser-launcher/bin/chrome-devtools-mcp" ]] \
+  || { print -u2 "FAIL: live shell replaced the Nix-managed browser launcher"; exit 1; }
+[[ "$CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS" == 1 ]] \
+  || { print -u2 "FAIL: live shell omitted the browser telemetry opt-out"; exit 1; }
 
 victim="$TEST_TMP/sketchybar-victim"
 print -r -- "unchanged" > "$victim"

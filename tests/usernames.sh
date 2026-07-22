@@ -28,6 +28,22 @@ nix_value() {
 [[ $(nix_value darwinConfigurations.work.config.home-manager.users.laszlo.home.homeDirectory) == /Users/laszlo ]] \
   || fail "work Home Manager selected the wrong home"
 
+for profile_user in personal:laszlohoranszky work:laszlo; do
+  IFS=: read -r profile user <<<"$profile_user"
+  prefix="darwinConfigurations.$profile.config.home-manager.users.$user.home.sessionVariables"
+  [[ $(nix_value "$prefix.CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS") == 1 ]] \
+    || fail "$profile profile did not disable chrome-devtools-mcp usage statistics"
+  launcher=$(nix_value "$prefix.CHROME_DEVTOOLS_AXI_MCP_PATH")
+  [[ $launcher == /nix/store/*/bin/chrome-devtools-mcp ]] \
+    || fail "$profile profile did not select the Nix-managed chrome-devtools-mcp launcher"
+  [[ $launcher != *"/Users/"*"/Code/dotfiles"* ]] \
+    || fail "$profile profile browser launcher depends on a source checkout path"
+  nix build --no-link "$repo#darwinConfigurations.$profile.config.home-manager.users.$user.home.activationPackage"
+  [[ -x $launcher ]] || fail "$profile profile browser launcher is not executable"
+  node --check "$launcher" >/dev/null \
+    || fail "$profile profile browser launcher is not a Node-compatible JavaScript entrypoint"
+done
+
 [[ $(nix eval --raw "$repo#darwinConfigurations.personal.config.users.users" \
   --apply 'users: builtins.concatStringsSep "," (builtins.attrNames users)') == laszlohoranszky ]] \
   || fail "personal profile rendered an unexpected user set"

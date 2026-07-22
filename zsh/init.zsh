@@ -13,6 +13,9 @@ export PATH="/usr/local/zig:$PATH"
 export PATH="$HOME/.lmstudio/bin:$PATH"
 export PATH="$HOME/.opencode/bin:$PATH"
 
+# Keep the vendor browser telemetry opt-out explicit in interactive shells.
+export CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS="1"
+
 # --- Tool initialization ---
 eval "$(fzf --zsh)"
 eval "$(direnv hook zsh)"
