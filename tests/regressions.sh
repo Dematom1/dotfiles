@@ -447,7 +447,8 @@ for recipe in setup-firstmate update-firstmate; do
   [[ $output != *"FirstMate stack updated."* ]] || fail "$recipe reported update success after a hook failure"
 done
 
-INIT_ZSH="$repo/zsh/init.zsh" TEST_TMP="$tmp" SKETCHYBAR_PWD_FILE="$tmp/sketchybar_pwd" zsh -f <<'EOF'
+CHROME_DEVTOOLS_AXI_MCP_PATH="/nix/store/test-browser-launcher/bin/chrome-devtools-mcp" \
+  INIT_ZSH="$repo/zsh/init.zsh" TEST_TMP="$tmp" SKETCHYBAR_PWD_FILE="$tmp/sketchybar_pwd" zsh -f <<'EOF'
 fzf() { return 0 }
 direnv() { return 0 }
 zoxide() { return 0 }
@@ -458,8 +459,8 @@ zle() { : }
 bindkey() { : }
 source "$INIT_ZSH"
 
-[[ "$CHROME_DEVTOOLS_AXI_MCP_PATH" == "$HOME/Code/dotfiles/scripts/chrome-devtools-mcp.js" ]] \
-  || { print -u2 "FAIL: live shell omitted the browser launcher override"; exit 1; }
+[[ "$CHROME_DEVTOOLS_AXI_MCP_PATH" == "/nix/store/test-browser-launcher/bin/chrome-devtools-mcp" ]] \
+  || { print -u2 "FAIL: live shell replaced the Nix-managed browser launcher"; exit 1; }
 [[ "$CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS" == 1 ]] \
   || { print -u2 "FAIL: live shell omitted the browser telemetry opt-out"; exit 1; }
 

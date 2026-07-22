@@ -33,8 +33,13 @@ for profile_user in personal:laszlohoranszky work:laszlo; do
   prefix="darwinConfigurations.$profile.config.home-manager.users.$user.home.sessionVariables"
   [[ $(nix_value "$prefix.CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS") == 1 ]] \
     || fail "$profile profile did not disable chrome-devtools-mcp usage statistics"
-  [[ $(nix_value "$prefix.CHROME_DEVTOOLS_AXI_MCP_PATH") == "/Users/$user/Code/dotfiles/scripts/chrome-devtools-mcp.js" ]] \
-    || fail "$profile profile did not select the tracked chrome-devtools-mcp launcher"
+  launcher=$(nix_value "$prefix.CHROME_DEVTOOLS_AXI_MCP_PATH")
+  [[ $launcher == /nix/store/*/bin/chrome-devtools-mcp ]] \
+    || fail "$profile profile did not select the Nix-managed chrome-devtools-mcp launcher"
+  [[ $launcher != *"/Users/"*"/Code/dotfiles"* ]] \
+    || fail "$profile profile browser launcher depends on a source checkout path"
+  nix build --no-link "$repo#darwinConfigurations.$profile.config.home-manager.users.$user.home.activationPackage"
+  [[ -x $launcher ]] || fail "$profile profile browser launcher is not executable"
 done
 
 [[ $(nix eval --raw "$repo#darwinConfigurations.personal.config.users.users" \

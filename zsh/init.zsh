@@ -13,8 +13,7 @@ export PATH="/usr/local/zig:$PATH"
 export PATH="$HOME/.lmstudio/bin:$PATH"
 export PATH="$HOME/.opencode/bin:$PATH"
 
-# Keep browser telemetry disabled in live-sourced shells before the next rebuild.
-export CHROME_DEVTOOLS_AXI_MCP_PATH="$HOME/Code/dotfiles/scripts/chrome-devtools-mcp.js"
+# Keep the vendor browser telemetry opt-out explicit in interactive shells.
 export CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS="1"
 
 # --- Tool initialization ---

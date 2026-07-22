@@ -2,6 +2,13 @@
 
 let
   dotfiles = "${config.home.homeDirectory}/Code/dotfiles";
+  chromeDevtoolsMcp = pkgs.writeShellApplication {
+    name = "chrome-devtools-mcp";
+    runtimeInputs = [ pkgs.nodejs_24 ];
+    text = ''
+      exec node ${./scripts/chrome-devtools-mcp.js} "$@"
+    '';
+  };
 in
 {
   # home.username / home.homeDirectory are derived from the profile's
@@ -24,6 +31,7 @@ in
     websocat curl
     # window manager (was a homebrew cask from nikitabobko/tap - native in nixpkgs)
     aerospace
+    chromeDevtoolsMcp
 
     nerd-fonts.hack
   ]
@@ -42,7 +50,7 @@ in
     EDITOR = "nvim";
     # chrome-devtools-axi's MCP SDK filters arbitrary inherited variables, so
     # route it through the tracked launcher that passes the explicit opt-out.
-    CHROME_DEVTOOLS_AXI_MCP_PATH = "${dotfiles}/scripts/chrome-devtools-mcp.js";
+    CHROME_DEVTOOLS_AXI_MCP_PATH = "${chromeDevtoolsMcp}/bin/chrome-devtools-mcp";
     CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS = "1";
   };
 
