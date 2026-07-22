@@ -1,7 +1,5 @@
-# Skills are regenerated from source via `just update-skills` (see .agents/SKILLS.md),
-# not committed. The ui.sh and memtrace skills are authed/licensed and this repo is
-# public, so their content must never be committed. Reproduce them with:
-#   op signin && refresh-secrets && just update-skills
+# Generated skill content is not committed. See .agents/SKILLS.md for sources,
+# authentication requirements, and regeneration instructions.
 /.agents/skills/*
 !/.agents/skills/.gitkeep
 /opencode/skills/*
