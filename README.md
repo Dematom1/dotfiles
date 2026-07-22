@@ -138,6 +138,26 @@ them:
 The Codex wrapper therefore keeps its current no-proxy and no-TokenSave posture
 while preserving the existing Headroom invocation and port.
 
+## AI runtime hygiene
+
+The runtime uses a selective diagnostics policy:
+
+- Claude Code operational usage metrics and redacted error diagnostics remain at
+  their enabled vendor defaults.
+- Determinate Nix crash and installer diagnostics remain enabled.
+- `chrome-devtools-axi` remains the browser launcher. Home Manager points its
+  supported `CHROME_DEVTOOLS_AXI_MCP_PATH` override at
+  `scripts/chrome-devtools-mcp.js`, which passes `--no-usage-statistics` to the
+  MCP server. The vendor opt-out environment variable is also exported for
+  direct invocations.
+- Clawdbot is intentionally retired. It is not a package, bootstrap dependency,
+  or launch service in this repository and must not be added back without an
+  explicit decision.
+
+`just check-regressions` verifies the browser opt-out for both host profiles,
+keeps the Claude diagnostics opt-outs absent, and rejects Clawdbot on package
+and bootstrap installation surfaces.
+
 ## Updating and checks
 
 ```bash

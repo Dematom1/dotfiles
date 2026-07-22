@@ -38,7 +38,13 @@ in
     awscli2
   ];
   fonts.fontconfig.enable = true;
-  home.sessionVariables.EDITOR = "nvim";
+  home.sessionVariables = {
+    EDITOR = "nvim";
+    # chrome-devtools-axi's MCP SDK filters arbitrary inherited variables, so
+    # route it through the tracked launcher that passes the explicit opt-out.
+    CHROME_DEVTOOLS_AXI_MCP_PATH = "${dotfiles}/scripts/chrome-devtools-mcp.js";
+    CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS = "1";
+  };
 
   # Edit-in-place: the real files stay in the repo, ~ just points at them
   # (mkOutOfStoreSymlink, so edits don't need a rebuild - unlike a store copy).

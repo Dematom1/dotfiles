@@ -226,6 +226,41 @@ done
 
 ! grep -q 'UIDOTSH_TOKEN' "$repo/zsh/secrets.tpl" || fail "UI token remains in credential automation"
 
+# Keep the approved selective diagnostics posture declarative. Claude Code usage
+# and error diagnostics stay enabled, while the browser MCP opts out separately.
+! grep -REq 'DISABLE_TELEMETRY|DISABLE_ERROR_REPORTING|CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC' \
+  "$repo/home.nix" "$repo/configuration.nix" "$repo/hosts" "$repo/zsh" "$repo/justfile" \
+  || fail "Claude Code diagnostics opt-out was added to managed configuration"
+
+browser_bin="$tmp/browser-bin"
+mkdir -p "$browser_bin"
+cat > "$browser_bin/npx" <<'EOF'
+#!/usr/bin/env bash
+printf 'args=%s\n' "$*"
+printf 'optout=%s\n' "${CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS-}"
+EOF
+chmod +x "$browser_bin/npx"
+node_bin=$(command -v node)
+output=$(PATH="$browser_bin:/usr/bin:/bin" "$node_bin" "$repo/scripts/chrome-devtools-mcp.js" --isolated --headless)
+[[ "$output" == *"args=-y chrome-devtools-mcp@latest --no-usage-statistics --isolated --headless"* ]] \
+  || fail "chrome-devtools-mcp launcher omitted the explicit usage-statistics opt-out"
+[[ "$output" == *"optout=1"* ]] \
+  || fail "chrome-devtools-mcp launcher omitted the opt-out environment fallback"
+
+# Clawdbot is retired and must not return through a package or bootstrap surface.
+for surface in \
+  "$repo/Brewfile" \
+  "$repo/configuration.nix" \
+  "$repo/flake.nix" \
+  "$repo/home.nix" \
+  "$repo/hosts/personal.nix" \
+  "$repo/hosts/work.nix" \
+  "$repo/justfile" \
+  "$repo/rebuild.sh"; do
+  ! grep -Eqi '(^|[^[:alnum:]_-])clawdbot([^[:alnum:]_-]|$)' "$surface" \
+    || fail "Clawdbot returned on installation surface ${surface#"$repo/"}"
+done
+
 output=$(cd "$repo" && just --dry-run update-skills 2>&1)
 [[ $(grep -c "skills add .* -g -y --agent '\*'" <<<"$output") -eq 3 ]] || fail "skills installers are not explicit and non-interactive"
 [[ $output == *"\$(readlink \"\$link\")"* ]] || fail "skill-link cleanup does not inspect symlink targets"
