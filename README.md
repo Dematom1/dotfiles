@@ -1,53 +1,163 @@
 # Dotfiles
 
-My macOS development environment, managed with **nix-darwin + home-manager**
-(Determinate Nix) plus a `just`-driven agent-tooling layer.
+macOS development environment managed with Determinate Nix, nix-darwin, Home
+Manager, an existing Homebrew installation, and `just` recipes for agent tools
+and skills.
 
-## What's Included
+## Supported machines
+
+The flake owns the machine-to-account mapping:
+
+| Profile | macOS account | Home directory | Host module |
+|---|---|---|---|
+| `personal` | `laszlohoranszky` | `/Users/laszlohoranszky` | `hosts/personal.nix` |
+| `work` | `laszlo` | `/Users/laszlo` | `hosts/work.nix` |
+
+`flake.nix` is the username source of truth. It passes the selected username to
+nix-darwin, which sets `system.primaryUser` and `users.users`, and Home Manager
+is attached to that same user. `home.nix` derives its username, home directory,
+and `~/Code/dotfiles` links from that configuration.
+
+`rebuild.sh` defaults to `personal` for backward compatibility. Before running
+`darwin-rebuild`, it evaluates the selected profile's primary user and compares
+it with `id -un`. An unknown profile, an empty profile marker, or a profile for
+a different account fails without activating anything. In particular, running
+without the work marker as `laszlo` cannot silently target the personal home.
+
+## Included configuration
 
 | Tool | Purpose |
-|------|---------|
-| **nvim** | Neovim config with LSP, DAP, Treesitter |
+|---|---|
+| **nvim** | Neovim with LSP, DAP, and Treesitter |
 | **tmux** | Terminal multiplexer |
-| **zsh** | Shell (Powerlevel10k; declared in `home.nix` + `zsh/init.zsh`) |
+| **zsh** | Home Manager shell, Powerlevel10k, and live `zsh/init.zsh` extras |
 | **ghostty** / **wezterm** | Terminal emulators |
 | **atuin** | Shell history search |
 | **direnv** | Per-project environments |
-| **git** | Git config with delta |
+| **git** | Git configuration with delta |
 | **yazi** | Terminal file manager |
-| **bat** | Syntax-highlighted cat |
+| **bat** | Syntax-highlighted output |
 | **aerospace** | macOS window manager |
 | **sketchybar** | macOS status bar |
 
-## Installation
+## Prerequisites
 
-Prerequisites: [Determinate Nix](https://determinate.systems/) and Homebrew
-(nix-darwin drives Homebrew casks via `brew bundle`, but does not install brew).
+- An Apple Silicon Mac with the matching account name from the table above
+- [Determinate Nix](https://determinate.systems/)
+- Homebrew already installed and available to nix-darwin
+- Git, or the Xcode Command Line Tools needed to clone this repository
+- A 1Password account for the private values referenced by `zsh/secrets.tpl`
+
+`nix-homebrew` is imported, but intentionally not enabled. nix-darwin manages
+the existing Homebrew installation through its Homebrew activation. Activation
+uses cleanup mode `zap`, so applications or formulae not declared in the shared
+or selected host configuration can be removed.
+
+## Fresh-machine bootstrap
 
 ```bash
-# 1. Clone
-git clone https://github.com/Dematom1/dotfiles.git ~/Code/dotfiles
-cd ~/Code/dotfiles
+# 1. Clone to the canonical location.
+git clone https://github.com/Dematom1/dotfiles.git "$HOME/Code/dotfiles"
+cd "$HOME/Code/dotfiles"
 
-# 2. (work Mac only) select the work profile
+# 2. Work Mac only: select the work profile before the first rebuild.
 mkdir -p "$HOME/.config"
 printf 'work\n' > "$HOME/.config/dotfiles-profile"
 
-# 3. Build system + home - installs tools, symlinks every config
+# 3. Install system and user packages and activate the managed configuration.
 ./rebuild.sh
 
-# 4. Secrets + agent tooling
-op signin && just bootstrap   # ~/.secrets + FirstMate stack + all skills
+# 4. Authenticate 1Password, render ~/.secrets, and install agent tooling/skills.
+op signin
+just bootstrap
 ```
 
-`home.nix` symlinks configs live from this repo (`mkOutOfStoreSymlink`), so most
-edits apply without a rebuild.
+The personal machine needs no profile file. To switch an existing checkout to
+the work profile, write exactly `work` as shown above. Supported profile values
+are only `personal` and `work`.
 
-## Key Bindings
+A clone outside `~/Code/dotfiles` is also supported: `rebuild.sh` creates the
+canonical `~/Code/dotfiles` symlink to the checkout. It refuses to replace an
+existing non-symlink at that path.
+
+### What each layer owns
+
+1. **`flake.nix`** selects the host profile and its account name, then composes
+   the shared Darwin module, host module, Home Manager, and Homebrew integration.
+2. **`configuration.nix`** owns system defaults, the selected macOS user,
+   shared Homebrew packages, and shared system configuration.
+3. **`hosts/personal.nix` and `hosts/work.nix`** append machine-specific
+   Homebrew packages. Profile-specific Nix packages are selected in `home.nix`.
+4. **`home.nix`** owns user packages, zsh structure and aliases, and selected
+   out-of-store links into this repository.
+5. **`just bootstrap`** renders secrets, installs the FirstMate/Pi/Herdr and AXI
+   tool stack, refreshes skills, and wires the generated skill directories.
+
+Home Manager uses `mkOutOfStoreSymlink`, so edits to linked files apply without
+copying them into the Nix store or rebuilding. On first activation, an existing
+file in the way is renamed with a `.bak` suffix.
+
+Linking is intentionally selective. Home Manager links the listed application
+configurations, top-level shell files, shared agent instructions, and the
+Claude skill source. It links only `karabiner.json`, leaving Karabiner assets and
+backups tool-owned. It also leaves `~/.claude/settings.json` tool-owned because
+AXI setup hooks mutate it.
+
+OpenCode skill wiring is generated by `just update-skills`. It removes only
+links that point to this repository's `.agents/skills` tree, preserves
+tool-managed links and existing destinations, and creates only missing shared
+skill links. Generated and authenticated skill content remains gitignored.
+
+## Credentials and authenticated skills
+
+`zsh/secrets.tpl` contains only 1Password references. Real values are rendered
+to `~/.secrets`, which is outside the repository and sourced by the Home
+Manager zsh setup:
+
+```bash
+op signin
+just refresh-secrets
+```
+
+The ui.sh installer is deliberately interactive. During `just bootstrap`,
+`just update-skills`, or `just update-ui-skill`, enter its token only in the
+installer's masked prompt. The recipes remove any inherited `UIDOTSH_TOKEN` and
+do not pass a token through argv. Do not put the token in a command, environment
+file, repository file, chat, logs, or agent pane. The setup does not inspect the
+clipboard.
+
+## Agent wrappers
+
+Home Manager persists the Headroom wrappers as zsh aliases, so rebuilds retain
+them:
+
+- `claude` runs `headroom wrap claude --1m --`.
+- `codex` runs Headroom on local port `8787` with `--no-proxy`,
+  `--no-context-tool`, `--no-mcp`, `--no-tokensave`, and `--no-serena`.
+
+The Codex wrapper therefore keeps its current no-proxy and no-TokenSave posture
+while preserving the existing Headroom invocation and port.
+
+## Updating and checks
+
+```bash
+cd "$HOME/Code/dotfiles"
+git pull
+./rebuild.sh          # system, Homebrew, Home Manager, and profile packages
+just update           # skills and the FirstMate agent stack
+just check-regressions
+```
+
+`just check-regressions` evaluates both flake profiles and verifies their
+Darwin and Home Manager homes. It also checks profile validation, selective
+OpenCode links, masked ui.sh installation, SketchyBar state-file safety, AXI
+hook failures, and shell regressions.
+
+## Key bindings
 
 ### Neovim
 
-See [nvim/CHEATSHEET.md](nvim/CHEATSHEET.md) for the authoritative keybinding reference.
+See [nvim/CHEATSHEET.md](nvim/CHEATSHEET.md) for the authoritative reference.
 
 ### Tmux
 
@@ -60,56 +170,24 @@ See [nvim/CHEATSHEET.md](nvim/CHEATSHEET.md) for the authoritative keybinding re
 ### Shell
 
 - `Ctrl-R` - Atuin history search
-- `Ctrl-T` - FZF repo selector + tmux
+- `Ctrl-T` - FZF repository selector and tmux
 - `z <dir>` - Zoxide smart cd
 - `y` - Yazi file manager
 
-## Directory Structure
+## Repository map
 
-```
+```text
 dotfiles/
-├── flake.nix            # nix-darwin + home-manager flake
-├── configuration.nix    # system-level (macOS defaults, Homebrew casks/brews)
-├── home.nix             # user-level (packages, dotfile symlinks, zsh)
-├── hosts/               # per-machine deltas (personal.nix, work.nix)
-├── rebuild.sh           # darwin-rebuild wrapper (picks the profile)
-├── justfile             # bootstrap / update / skills / FirstMate recipes
-├── .agents/             # agent-agnostic skills + SKILLS.md
-├── nvim/                # Neovim configuration
-├── zsh/
-│   ├── init.zsh         # live-sourced shell extras (functions, PATH, env)
-│   └── p10k.zsh         # Powerlevel10k config
-├── ghostty/ atuin/ direnv/ git/ yazi/ bat/
+├── flake.nix            # host/profile/account mapping and module composition
+├── configuration.nix    # shared nix-darwin system and Homebrew configuration
+├── home.nix             # Home Manager packages, links, zsh, and wrappers
+├── hosts/               # personal.nix and work.nix machine deltas
+├── rebuild.sh           # validated profile selection and darwin-rebuild
+├── justfile             # bootstrap, update, skills, and checks
+├── tests/               # account-selection and shell regressions
+├── .agents/             # shared skill source and provenance
+├── nvim/ zsh/ ghostty/ atuin/ direnv/ git/ yazi/ bat/
 ├── aerospace/ sketchybar/ karabiner/
 ├── .wezterm.lua
-├── .tmux.conf
-└── README.md
+└── .tmux.conf
 ```
-
-## Secrets
-
-Secrets live in `~/.secrets` (never committed), generated from 1Password:
-
-```bash
-op signin && just refresh-secrets   # renders zsh/secrets.tpl -> ~/.secrets
-```
-
-`~/.secrets` is sourced automatically by the home-manager zsh init. For
-project-specific secrets, use `.env` + direnv (`echo dotenv > .envrc`).
-
-## Updating
-
-```bash
-cd ~/Code/dotfiles && git pull
-./rebuild.sh    # rebuild system + home from the flake
-just update     # refresh skills + FirstMate agent stack
-```
-
-## Credits
-
-- [Neovim](https://neovim.io/)
-- [Tmux](https://github.com/tmux/tmux)
-- [Powerlevel10k](https://github.com/romkatv/powerlevel10k)
-- [Tokyo Night](https://github.com/folke/tokyonight.nvim)
-- [nix-darwin](https://github.com/nix-darwin/nix-darwin)
-- [home-manager](https://github.com/nix-community/home-manager)

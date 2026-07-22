@@ -115,8 +115,9 @@ refresh-secrets:
 bootstrap: refresh-secrets setup-firstmate update-skills
     @echo "Bootstrap done. If GitHub isn't authed yet: gh auth login"
 
-# Focused regression checks for setup hooks and deployment tag errors.
+# Focused regression checks for account selection, setup hooks, and shell safety.
 check-regressions:
+    ./tests/usernames.sh
     ./tests/regressions.sh
 
 # Run setup hooks only when the AXI tool advertises them, and preserve failures.

@@ -4,8 +4,8 @@ let
   dotfiles = "${config.home.homeDirectory}/Code/dotfiles";
 in
 {
-  # home.username / home.homeDirectory are derived from
-  # users.users.laszlohoranszky in configuration.nix.
+  # home.username / home.homeDirectory are derived from the profile's
+  # users.users entry in configuration.nix.
   home.stateVersion = "26.05";
 
   home.packages = with pkgs; [
