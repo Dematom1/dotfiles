@@ -33,6 +33,12 @@ child.on("error", (error) => {
   process.exit(1);
 });
 
-child.on("exit", (code) => {
+child.on("exit", (code, signal) => {
+  if (signal !== null) {
+    process.removeAllListeners(signal);
+    process.kill(process.pid, signal);
+    return;
+  }
+
   process.exit(code ?? 1);
 });
