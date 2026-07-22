@@ -10,4 +10,3 @@
 export B2_APPLICATION_KEY_ID="{{ op://Private/dev-env/B2_APPLICATION_KEY_ID }}"
 export B2_APPLICATION_KEY="{{ op://Private/dev-env/B2_APPLICATION_KEY }}"
 export GITHUB_ORG="{{ op://Private/dev-env/GITHUB_ORG }}"
-export UIDOTSH_TOKEN="{{ op://Private/dev-env/UIDOTSH_TOKEN }}"

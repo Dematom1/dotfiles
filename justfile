@@ -62,7 +62,7 @@ update-skills:
     memtrace doctor --fix --repair-install
 
     echo "==> ui.sh skill  (paste the token into the installer's masked prompt)"
-    npx -y @uidotsh/install
+    env -u UIDOTSH_TOKEN npx -y @uidotsh/install
 
     echo "==> npx skills CLI (whathappened + vercel-labs)"
     npx -y skills add kunchenguid/whathappened -g -y --agent '*'
@@ -77,7 +77,9 @@ update-skills:
     for d in {{ skills-dir }}/*/; do
       [[ -d "$d" ]] || continue
       n=$(basename "$d")
-      ln -sfn "../../{{ skills-dir }}/$n" "opencode/skills/$n"
+      destination="opencode/skills/$n"
+      [[ ! -e "$destination" && ! -L "$destination" ]] || continue
+      ln -s "../../{{ skills-dir }}/$n" "$destination"
     done
 
     echo
@@ -87,7 +89,7 @@ update-skills:
 update-ui-skill:
     #!/usr/bin/env bash
     set -euo pipefail
-    npx -y @uidotsh/install
+    env -u UIDOTSH_TOKEN npx -y @uidotsh/install
     echo "Done. Review:  git status {{ skills-dir }}"
 
 # ---------------------------------------------------------------------------

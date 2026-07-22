@@ -220,15 +220,54 @@ output=$(cd "$repo" && just _setup-axi-hooks "$tmp/quota-axi" 2>&1)
 
 for recipe in update-skills update-ui-skill; do
   output=$(cd "$repo" && just --dry-run "$recipe" 2>&1)
-  [[ $output == *"npx -y @uidotsh/install"* ]] || fail "$recipe does not invoke the UI installer"
+  [[ $output == *"env -u UIDOTSH_TOKEN npx -y @uidotsh/install"* ]] || fail "$recipe does not clear inherited UI credentials"
   [[ $output != *"--token"* ]] || fail "$recipe passes the UI token through argv"
-  [[ $output != *"UIDOTSH_TOKEN"* ]] || fail "$recipe reads the UI token instead of using the interactive prompt"
 done
+
+! grep -q 'UIDOTSH_TOKEN' "$repo/zsh/secrets.tpl" || fail "UI token remains in credential automation"
 
 output=$(cd "$repo" && just --dry-run update-skills 2>&1)
 [[ $(grep -c "skills add .* -g -y --agent '\*'" <<<"$output") -eq 3 ]] || fail "skills installers are not explicit and non-interactive"
 [[ $output == *"\$(readlink \"\$link\")"* ]] || fail "skill-link cleanup does not inspect symlink targets"
 [[ $output != *"-type l -delete"* ]] || fail "skill-link cleanup removes tool-managed symlinks"
+
+skills_sandbox="$tmp/skills-sandbox"
+mkdir -p "$skills_sandbox/.agents/skills/shared" "$skills_sandbox/.agents/skills/fresh" \
+  "$skills_sandbox/opencode/skills" "$skills_sandbox/bin"
+cp "$repo/justfile" "$skills_sandbox/justfile"
+ln -s /tool-managed/shared "$skills_sandbox/opencode/skills/shared"
+ln -s ../../.agents/skills/stale "$skills_sandbox/opencode/skills/stale"
+cat > "$skills_sandbox/bin/git" <<'EOF'
+#!/usr/bin/env bash
+destination=${@: -1}
+mkdir -p "$destination"
+printf '%s\n' 'name: learning-opportunities' 'description: test' > "$destination/SKILL.md"
+EOF
+cat > "$skills_sandbox/bin/rsync" <<'EOF'
+#!/usr/bin/env bash
+destination=${@: -1}
+mkdir -p "$destination"
+printf '%s\n' 'name: learning-opportunities' 'description: test' > "$destination/SKILL.md"
+EOF
+cat > "$skills_sandbox/bin/memtrace" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+cat > "$skills_sandbox/bin/npx" <<EOF
+#!/usr/bin/env bash
+if [[ "\$*" == "-y @uidotsh/install" ]]; then
+  [[ -z \${UIDOTSH_TOKEN+x} ]] || exit 64
+  echo ui >> "$skills_sandbox/ui-installs"
+fi
+EOF
+chmod +x "$skills_sandbox/bin/"*
+for recipe in update-skills update-ui-skill; do
+  UIDOTSH_TOKEN=automated PATH="$skills_sandbox/bin:$PATH" just --justfile "$skills_sandbox/justfile" "$recipe" >/dev/null
+done
+[[ $(wc -l < "$skills_sandbox/ui-installs") -eq 2 ]] || fail "UI installers did not run without inherited credentials"
+[[ $(readlink "$skills_sandbox/opencode/skills/shared") == /tool-managed/shared ]] || fail "shared-skill linking replaced a tool-managed link"
+[[ ! -e "$skills_sandbox/opencode/skills/stale" && ! -L "$skills_sandbox/opencode/skills/stale" ]] || fail "managed stale skill link was preserved"
+[[ $(readlink "$skills_sandbox/opencode/skills/fresh") == ../../.agents/skills/fresh ]] || fail "missing shared skill link was not created"
 
 rebuild_bin="$tmp/rebuild-bin"
 mkdir -p "$rebuild_bin"
