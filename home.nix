@@ -117,6 +117,7 @@ in
       gd     = "git diff";
       gl     = "git log --oneline -20";
       claude = "headroom wrap claude --1m --";
+      codex  = "headroom wrap codex --no-proxy --port 8787 --no-context-tool --no-mcp --no-tokensave --no-serena --";
       # regenerate ~/.secrets from 1Password (needs `op signin`)
       refresh-secrets = "op inject -f -i ~/Code/dotfiles/zsh/secrets.tpl -o ~/.secrets && echo '✓ ~/.secrets refreshed'";
     };
