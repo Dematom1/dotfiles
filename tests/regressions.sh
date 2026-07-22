@@ -226,11 +226,26 @@ done
 
 ! grep -q 'UIDOTSH_TOKEN' "$repo/zsh/secrets.tpl" || fail "UI token remains in credential automation"
 
-# Keep the approved selective diagnostics posture declarative. Claude Code usage
-# and error diagnostics stay enabled, while the browser MCP opts out separately.
-! grep -REq 'DISABLE_TELEMETRY|DISABLE_ERROR_REPORTING|CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC' \
-  "$repo/home.nix" "$repo/configuration.nix" "$repo/hosts" "$repo/zsh" "$repo/justfile" \
+policy_surfaces=()
+while IFS= read -r -d '' surface; do
+  case "$surface" in
+    tests/*|examples/*|*.md|*.lock) continue ;;
+    Brewfile|justfile|package.json|*.nix|*.sh|*.bash|*.zsh|*.plist|*.json|*.toml|*.yaml|*.yml|*.conf|*.config|*rc|scripts/*|zsh/*|hosts/*|.github/workflows/*)
+      policy_surfaces+=("$repo/$surface")
+      ;;
+  esac
+done < <(git -C "$repo" ls-files -z)
+while IFS=$'\t' read -r metadata surface; do
+  [[ ${metadata%% *} == 100755 && "$surface" != tests/* && "$surface" != examples/* ]] || continue
+  policy_surfaces+=("$repo/$surface")
+done < <(git -C "$repo" ls-files --stage)
+
+! grep -Eqi 'DISABLE_TELEMETRY|DISABLE_ERROR_REPORTING|CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC' \
+  "${policy_surfaces[@]}" \
   || fail "Claude Code diagnostics opt-out was added to managed configuration"
+! grep -Eqi 'DETSYS_IDS_TELEMETRY|NIX_INSTALLER_DIAGNOSTIC_ENDPOINT|--diagnostic-endpoint([=[:space:]]|$)|sentry[-_]report[-_]endpoint' \
+  "${policy_surfaces[@]}" \
+  || fail "Determinate Nix diagnostics opt-out was added to managed configuration"
 
 browser_bin="$tmp/browser-bin"
 mkdir -p "$browser_bin"
@@ -247,19 +262,8 @@ output=$(PATH="$browser_bin:/usr/bin:/bin" "$node_bin" "$repo/scripts/chrome-dev
 [[ "$output" == *"optout=1"* ]] \
   || fail "chrome-devtools-mcp launcher omitted the opt-out environment fallback"
 
-# Clawdbot is retired and must not return through a package or bootstrap surface.
-for surface in \
-  "$repo/Brewfile" \
-  "$repo/configuration.nix" \
-  "$repo/flake.nix" \
-  "$repo/home.nix" \
-  "$repo/hosts/personal.nix" \
-  "$repo/hosts/work.nix" \
-  "$repo/justfile" \
-  "$repo/rebuild.sh"; do
-  ! grep -Eqi '(^|[^[:alnum:]_-])clawdbot([^[:alnum:]_-]|$)' "$surface" \
-    || fail "Clawdbot returned on installation surface ${surface#"$repo/"}"
-done
+! grep -Fqi 'clawdbot' "${policy_surfaces[@]}" \
+  || fail "Clawdbot returned on a tracked configuration surface"
 
 output=$(cd "$repo" && just --dry-run update-skills 2>&1)
 [[ $(grep -c "skills add .* -g -y --agent '\*'" <<<"$output") -eq 3 ]] || fail "skills installers are not explicit and non-interactive"

@@ -155,8 +155,8 @@ The runtime uses a selective diagnostics policy:
   explicit decision.
 
 `just check-regressions` verifies the browser opt-out for both host profiles,
-keeps the Claude diagnostics opt-outs absent, and rejects Clawdbot on package
-and bootstrap installation surfaces.
+keeps Claude and Determinate Nix diagnostics opt-outs absent, and rejects
+Clawdbot across tracked configuration, script, and launch-service surfaces.
 
 ## Updating and checks
 
