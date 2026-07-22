@@ -35,8 +35,8 @@ Enter the ui.sh token manually when its masked prompt appears.
 |---|---|---|---|
 | learning-opportunities | git repo | `https://github.com/DrCatHicks/learning-opportunities.git` | none (public) |
 | ui.sh (design, ideas, ...) | authenticated npx | `@uidotsh/install` | manual entry in the masked prompt |
-| whathappened | git repo (skills CLI) | `kunchenguid/whathappened` via non-interactive `npx skills add -g --agent '*'` | none |
-| vercel-labs skills | skills CLI | `vercel-labs/agent-skills`, `vercel-labs/skills` via non-interactive `npx skills add -g --agent '*'` | none |
+| whathappened | git repo (skills CLI) | `npx -y skills add kunchenguid/whathappened -g -y --agent '*'` | none |
+| vercel-labs skills | skills CLI | `npx -y skills add <source> -g -y --agent '*'` for `vercel-labs/agent-skills` and `vercel-labs/skills` | none |
 | memtrace-* (opencode) | tool-generated | `memtrace doctor --fix --repair-install` | memtrace license |
 
 The memtrace-* skills declare `compatibility: opencode` and stay in

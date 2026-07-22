@@ -269,6 +269,11 @@ done
 [[ ! -e "$skills_sandbox/opencode/skills/stale" && ! -L "$skills_sandbox/opencode/skills/stale" ]] || fail "managed stale skill link was preserved"
 [[ $(readlink "$skills_sandbox/opencode/skills/fresh") == ../../.agents/skills/fresh ]] || fail "missing shared skill link was not created"
 
+rm -rf "$skills_sandbox/opencode"
+UIDOTSH_TOKEN=automated PATH="$skills_sandbox/bin:$PATH" just --justfile "$skills_sandbox/justfile" update-skills >/dev/null
+[[ -d "$skills_sandbox/opencode/skills" ]] || fail "skill linking did not create its parent directory"
+[[ $(readlink "$skills_sandbox/opencode/skills/fresh") == ../../.agents/skills/fresh ]] || fail "fresh checkout skill link was not created"
+
 rebuild_bin="$tmp/rebuild-bin"
 mkdir -p "$rebuild_bin"
 cat > "$rebuild_bin/sudo" <<EOF

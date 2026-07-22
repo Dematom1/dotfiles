@@ -70,6 +70,7 @@ update-skills:
     npx -y skills add vercel-labs/skills -g -y --agent '*'
 
     echo "==> wire shared skills into opencode (regenerated, not committed)"
+    mkdir -p opencode/skills
     for link in opencode/skills/*; do
       [[ -L "$link" && "$(readlink "$link")" == ../../{{ skills-dir }}/* ]] || continue
       rm -- "$link"
