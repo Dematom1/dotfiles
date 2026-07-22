@@ -225,6 +225,11 @@ for recipe in update-skills update-ui-skill; do
   [[ $output != *"UIDOTSH_TOKEN"* ]] || fail "$recipe reads the UI token instead of using the interactive prompt"
 done
 
+output=$(cd "$repo" && just --dry-run update-skills 2>&1)
+[[ $(grep -c "skills add .* -g -y --agent '\*'" <<<"$output") -eq 3 ]] || fail "skills installers are not explicit and non-interactive"
+[[ $output == *"\$(readlink \"\$link\")"* ]] || fail "skill-link cleanup does not inspect symlink targets"
+[[ $output != *"-type l -delete"* ]] || fail "skill-link cleanup removes tool-managed symlinks"
+
 rebuild_bin="$tmp/rebuild-bin"
 mkdir -p "$rebuild_bin"
 cat > "$rebuild_bin/sudo" <<EOF
@@ -334,6 +339,15 @@ add-zsh-hook() { : }
 zle() { : }
 bindkey() { : }
 source "$INIT_ZSH"
+
+victim="$TEST_TMP/sketchybar-victim"
+print -r -- "unchanged" > "$victim"
+rm -f -- "$SKETCHYBAR_PWD_FILE"
+ln -s "$victim" "$SKETCHYBAR_PWD_FILE"
+update_sketchybar_pwd
+[[ ! -L "$SKETCHYBAR_PWD_FILE" ]] || { print -u2 "FAIL: SketchyBar state remained a symlink"; exit 1; }
+[[ "$(<"$SKETCHYBAR_PWD_FILE")" == "$PWD" ]] || { print -u2 "FAIL: SketchyBar state did not contain the current directory"; exit 1; }
+[[ "$(<"$victim")" == "unchanged" ]] || { print -u2 "FAIL: SketchyBar state write followed a symlink"; exit 1; }
 
 repo="$TEST_TMP/deploy-repo"
 mkdir -p "$repo"

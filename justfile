@@ -65,12 +65,15 @@ update-skills:
     npx -y @uidotsh/install
 
     echo "==> npx skills CLI (whathappened + vercel-labs)"
-    npx -y skills add kunchenguid/whathappened -g
-    npx -y skills add vercel-labs/agent-skills -g
-    npx -y skills add vercel-labs/skills -g
+    npx -y skills add kunchenguid/whathappened -g -y --agent '*'
+    npx -y skills add vercel-labs/agent-skills -g -y --agent '*'
+    npx -y skills add vercel-labs/skills -g -y --agent '*'
 
     echo "==> wire shared skills into opencode (regenerated, not committed)"
-    find opencode/skills -maxdepth 1 -type l -delete
+    for link in opencode/skills/*; do
+      [[ -L "$link" && "$(readlink "$link")" == ../../{{ skills-dir }}/* ]] || continue
+      rm -- "$link"
+    done
     for d in {{ skills-dir }}/*/; do
       [[ -d "$d" ]] || continue
       n=$(basename "$d")
