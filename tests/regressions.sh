@@ -458,6 +458,11 @@ zle() { : }
 bindkey() { : }
 source "$INIT_ZSH"
 
+[[ "$CHROME_DEVTOOLS_AXI_MCP_PATH" == "$HOME/Code/dotfiles/scripts/chrome-devtools-mcp.js" ]] \
+  || { print -u2 "FAIL: live shell omitted the browser launcher override"; exit 1; }
+[[ "$CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS" == 1 ]] \
+  || { print -u2 "FAIL: live shell omitted the browser telemetry opt-out"; exit 1; }
+
 victim="$TEST_TMP/sketchybar-victim"
 print -r -- "unchanged" > "$victim"
 rm -f -- "$SKETCHYBAR_PWD_FILE"
