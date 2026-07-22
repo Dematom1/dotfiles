@@ -94,6 +94,56 @@ update-ui-skill:
     echo "Done. Review:  git status {{ skills-dir }}"
 
 # ---------------------------------------------------------------------------
+# Machine setup - install Nix, then activate the nix-darwin configuration.
+# ---------------------------------------------------------------------------
+
+# Fresh-machine one-shot: install Determinate Nix (if missing), then rebuild.
+# Optional PROFILE (personal|work), e.g. `just setup work`, sets the marker first.
+setup profile="": (_select-profile profile)
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! command -v nix >/dev/null 2>&1; then
+      echo "==> Installing Determinate Nix"
+      curl -fsSL https://install.determinate.systems/nix | sh -s -- install
+      # Put nix on PATH for THIS shell so rebuild runs without a relogin.
+      for p in /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh \
+               /nix/var/nix/profiles/default/etc/profile.d/nix.sh; do
+        [[ -r "$p" ]] && . "$p" && break
+      done
+    fi
+    echo "==> Activating nix-darwin configuration"
+    ./rebuild.sh
+
+# Activate the nix-darwin config (wraps ./rebuild.sh, sudo). Optional PROFILE
+# (personal|work), e.g. `just rebuild work`, sets the marker before rebuilding.
+rebuild profile="": (_select-profile profile)
+    ./rebuild.sh
+
+# Install Determinate Nix only (open a new shell afterwards before rebuild).
+nix-install:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if command -v nix >/dev/null 2>&1; then
+      echo "nix already installed: $(nix --version)"; exit 0
+    fi
+    curl -fsSL https://install.determinate.systems/nix | sh -s -- install
+    echo "Nix installed. Open a new shell, then run:  just rebuild"
+
+# (internal) If PROFILE is given, validate it and write ~/.config/dotfiles-profile.
+_select-profile profile="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    profile="{{ profile }}"
+    [[ -z "$profile" ]] && exit 0
+    case "$profile" in
+      personal|work) ;;
+      *) echo "Profile must be 'personal' or 'work' (got '$profile')" >&2; exit 1 ;;
+    esac
+    mkdir -p "$HOME/.config"
+    printf '%s\n' "$profile" > "$HOME/.config/dotfiles-profile"
+    echo "==> Selected profile: $profile"
+
+# ---------------------------------------------------------------------------
 # FirstMate + Herdr + Pi agent stack. These are npm globals + curl installers
 # that self-update; the base deps (git/gh/jq/node/curl) come from nix. Tools
 # install to ~/.local/bin (already on PATH via zsh/init.zsh).
@@ -108,8 +158,8 @@ refresh-secrets:
     op inject -f -i ~/Code/dotfiles/zsh/secrets.tpl -o ~/.secrets
     @echo "✓ ~/.secrets refreshed"
 
-# Bring a fresh machine fully online. Run the two interactive prereqs first:
-#   ./rebuild.sh          # nix: install tools + activate symlinks (needs sudo)
+# Bring a fresh machine fully online. Run the interactive prereqs first:
+#   just setup            # install Nix (if needed) + activate config (needs sudo)
 #   op signin             # 1Password
 # then `just bootstrap` does the rest: secrets + FirstMate stack + every skill.
 bootstrap: refresh-secrets setup-firstmate update-skills
