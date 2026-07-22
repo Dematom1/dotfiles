@@ -33,6 +33,7 @@ skills:
 check-skills:
     #!/usr/bin/env bash
     set -euo pipefail
+    shopt -s nullglob
     fail=0
     for d in {{ skills-dir }}/*/; do
       name=$(basename "$d")
