@@ -36,7 +36,7 @@ function update_sketchybar_pwd() {
   local target="${SKETCHYBAR_PWD_FILE:-/tmp/sketchybar_pwd}"
   local tmp
   tmp="$(mktemp "${target}.XXXXXX")" || return 1
-  if ! printf '%s\n' "$PWD" > "$tmp" || ! mv -f -- "$tmp" "$target"; then
+  if ! printf '%s\n' "$PWD" > "$tmp" || ! mv -fh -- "$tmp" "$target"; then
     rm -f -- "$tmp"
     return 1
   fi

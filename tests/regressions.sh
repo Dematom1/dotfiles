@@ -388,6 +388,17 @@ update_sketchybar_pwd
 [[ "$(<"$SKETCHYBAR_PWD_FILE")" == "$PWD" ]] || { print -u2 "FAIL: SketchyBar state did not contain the current directory"; exit 1; }
 [[ "$(<"$victim")" == "unchanged" ]] || { print -u2 "FAIL: SketchyBar state write followed a symlink"; exit 1; }
 
+victim_dir="$TEST_TMP/sketchybar-victim-dir"
+mkdir -p "$victim_dir"
+rm -f -- "$SKETCHYBAR_PWD_FILE"
+ln -s "$victim_dir" "$SKETCHYBAR_PWD_FILE"
+update_sketchybar_pwd
+[[ ! -L "$SKETCHYBAR_PWD_FILE" ]] || { print -u2 "FAIL: SketchyBar state remained a directory symlink"; exit 1; }
+[[ -f "$SKETCHYBAR_PWD_FILE" ]] || { print -u2 "FAIL: SketchyBar state did not replace the directory symlink"; exit 1; }
+[[ "$(<"$SKETCHYBAR_PWD_FILE")" == "$PWD" ]] || { print -u2 "FAIL: SketchyBar state did not contain the current directory"; exit 1; }
+victim_entries=("$victim_dir"/*(N))
+[[ ${#victim_entries} -eq 0 ]] || { print -u2 "FAIL: SketchyBar state write followed a directory symlink"; exit 1; }
+
 repo="$TEST_TMP/deploy-repo"
 mkdir -p "$repo"
 cd "$repo"
