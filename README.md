@@ -56,25 +56,31 @@ or selected host configuration can be removed.
 ## Fresh-machine bootstrap
 
 ```bash
-# 1. Clone to the canonical location.
+# 1. Install Determinate Nix (provides `nix`). Skip if `nix --version` already
+#    works. Open a new shell afterwards so nix is on PATH.
+curl -fsSL https://install.determinate.systems/nix | sh -s -- install
+
+# 2. Clone to the canonical location.
 git clone https://github.com/Dematom1/dotfiles.git "$HOME/Code/dotfiles"
 cd "$HOME/Code/dotfiles"
 
-# 2. Work Mac only: select the work profile before the first rebuild.
-mkdir -p "$HOME/.config"
-printf 'work\n' > "$HOME/.config/dotfiles-profile"
-
-# 3. Install system and user packages and activate the managed configuration.
-./rebuild.sh
+# 3. Pick this machine's profile and activate the config (needs sudo). `just`
+#    isn't installed yet, so run it once through nix. Work Macs pass `work`;
+#    personal Macs can omit the argument (personal is the default).
+nix run nixpkgs#just -- setup work
 
 # 4. Authenticate 1Password, render ~/.secrets, and install agent tooling/skills.
 op signin
 just bootstrap
 ```
 
-The personal machine needs no profile file. To switch an existing checkout to
-the work profile, write exactly `work` as shown above. Supported profile values
-are only `personal` and `work`.
+`just setup` installs Nix if it is missing, then rebuilds; `just rebuild` skips
+the install and just activates. Both take the profile as an argument —
+`just setup work` or `just rebuild personal` — which writes
+`~/.config/dotfiles-profile` before rebuilding. Omit it to keep the current
+marker (personal is the default). `rebuild.sh` refuses to activate a profile
+whose primary user doesn't match the current macOS account, so the wrong
+profile fails fast. Supported values are only `personal` and `work`.
 
 A clone outside `~/Code/dotfiles` is also supported: `rebuild.sh` creates the
 canonical `~/Code/dotfiles` symlink to the checkout. It refuses to replace an
@@ -143,7 +149,7 @@ while preserving the existing Headroom invocation and port.
 ```bash
 cd "$HOME/Code/dotfiles"
 git pull
-./rebuild.sh          # system, Homebrew, Home Manager, and profile packages
+just rebuild          # system, Homebrew, Home Manager, and profile packages
 just update           # skills and the FirstMate agent stack
 just check-regressions
 ```

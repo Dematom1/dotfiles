@@ -10,14 +10,14 @@ in
 
   home.packages = with pkgs; [
     # core cli
-    just doppler tmux jq bat fd fzf eza zoxide atuin direnv delta
+    just doppler tmux jq yq bat fd fzf eza zoxide atuin direnv delta
     # git
     git git-crypt lazygit lazydocker
     # kubernetes / infra
     argocd kubernetes-helm k9s kubectx tailscale
     # dev / build
     neovim gh prek cmake lld luarocks protobuf
-    nodejs_24 python311 memray zoxide wezterm
+    nodejs_24 python311 uv memray zoxide wezterm
     # upstream pipx 1.8.0 test suite is broken in this nixpkgs pin; skip its checks
     (pipx.overridePythonAttrs (_: { doCheck = false; }))
     # net

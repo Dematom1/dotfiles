@@ -154,6 +154,8 @@ alias deploy-dev='deploy dev'
 # --- Misc env ---
 export BAT_THEME=tokyonight_night
 export HEADROOM_OUTPUT_SHAPER=1
+export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
+export ANTHROPIC_BASE_URL=http://127.0.0.1:8787
 export MEMTRACE_MEMDB_ENDPOINT=http://127.0.0.1:50151
 export MEMTRACE_MEMDB_LOOPBACK_PORT=50151
 export MEMTRACE_UI_PORT=3131

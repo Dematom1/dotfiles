@@ -8,9 +8,11 @@
   homebrew = {
     brews = [
       # work-only CLI tools, e.g. "awscli"
+      "gitlab-ci-local"
     ];
     casks = [
       # work-only apps, e.g. "company-vpn"
+      "bruno"
     ];
   };
 }
