@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ pkgs, username, ... }:
 
 {
   # Determinate already manages the Nix daemon, so nix-darwin shouldn't.
@@ -7,11 +7,11 @@
   nixpkgs.config.allowUnfree = true;
   nixpkgs.hostPlatform = "aarch64-darwin";
   system.stateVersion = 6;
-  system.primaryUser = "laszlohoranszky";
+  system.primaryUser = username;
 
-  users.users.laszlohoranszky = {
-    name = "laszlohoranszky";
-    home = "/Users/laszlohoranszky";
+  users.users.${username} = {
+    name = username;
+    home = "/Users/${username}";
   };
 
   # Wire zsh into the nix environment: puts /etc/profiles/per-user/$USER/bin

@@ -16,13 +16,12 @@
 
   outputs = inputs@{ self, nix-darwin, nix-homebrew, home-manager, nixpkgs }:
   let
-    user = "laszlohoranszky";
-
     # A machine = the shared base (./configuration.nix) + a per-machine file
     # (./hosts/<name>.nix). Both are committed, so either Mac rebuilds straight
     # from git - fully reproducible. nix MERGES the two modules, so a host's
     # homebrew brews/casks are appended to the shared ones, not replacing them.
-    mkHost = { profile, hostModule }: nix-darwin.lib.darwinSystem {
+    mkHost = { profile, username, hostModule }: nix-darwin.lib.darwinSystem {
+      specialArgs = { inherit username; };
       modules = [
         ./configuration.nix
         hostModule
@@ -36,14 +35,22 @@
             home-manager.backupFileExtension = "bak";
             # tell home.nix which machine this is, so home.packages can differ
             home-manager.extraSpecialArgs = { inherit profile; };
-            home-manager.users.${user} = import ./home.nix;
+            home-manager.users.${username} = import ./home.nix;
         }
       ];
     };
   in {
     darwinConfigurations = {
-      personal = mkHost { profile = "personal"; hostModule = ./hosts/personal.nix; };
-      work     = mkHost { profile = "work";     hostModule = ./hosts/work.nix; };
+      personal = mkHost {
+        profile = "personal";
+        username = "laszlohoranszky";
+        hostModule = ./hosts/personal.nix;
+      };
+      work = mkHost {
+        profile = "work";
+        username = "laszlo";
+        hostModule = ./hosts/work.nix;
+      };
     };
   };
 }

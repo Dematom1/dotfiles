@@ -280,7 +280,17 @@ cat > "$rebuild_bin/sudo" <<EOF
 #!/usr/bin/env bash
 touch "$tmp/rebuild-sudo-ran"
 EOF
-chmod +x "$rebuild_bin/sudo"
+cat > "$rebuild_bin/nix" <<'EOF'
+#!/usr/bin/env bash
+[[ "$1" == eval && "$2" == --raw ]] || exit 90
+printf '%s' laszlohoranszky
+EOF
+cat > "$rebuild_bin/id" <<'EOF'
+#!/usr/bin/env bash
+[[ "$*" == -un ]] || exit 91
+printf '%s\n' laszlohoranszky
+EOF
+chmod +x "$rebuild_bin/sudo" "$rebuild_bin/nix" "$rebuild_bin/id"
 
 rebuild_home="$tmp/rebuild-home"
 mkdir -p "$rebuild_home/Code/dotfiles"
