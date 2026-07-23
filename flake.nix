@@ -3,6 +3,9 @@
 
   inputs = {
     # Use `github:NixOS/nixpkgs/nixpkgs-26.05-darwin` to use Nixpkgs 26.05.
+    # This release branch also carries the full Linux/NixOS package set and
+    # modules, so the same pin drives both the Darwin hosts and the Linux
+    # sandbox below - no second nixpkgs input to keep in sync.
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-26.05-darwin";
     # Use `github:nix-darwin/nix-darwin/nix-darwin-26.05` to use Nixpkgs 26.05.
     nix-darwin.url = "github:nix-darwin/nix-darwin/nix-darwin-26.05";
@@ -16,41 +19,91 @@
 
   outputs = inputs@{ self, nix-darwin, nix-homebrew, home-manager, nixpkgs }:
   let
-    # A machine = the shared base (./configuration.nix) + a per-machine file
+    # Shared Home Manager wiring, identical for every platform. `profile` tells
+    # home.nix which machine this is; home.nix gates macOS-only modules behind
+    # pkgs.stdenv.isDarwin, so the same file is portable to Linux unchanged.
+    # Dotted keys in one attrset literal merge, so extraSpecialArgs and users
+    # co-exist (a top-level `//` would instead clobber the `home-manager` key).
+    hmModule = { profile, username }: {
+      home-manager.useGlobalPkgs = true;
+      home-manager.useUserPackages = true;
+      # First switch renames any existing file/symlink in the way to *.bak
+      # instead of erroring - lets nix take over the manual symlinks.
+      home-manager.backupFileExtension = "bak";
+      home-manager.extraSpecialArgs = { inherit profile; };
+      home-manager.users.${username} = import ./home.nix;
+    };
+
+    # A Mac = the shared base (./configuration.nix) + a per-machine file
     # (./hosts/<name>.nix). Both are committed, so either Mac rebuilds straight
     # from git - fully reproducible. nix MERGES the two modules, so a host's
     # homebrew brews/casks are appended to the shared ones, not replacing them.
-    mkHost = { profile, username, hostModule }: nix-darwin.lib.darwinSystem {
+    mkDarwinHost = { profile, username, hostModule }: nix-darwin.lib.darwinSystem {
       specialArgs = { inherit username; };
       modules = [
         ./configuration.nix
         hostModule
         nix-homebrew.darwinModules.nix-homebrew
         home-manager.darwinModules.home-manager
+        (hmModule { inherit profile username; })
+      ];
+    };
+
+    # A Linux host = a per-machine NixOS module (./hosts/<name>.nix) with Home
+    # Manager attached for captain's portable shell/CLI environment. Provider
+    # agnostic: the host module carries no cloud-vendor assumptions.
+    mkNixosHost = { profile, username, hostModule }: nixpkgs.lib.nixosSystem {
+      specialArgs = { inherit username; };
+      modules = [
+        hostModule
+        home-manager.nixosModules.home-manager
+        (hmModule { inherit profile username; })
+      ];
+    };
+
+    # Standalone Home Manager (no NixOS) so captain's environment also applies
+    # on any non-NixOS Linux box (Ubuntu/Debian/etc.) that just has Nix + Home
+    # Manager. `nix build .#homeConfigurations."captain@<system>".activationPackage`
+    # is the Linux validation target when no NixOS builder is available.
+    mkLinuxHome = system: home-manager.lib.homeManagerConfiguration {
+      pkgs = import nixpkgs { inherit system; config.allowUnfree = true; };
+      extraSpecialArgs = { profile = "sandbox"; };
+      modules = [
+        ./home.nix
         {
-            home-manager.useGlobalPkgs = true;
-            home-manager.useUserPackages = true;
-            # First switch renames any existing file/symlink in the way to *.bak
-            # instead of erroring - lets nix take over the manual symlinks.
-            home-manager.backupFileExtension = "bak";
-            # tell home.nix which machine this is, so home.packages can differ
-            home-manager.extraSpecialArgs = { inherit profile; };
-            home-manager.users.${username} = import ./home.nix;
+          # home.nix already pins home.stateVersion; only the identity that a
+          # NixOS/Darwin users.users entry would otherwise supply is set here.
+          home.username = "captain";
+          home.homeDirectory = "/home/captain";
         }
       ];
     };
   in {
     darwinConfigurations = {
-      personal = mkHost {
+      personal = mkDarwinHost {
         profile = "personal";
         username = "laszlohoranszky";
         hostModule = ./hosts/personal.nix;
       };
-      work = mkHost {
+      work = mkDarwinHost {
         profile = "work";
         username = "laszlo";
         hostModule = ./hosts/work.nix;
       };
+    };
+
+    # Headless AI sandbox server (NixOS). Apply to any provisioned x86_64-linux
+    # box with `nixos-rebuild switch --flake .#sandbox`.
+    nixosConfigurations.sandbox = mkNixosHost {
+      profile = "sandbox";
+      username = "captain";
+      hostModule = ./hosts/sandbox.nix;
+    };
+
+    # Portable Home Manager for non-NixOS Linux, on both common server arches.
+    homeConfigurations = {
+      "captain@x86_64-linux" = mkLinuxHome "x86_64-linux";
+      "captain@aarch64-linux" = mkLinuxHome "aarch64-linux";
     };
   };
 }

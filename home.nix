@@ -15,7 +15,7 @@ in
   home.stateVersion = "26.05";
 
   home.packages = with pkgs; [
-    # core cli
+    # core cli - portable across macOS and the Linux sandbox
     just doppler tmux jq yq bat fd fzf eza zoxide atuin direnv delta
     # git
     git git-crypt lazygit lazydocker
@@ -23,15 +23,19 @@ in
     argocd kubernetes-helm k9s kubectx tailscale
     # dev / build
     neovim gh prek cmake lld luarocks protobuf
-    nodejs_24 python311 uv memray zoxide wezterm
+    nodejs_24 python311 uv memray zoxide
     # upstream pipx 1.8.0 test suite is broken in this nixpkgs pin; skip its checks
     (pipx.overridePythonAttrs (_: { doCheck = false; }))
     # net
     websocat curl
+  ]
+  # macOS-only: GUI/desktop tooling that either won't build on Linux (aerospace)
+  # or is pointless on a headless server (wezterm, the browser MCP, desktop fonts).
+  ++ lib.optionals pkgs.stdenv.isDarwin [
     # window manager (was a homebrew cask from nikitabobko/tap - native in nixpkgs)
     aerospace
+    wezterm
     chromeDevtoolsMcp
-
     nerd-fonts.hack
   ]
   # personal Mac only (the Homebrew equivalent lives in hosts/personal.nix)
@@ -44,9 +48,14 @@ in
     # work-only nix packages
     awscli2
   ];
-  fonts.fontconfig.enable = true;
+  # Desktop fonts only matter where there's a GUI.
+  fonts.fontconfig.enable = pkgs.stdenv.isDarwin;
   home.sessionVariables = {
     EDITOR = "nvim";
+  }
+  # chrome-devtools-axi is a macOS desktop browser launcher; its MCP wiring has
+  # no place on the headless sandbox.
+  // lib.optionalAttrs pkgs.stdenv.isDarwin {
     # chrome-devtools-axi's MCP SDK filters arbitrary inherited variables, so
     # route it through the tracked launcher that passes the explicit opt-out.
     CHROME_DEVTOOLS_AXI_MCP_PATH = "${chromeDevtoolsMcp}/bin/chrome-devtools-mcp";
@@ -55,23 +64,20 @@ in
 
   # Edit-in-place: the real files stay in the repo, ~ just points at them
   # (mkOutOfStoreSymlink, so edits don't need a rebuild - unlike a store copy).
+  # Portable links, applied on every platform. mkOutOfStoreSymlink points at the
+  # live checkout at ~/Code/dotfiles (the sandbox clones the repo there too), so
+  # edits apply without a rebuild.
   home.file = {
     # ~/.config/* app configs
     ".config/nvim".source       = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/nvim";
-    ".config/ghostty".source    = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/ghostty";
-    ".config/aerospace".source  = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/aerospace";
     ".config/bat".source        = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/bat";
-    ".config/sketchybar".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/sketchybar";
     ".config/yazi".source       = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/yazi";
     ".config/opencode".source   = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/opencode";
     ".config/atuin".source      = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/atuin";
     ".config/direnv".source     = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/direnv";
     ".config/git".source        = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/git";
-    # only the JSON - let Karabiner keep its assets/ + automatic_backups/ out of the repo
-    ".config/karabiner/karabiner.json".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/karabiner/karabiner.json";
 
     # ~ home-dir dotfiles
-    ".wezterm.lua".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/.wezterm.lua";
     ".tmux.conf".source   = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/.tmux.conf";
     ".p10k.zsh".source    = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/zsh/p10k.zsh";
 
@@ -85,6 +91,16 @@ in
     # Agent-agnostic skill source; OpenCode wiring is owned by `just update-skills`.
     # See .agents/SKILLS.md for the managed-link contract.
     ".claude/skills".source        = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/.agents/skills";
+  }
+  # macOS-only: configs for GUI apps (window manager, terminals, status bar,
+  # keyboard remapper) that don't exist on the headless Linux sandbox.
+  // lib.optionalAttrs pkgs.stdenv.isDarwin {
+    ".config/ghostty".source    = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/ghostty";
+    ".config/aerospace".source  = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/aerospace";
+    ".config/sketchybar".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/sketchybar";
+    # only the JSON - let Karabiner keep its assets/ + automatic_backups/ out of the repo
+    ".config/karabiner/karabiner.json".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/karabiner/karabiner.json";
+    ".wezterm.lua".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/.wezterm.lua";
   };
 
   # ---------------------------------------------------------------------------
