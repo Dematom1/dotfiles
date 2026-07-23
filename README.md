@@ -77,8 +77,8 @@ just bootstrap
 ```
 
 `just setup` installs Nix if it is missing, then rebuilds; `just rebuild` skips
-the install and just activates. Both take the profile as an argument —
-`just setup work` or `just rebuild personal` — which writes
+the install and just activates. Both take the profile as an argument -
+`just setup work` or `just rebuild personal` - which writes
 `~/.config/dotfiles-profile` before rebuilding. Omit it to keep the current
 marker (personal is the default). `rebuild.sh` refuses to activate a profile
 whose primary user doesn't match the current macOS account, so the wrong
