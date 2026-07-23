@@ -23,7 +23,7 @@ in
     argocd kubernetes-helm k9s kubectx tailscale
     # dev / build
     neovim gh prek cmake lld luarocks protobuf
-    nodejs_24 python311 uv memray zoxide
+    nodejs_24 python311 uv memray
     # upstream pipx 1.8.0 test suite is broken in this nixpkgs pin; skip its checks
     (pipx.overridePythonAttrs (_: { doCheck = false; }))
     # net

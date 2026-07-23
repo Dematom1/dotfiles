@@ -55,6 +55,7 @@
     home = "/home/${username}";
     extraGroups = [ "wheel" ];   # sudo
     shell = pkgs.zsh;
+    autoSubUidGidRange = true;
     openssh.authorizedKeys.keys = [
       # Add captain's SSH public key(s) here before applying, e.g.
       # "ssh-ed25519 AAAA... captain@laptop"
