@@ -131,12 +131,17 @@ provisioned x86_64-linux box (bare metal, a droplet, an EC2/GCE instance, a
 local VM). The single `nixpkgs` pin carries the full Linux/NixOS package set, so
 no second input tracks alongside the Darwin one.
 
-Two Linux outputs, so it works on NixOS and on any other distro:
+Several Linux outputs, so it works on NixOS and on any other distro:
 
 | Output | Use when | Apply / build |
 |---|---|---|
 | `nixosConfigurations.sandbox` | The box is (or will be) NixOS | `nixos-rebuild switch --flake .#sandbox` |
 | `homeConfigurations."captain@x86_64-linux"` | Any non-NixOS Linux with Nix + Home Manager (also an `aarch64-linux` variant) | `home-manager switch --flake '.#captain@x86_64-linux'` |
+| `homeConfigurations."root@x86_64-linux"` | A box only SSH-reachable as root, with no `captain` account (also an `aarch64-linux` variant) | `home-manager switch --flake '.#root@x86_64-linux'` |
+
+The `root@` outputs apply the identical environment to `/root` instead of
+creating a system user; `mkLinuxHome` in `flake.nix` takes the username and
+home directory as overridable arguments (defaulting to `captain`).
 
 `hosts/sandbox.nix` is the NixOS host module:
 
@@ -166,9 +171,11 @@ Home Manager (`home.nix`) is shared with the Macs. macOS-only modules - the
 desktop fonts, and the GUI-app config links (ghostty, sketchybar, karabiner) -
 are gated behind `pkgs.stdenv.isDarwin`, so the sandbox gets only the portable
 tools (zsh, git, atuin, direnv, bat, neovim, kubernetes CLIs, language
-toolchains, and the shared agent instructions). Like the Macs, the sandbox links
-live files from a `~/Code/dotfiles` checkout via `mkOutOfStoreSymlink`, so clone
-the repo there.
+toolchains, and the shared agent instructions). The shared `zsh/init.zsh`
+likewise gates its macOS-only blocks (the 1Password agent socket and the
+SketchyBar cwd hook) behind `$OSTYPE`, so it loads cleanly on Linux. Like the
+Macs, the sandbox links live files from a `~/Code/dotfiles` checkout via
+`mkOutOfStoreSymlink`, so clone the repo there.
 
 ### Validation
 
