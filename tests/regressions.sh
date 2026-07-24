@@ -464,25 +464,36 @@ source "$INIT_ZSH"
 [[ "$CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS" == 1 ]] \
   || { print -u2 "FAIL: live shell omitted the browser telemetry opt-out"; exit 1; }
 
-victim="$TEST_TMP/sketchybar-victim"
-print -r -- "unchanged" > "$victim"
-rm -f -- "$SKETCHYBAR_PWD_FILE"
-ln -s "$victim" "$SKETCHYBAR_PWD_FILE"
-update_sketchybar_pwd
-[[ ! -L "$SKETCHYBAR_PWD_FILE" ]] || { print -u2 "FAIL: SketchyBar state remained a symlink"; exit 1; }
-[[ "$(<"$SKETCHYBAR_PWD_FILE")" == "$PWD" ]] || { print -u2 "FAIL: SketchyBar state did not contain the current directory"; exit 1; }
-[[ "$(<"$victim")" == "unchanged" ]] || { print -u2 "FAIL: SketchyBar state write followed a symlink"; exit 1; }
+# SketchyBar is macOS-only (see zsh/init.zsh): the function and its chpwd hook are
+# defined only under `$OSTYPE == darwin*`. Gate the assertions to match, otherwise
+# this whole block fails command-not-found on the headless Linux sandbox.
+if [[ "$OSTYPE" == darwin* ]]; then
+  victim="$TEST_TMP/sketchybar-victim"
+  print -r -- "unchanged" > "$victim"
+  rm -f -- "$SKETCHYBAR_PWD_FILE"
+  ln -s "$victim" "$SKETCHYBAR_PWD_FILE"
+  update_sketchybar_pwd
+  [[ ! -L "$SKETCHYBAR_PWD_FILE" ]] || { print -u2 "FAIL: SketchyBar state remained a symlink"; exit 1; }
+  [[ "$(<"$SKETCHYBAR_PWD_FILE")" == "$PWD" ]] || { print -u2 "FAIL: SketchyBar state did not contain the current directory"; exit 1; }
+  [[ "$(<"$victim")" == "unchanged" ]] || { print -u2 "FAIL: SketchyBar state write followed a symlink"; exit 1; }
 
-victim_dir="$TEST_TMP/sketchybar-victim-dir"
-mkdir -p "$victim_dir"
-rm -f -- "$SKETCHYBAR_PWD_FILE"
-ln -s "$victim_dir" "$SKETCHYBAR_PWD_FILE"
-update_sketchybar_pwd
-[[ ! -L "$SKETCHYBAR_PWD_FILE" ]] || { print -u2 "FAIL: SketchyBar state remained a directory symlink"; exit 1; }
-[[ -f "$SKETCHYBAR_PWD_FILE" ]] || { print -u2 "FAIL: SketchyBar state did not replace the directory symlink"; exit 1; }
-[[ "$(<"$SKETCHYBAR_PWD_FILE")" == "$PWD" ]] || { print -u2 "FAIL: SketchyBar state did not contain the current directory"; exit 1; }
-victim_entries=("$victim_dir"/*(N))
-[[ ${#victim_entries} -eq 0 ]] || { print -u2 "FAIL: SketchyBar state write followed a directory symlink"; exit 1; }
+  victim_dir="$TEST_TMP/sketchybar-victim-dir"
+  mkdir -p "$victim_dir"
+  rm -f -- "$SKETCHYBAR_PWD_FILE"
+  ln -s "$victim_dir" "$SKETCHYBAR_PWD_FILE"
+  update_sketchybar_pwd
+  [[ ! -L "$SKETCHYBAR_PWD_FILE" ]] || { print -u2 "FAIL: SketchyBar state remained a directory symlink"; exit 1; }
+  [[ -f "$SKETCHYBAR_PWD_FILE" ]] || { print -u2 "FAIL: SketchyBar state did not replace the directory symlink"; exit 1; }
+  [[ "$(<"$SKETCHYBAR_PWD_FILE")" == "$PWD" ]] || { print -u2 "FAIL: SketchyBar state did not contain the current directory"; exit 1; }
+  victim_entries=("$victim_dir"/*(N))
+  [[ ${#victim_entries} -eq 0 ]] || { print -u2 "FAIL: SketchyBar state write followed a directory symlink"; exit 1; }
+else
+  # Non-macOS: the guard in zsh/init.zsh must leave the helper and hook undefined.
+  (( ${+functions[update_sketchybar_pwd]} == 0 )) \
+    || { print -u2 "FAIL: update_sketchybar_pwd defined on non-macOS"; exit 1; }
+  [[ ${chpwd_functions[(Ie)update_sketchybar_pwd]} -eq 0 ]] \
+    || { print -u2 "FAIL: SketchyBar chpwd hook registered on non-macOS"; exit 1; }
+fi
 
 repo="$TEST_TMP/deploy-repo"
 mkdir -p "$repo"

@@ -256,8 +256,9 @@ just check-regressions
 
 `just check-regressions` evaluates both flake profiles and verifies their
 Darwin and Home Manager homes. It also checks profile validation, selective
-OpenCode links, masked ui.sh installation, SketchyBar state-file safety, AXI
-hook failures, and shell regressions.
+OpenCode links, masked ui.sh installation, SketchyBar state-file safety (on
+macOS; on Linux it instead asserts the hook stays undefined), AXI hook
+failures, and shell regressions.
 
 ## Key bindings
 
