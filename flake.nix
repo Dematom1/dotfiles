@@ -65,19 +65,24 @@
     # on any non-NixOS Linux box (Ubuntu/Debian/etc.) that just has Nix + Home
     # Manager. `nix build .#homeConfigurations."captain@<system>".activationPackage`
     # is the Linux validation target when no NixOS builder is available.
-    mkLinuxHome = system: home-manager.lib.homeManagerConfiguration {
-      pkgs = import nixpkgs { inherit system; config.allowUnfree = true; };
-      extraSpecialArgs = { profile = "sandbox"; };
-      modules = [
-        ./home.nix
-        {
-          # home.nix already pins home.stateVersion; only the identity that a
-          # NixOS/Darwin users.users entry would otherwise supply is set here.
-          home.username = "captain";
-          home.homeDirectory = "/home/captain";
-        }
-      ];
-    };
+    # `username`/`homeDirectory` default to captain but are overridable: some
+    # provisioned boxes (e.g. a k3s node reachable only as root over Tailscale)
+    # have no captain account, so the same portable environment is applied to
+    # root's own home instead of creating a system user.
+    mkLinuxHome = { system, username ? "captain", homeDirectory ? "/home/${username}" }:
+      home-manager.lib.homeManagerConfiguration {
+        pkgs = import nixpkgs { inherit system; config.allowUnfree = true; };
+        extraSpecialArgs = { profile = "sandbox"; };
+        modules = [
+          ./home.nix
+          {
+            # home.nix already pins home.stateVersion; only the identity that a
+            # NixOS/Darwin users.users entry would otherwise supply is set here.
+            home.username = username;
+            home.homeDirectory = homeDirectory;
+          }
+        ];
+      };
   in {
     darwinConfigurations = {
       personal = mkDarwinHost {
@@ -101,9 +106,13 @@
     };
 
     # Portable Home Manager for non-NixOS Linux, on both common server arches.
+    # `root@<arch>` targets boxes that are only SSH-reachable as root (no captain
+    # account); they apply the identical environment to /root.
     homeConfigurations = {
-      "captain@x86_64-linux" = mkLinuxHome "x86_64-linux";
-      "captain@aarch64-linux" = mkLinuxHome "aarch64-linux";
+      "captain@x86_64-linux" = mkLinuxHome { system = "x86_64-linux"; };
+      "captain@aarch64-linux" = mkLinuxHome { system = "aarch64-linux"; };
+      "root@x86_64-linux" = mkLinuxHome { system = "x86_64-linux"; username = "root"; homeDirectory = "/root"; };
+      "root@aarch64-linux" = mkLinuxHome { system = "aarch64-linux"; username = "root"; homeDirectory = "/root"; };
     };
   };
 }
