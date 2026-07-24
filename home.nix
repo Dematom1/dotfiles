@@ -60,13 +60,6 @@ in
     # route it through the tracked launcher that passes the explicit opt-out.
     CHROME_DEVTOOLS_AXI_MCP_PATH = "${chromeDevtoolsMcp}/bin/chrome-devtools-mcp";
     CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS = "1";
-  }
-  # Linux sandbox: point the `docker` CLI / docker-compose at captain's rootless
-  # podman socket (option B, key=podman-docker-socket). $XDG_RUNTIME_DIR expands
-  # per session to /run/user/<uid>, matching the systemd user socket that
-  # hosts/sandbox.nix installs. Harmless on non-NixOS Linux that lacks podman.
-  // lib.optionalAttrs pkgs.stdenv.isLinux {
-    DOCKER_HOST = "unix://\${XDG_RUNTIME_DIR}/podman/podman.sock";
   };
 
   # Edit-in-place: the real files stay in the repo, ~ just points at them

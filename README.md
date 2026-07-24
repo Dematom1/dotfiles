@@ -100,8 +100,8 @@ existing non-symlink at that path.
    shared Homebrew packages, and shared system configuration. Darwin only.
 3. **`hosts/personal.nix` and `hosts/work.nix`** append machine-specific
    Homebrew packages. **`hosts/sandbox.nix`** is the standalone NixOS module for
-   the Linux sandbox (SSH, `captain`, podman, firewall). Profile-specific Nix
-   packages are selected in `home.nix`.
+   the Linux sandbox (SSH, `captain`, Docker + gVisor, firewall). Profile-specific
+   Nix packages are selected in `home.nix`.
 4. **`home.nix`** owns user packages, zsh structure and aliases, and selected
    out-of-store links into this repository. It is shared across all platforms;
    macOS-only modules are gated behind `pkgs.stdenv.isDarwin`.
@@ -147,10 +147,12 @@ Two Linux outputs, so it works on NixOS and on any other distro:
 - **`captain`** is a normal `wheel` user with password-less sudo (login is
   key-only) and `zsh` as the login shell. Home Manager provides the portable
   shell/CLI environment - see the platform gating note below.
-- **Container runtime: podman**, not Docker. For a sandbox that runs
-  AI-generated code, podman is rootless and daemonless (no privileged
-  system-wide socket to escalate through), while `dockerCompat` still exposes
-  the `docker` CLI and `docker-compose`.
+- **Container runtime: Docker + gVisor.** Isolation for AI-authored workloads
+  comes from a gVisor-sandboxed plane rather than the container runtime, so a
+  standard rootful Docker daemon is used. gVisor's `runsc` is registered as an
+  available runtime but not the default (runc stays default); the sandbox plane
+  selects it per workload with `docker run --runtime=runsc`. `captain` is in the
+  `docker` group to reach the daemon socket without sudo.
 - **Boot + filesystem** are `lib.mkDefault` placeholders (grub on `/dev/sda`, an
   ext4 root) plus the `qemu-guest` profile for broad virtualized-provider
   drivers. On a real host, import the machine's generated

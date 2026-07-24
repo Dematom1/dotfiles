@@ -53,12 +53,9 @@
   users.users.${username} = {
     isNormalUser = true;
     home = "/home/${username}";
-    extraGroups = [ "wheel" ];   # sudo
+    # wheel = sudo; docker = talk to the Docker daemon socket without sudo.
+    extraGroups = [ "wheel" "docker" ];
     shell = pkgs.zsh;
-    autoSubUidGidRange = true;
-    # Keep captain's systemd user manager (and the rootless podman socket below)
-    # running without an interactive login, so `docker` works on the first SSH.
-    linger = true;
     openssh.authorizedKeys.keys = [
       # Add captain's SSH public key(s) here before applying, e.g.
       # "ssh-ed25519 AAAA... captain@laptop"
@@ -71,39 +68,16 @@
   # Wire zsh into the system so Home Manager's zsh config has a login shell.
   programs.zsh.enable = true;
 
-  # --- Container runtime: podman -----------------------------------------
-  # Podman over Docker for a sandbox that runs AI-generated code: rootless and
-  # daemonless (no privileged system-wide socket to escalate through), while
-  # dockerCompat still exposes the `docker` CLI for tooling that expects it.
-  virtualisation.podman = {
+  # --- Container runtime: Docker + gVisor --------------------------------
+  # Plain Docker (human decision key=podman-docker-socket): the isolation for
+  # AI-authored workloads comes from a gVisor-sandboxed plane, not from the
+  # container runtime, so a standard rootful Docker daemon is fine. gVisor's
+  # runsc is registered as an *available* runtime but deliberately NOT the
+  # default - runc stays default, and the sandbox plane opts in per workload
+  # with `docker run --runtime=runsc`.
+  virtualisation.docker = {
     enable = true;
-    dockerCompat = true;
-    defaultNetwork.settings.dns_enabled = true;
-  };
-
-  # Rootless Docker-compatible API socket (human decision key=podman-docker-socket,
-  # option B). dockerCompat gives the `docker` CLI a binary; this gives it a daemon
-  # to talk to. It is captain's *rootless* per-user socket under $XDG_RUNTIME_DIR -
-  # the rootful virtualisation.podman.dockerSocket is deliberately left OFF so no
-  # privileged, system-wide Docker daemon runs on a box that executes AI-authored
-  # code. captain's DOCKER_HOST (home.nix) points here, so `docker` and
-  # `docker-compose` reach rootless podman over SSH; linger (above) keeps the
-  # socket alive between logins.
-  systemd.user.sockets.podman = {
-    description = "Podman API Socket";
-    wantedBy = [ "sockets.target" ];
-    listenStreams = [ "%t/podman/podman.sock" ];
-    socketConfig.SocketMode = "0660";
-  };
-  systemd.user.services.podman = {
-    description = "Podman API Service";
-    requires = [ "podman.socket" ];
-    after = [ "podman.socket" ];
-    serviceConfig = {
-      Type = "exec";
-      KillMode = "process";
-      ExecStart = "${pkgs.podman}/bin/podman system service";
-    };
+    daemon.settings.runtimes.runsc.path = "${pkgs.gvisor}/bin/runsc";
   };
 
   # --- Baseline AI/dev tooling (system-wide) -----------------------------
