@@ -23,7 +23,11 @@ eval "$(zoxide init zsh)"
 eval "$(atuin init zsh)"
 
 # --- SSH agent (1Password) ---
-export SSH_AUTH_SOCK=~/Library/Group\ Containers/2BUA8C4S2C.com.1password/t/agent.sock
+# The 1Password desktop agent socket is a macOS-only path; on Linux (the sandbox
+# server) leave SSH_AUTH_SOCK to the system ssh-agent instead of a dead socket.
+if [[ "$OSTYPE" == darwin* ]]; then
+  export SSH_AUTH_SOCK=~/Library/Group\ Containers/2BUA8C4S2C.com.1password/t/agent.sock
+fi
 
 # --- Completions ---
 command -v kubectl >/dev/null && source <(kubectl completion zsh)
@@ -34,19 +38,24 @@ setopt hist_verify
 bindkey '^[[A' history-search-backward
 bindkey '^[[B' history-search-forward
 
-# --- Sketchybar: expose cwd for git-branch integration ---
-# Replace the state atomically without following a pre-existing destination symlink.
-function update_sketchybar_pwd() {
-  local target="${SKETCHYBAR_PWD_FILE:-/tmp/sketchybar_pwd}"
-  local tmp
-  tmp="$(mktemp "${target}.XXXXXX")" || return 1
-  if ! printf '%s\n' "$PWD" > "$tmp" || ! mv -fh -- "$tmp" "$target"; then
-    rm -f -- "$tmp"
-    return 1
-  fi
-}
-add-zsh-hook chpwd update_sketchybar_pwd
-update_sketchybar_pwd
+# --- Sketchybar: expose cwd for git-branch integration (macOS only) ---
+# Sketchybar is a macOS status bar; the headless Linux sandbox has none. Guard
+# the whole block: it also uses `mv -fh`, whose `-h` flag is BSD/macOS-only and
+# errors on GNU coreutils, so on Linux this would fail on every prompt and chpwd.
+if [[ "$OSTYPE" == darwin* ]]; then
+  # Replace the state atomically without following a pre-existing destination symlink.
+  function update_sketchybar_pwd() {
+    local target="${SKETCHYBAR_PWD_FILE:-/tmp/sketchybar_pwd}"
+    local tmp
+    tmp="$(mktemp "${target}.XXXXXX")" || return 1
+    if ! printf '%s\n' "$PWD" > "$tmp" || ! mv -fh -- "$tmp" "$target"; then
+      rm -f -- "$tmp"
+      return 1
+    fi
+  }
+  add-zsh-hook chpwd update_sketchybar_pwd
+  update_sketchybar_pwd
+fi
 
 # --- FZF ---
 export FZF_DEFAULT_COMMAND="fd --hidden --strip-cwd-prefix --exclude .git"
