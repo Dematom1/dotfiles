@@ -41,4 +41,10 @@ if [[ "$CURRENT_USER" != "$EXPECTED_USER" ]]; then
   exit 1
 fi
 
-exec sudo darwin-rebuild switch --flake "$HOME/Code/dotfiles#$PROFILE"
+# On a fresh machine nix-darwin isn't installed yet, so `darwin-rebuild` won't
+# exist. Bootstrap it once via `nix run` (pinning the same nix-darwin release as
+# flake.nix); that first switch installs darwin-rebuild for later rebuilds.
+if command -v darwin-rebuild >/dev/null 2>&1; then
+  exec sudo darwin-rebuild switch --flake "$HOME/Code/dotfiles#$PROFILE"
+fi
+exec sudo nix run nix-darwin/nix-darwin-26.05#darwin-rebuild -- switch --flake "$HOME/Code/dotfiles#$PROFILE"

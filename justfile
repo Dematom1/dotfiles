@@ -3,8 +3,9 @@
 skills-dir := ".agents/skills"
 
 # AXI agent tools (npm globals, https://axi.md) relevant to this stack:
-# github, chrome, k8s, postgres, docker, npm + FirstMate's lavish/tasks/quota.
-axi-tools := "gh-axi chrome-devtools-axi lavish-axi tasks-axi quota-axi kubernetes-axi pg-axi docker-axi npm-axi"
+# github, chrome, k8s (kubectl), npm + FirstMate's lavish/tasks/quota.
+# (postgres/docker AXI tools aren't published to npm, so they're omitted.)
+axi-tools := "gh-axi chrome-devtools-axi lavish-axi tasks-axi quota-axi kubectl-axi npm-axi"
 
 # work-machine-only AXI tools - installed by setup/update-firstmate only when
 # ~/.config/dotfiles-profile says "work" (the same marker rebuild.sh reads).
@@ -12,7 +13,7 @@ axi-tools-work := "slack-axi aws-axi gws-axi notion-axi"
 
 # AXI tools installed from GitHub (npm install owner/repo). The binary name is
 # the repo (basename of the spec), which is what `setup hooks` runs.
-axi-tools-git := "nikolauska/linear-axi"
+axi-tools-git := ""
 
 # Show available tasks.
 default:
@@ -57,14 +58,6 @@ update-skills:
     [[ -n "$skillmd" ]] || { echo "ERROR: no SKILL.md found in the repo"; exit 1; }
     rsync -a --delete --exclude '.git' "$(dirname "$skillmd")/" {{ skills-dir }}/learning-opportunities/
 
-    echo "==> memtrace-* skills  (opencode; memtrace owns these)"
-    # memtrace's documented reinstall path. NOTE: also resets its runtime state,
-    # so you may need `memtrace start` afterwards. Adjust if you have a lighter cmd.
-    memtrace doctor --fix --repair-install
-
-    echo "==> ui.sh skill  (paste the token into the installer's masked prompt)"
-    env -u UIDOTSH_TOKEN npx -y @uidotsh/install
-
     echo "==> npx skills CLI (whathappened + vercel-labs)"
     npx -y skills add kunchenguid/whathappened -g -y --agent '*'
     npx -y skills add vercel-labs/agent-skills -g -y --agent '*'
@@ -87,13 +80,6 @@ update-skills:
     echo
     echo "All updated (skill content is gitignored). Validate:  just check-skills"
 
-# Refresh ONLY the ui.sh skill; paste the token into the masked installer prompt.
-update-ui-skill:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    env -u UIDOTSH_TOKEN npx -y @uidotsh/install
-    echo "Done. Review:  git status {{ skills-dir }}"
-
 # ---------------------------------------------------------------------------
 # Machine setup - install Nix, then activate the nix-darwin configuration.
 # ---------------------------------------------------------------------------
@@ -104,8 +90,13 @@ setup profile="": (_select-profile profile)
     #!/usr/bin/env bash
     set -euo pipefail
     if ! command -v nix >/dev/null 2>&1; then
-      echo "==> Installing Determinate Nix"
-      curl -fsSL https://install.determinate.systems/nix | sh -s -- install
+      echo "==> Installing Determinate Nix (macOS package)"
+      # Use the macOS .pkg, not the shell installer: the shell path edits
+      # /etc/fstab, which MDM-managed work Macs block, and it needs a TTY to
+      # confirm (fails inside a `just` recipe). The pkg handles both.
+      pkg="$(mktemp -d)/determinate-nix.pkg"
+      curl -fsSL -o "$pkg" https://install.determinate.systems/determinate-pkg/stable/Universal
+      sudo installer -pkg "$pkg" -target /
       # Put nix on PATH for THIS shell so rebuild runs without a relogin.
       for p in /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh \
                /nix/var/nix/profiles/default/etc/profile.d/nix.sh; do
@@ -127,7 +118,9 @@ nix-install:
     if command -v nix >/dev/null 2>&1; then
       echo "nix already installed: $(nix --version)"; exit 0
     fi
-    curl -fsSL https://install.determinate.systems/nix | sh -s -- install
+    pkg="$(mktemp -d)/determinate-nix.pkg"
+    curl -fsSL -o "$pkg" https://install.determinate.systems/determinate-pkg/stable/Universal
+    sudo installer -pkg "$pkg" -target /
     echo "Nix installed. Open a new shell, then run:  just rebuild"
 
 # (internal) If PROFILE is given, validate it and write ~/.config/dotfiles-profile.
@@ -227,6 +220,12 @@ setup-firstmate:
     mkdir -p "$HOME/.local/bin"
     npm config set prefix "$HOME/.local"
 
+    echo "==> Headroom (agent wrapper; the `claude`/`codex` shell aliases run through it)"
+    # pipx venvs (from nix) - install both packages: headroom-ai provides the
+    # `headroom` binary, headroom provides `max`. --force keeps re-runs idempotent.
+    pipx install --force 'headroom-ai[all]'
+    pipx install --force 'headroom[all]'
+
     echo "==> Pi + Herdr"
     npm install -g --ignore-scripts @earendil-works/pi-coding-agent
     curl -fsSL https://herdr.dev/install.sh | sh
@@ -265,7 +264,7 @@ setup-firstmate:
     echo "==> extra global npm tools"
     npm install -g gnhf
 
-    ws="$HOME/kun-agent-workspace"
+    ws="$HOME/Code/agent-workspace"
     echo "==> workspace: $ws"
     if [[ ! -d "$ws/.git" ]]; then
       git clone https://github.com/kunchenguid/firstmate.git "$ws"
@@ -282,7 +281,7 @@ update-firstmate:
     #!/usr/bin/env bash
     set -euo pipefail
     set +h   # don't cache command locations (updaters may replace binaries)
-    ws="$HOME/kun-agent-workspace"
+    ws="$HOME/Code/agent-workspace"
     if [[ -d "$ws/.git" ]]; then git -C "$ws" pull --ff-only; fi
     pi update --self
     herdr update
