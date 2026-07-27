@@ -15,10 +15,38 @@
 
     home-manager.url = "github:nix-community/home-manager/release-26.05";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
+
+    # Agent-facing Kubernetes CLI. The source commit is pinned here and in
+    # flake.lock; packages/kubernetes-axi.nix supplies the reproducible build.
+    kubernetes-axi = {
+      url = "github:thatdudealso/kubernetes-axi/c05c686e02cb0074ccf1ba5284d2941c05e9a54e";
+      flake = false;
+    };
   };
 
-  outputs = inputs@{ self, nix-darwin, nix-homebrew, home-manager, nixpkgs }:
+  outputs = inputs@{ self, nix-darwin, nix-homebrew, home-manager, nixpkgs, kubernetes-axi }:
   let
+    supportedSystems = [
+      "aarch64-darwin"
+      "x86_64-linux"
+      "aarch64-linux"
+    ];
+    forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
+
+    # One overlay keeps the package identity identical in standalone package
+    # builds, nix-darwin, NixOS, and standalone Home Manager configurations.
+    kubernetesAxiOverlay = final: _: {
+      kubernetes-axi = final.callPackage ./packages/kubernetes-axi.nix {
+        src = kubernetes-axi;
+      };
+    };
+
+    pkgsFor = system: import nixpkgs {
+      inherit system;
+      config.allowUnfree = true;
+      overlays = [ kubernetesAxiOverlay ];
+    };
+
     # Shared Home Manager wiring, identical for every platform. `profile` tells
     # home.nix which machine this is; home.nix gates macOS-only modules behind
     # pkgs.stdenv.isDarwin, so the same file is portable to Linux unchanged.
@@ -41,6 +69,7 @@
     mkDarwinHost = { profile, username, hostModule }: nix-darwin.lib.darwinSystem {
       specialArgs = { inherit username; };
       modules = [
+        { nixpkgs.overlays = [ kubernetesAxiOverlay ]; }
         ./configuration.nix
         hostModule
         nix-homebrew.darwinModules.nix-homebrew
@@ -55,6 +84,7 @@
     mkNixosHost = { profile, username, hostModule }: nixpkgs.lib.nixosSystem {
       specialArgs = { inherit username; };
       modules = [
+        { nixpkgs.overlays = [ kubernetesAxiOverlay ]; }
         hostModule
         home-manager.nixosModules.home-manager
         (hmModule { inherit profile username; })
@@ -71,7 +101,7 @@
     # root's own home instead of creating a system user.
     mkLinuxHome = { system, username ? "captain", homeDirectory ? "/home/${username}" }:
       home-manager.lib.homeManagerConfiguration {
-        pkgs = import nixpkgs { inherit system; config.allowUnfree = true; };
+        pkgs = pkgsFor system;
         extraSpecialArgs = { profile = "sandbox"; };
         modules = [
           ./home.nix
@@ -84,6 +114,36 @@
         ];
       };
   in {
+    overlays.default = kubernetesAxiOverlay;
+
+    # Direct package outputs make the pin easy to build and inspect separately
+    # from a complete host or Home Manager activation.
+    packages = forAllSystems (system:
+      let
+        package = (pkgsFor system).kubernetes-axi;
+      in {
+        kubernetes-axi = package;
+        default = package;
+      });
+
+    # The package build runs upstream's unit suite. This additional bounded
+    # smoke test runs doctor without kubectl on PATH, so no cluster is contacted.
+    checks = forAllSystems (system:
+      let
+        pkgs = pkgsFor system;
+        package = pkgs.kubernetes-axi;
+      in {
+        kubernetes-axi-doctor = pkgs.runCommand "kubernetes-axi-doctor-smoke" {
+          nativeBuildInputs = [ package pkgs.gnugrep ];
+        } ''
+          mkdir -p "$out" "$TMPDIR/home"
+          env -i HOME="$TMPDIR/home" PATH="${package}/bin" \
+            kubernetes-axi doctor > "$out/doctor.toon"
+          grep -q '^summary:' "$out/doctor.toon"
+          grep -q 'kubectl' "$out/doctor.toon"
+        '';
+      });
+
     darwinConfigurations = {
       personal = mkDarwinHost {
         profile = "personal";

@@ -104,7 +104,9 @@ existing non-symlink at that path.
    Nix packages are selected in `home.nix`.
 4. **`home.nix`** owns user packages, zsh structure and aliases, and selected
    out-of-store links into this repository. It is shared across all platforms;
-   macOS-only modules are gated behind `pkgs.stdenv.isDarwin`.
+   macOS-only modules are gated behind `pkgs.stdenv.isDarwin`. The shared
+   `kubernetes-axi` CLI comes from the pinned Nix package in
+   `packages/kubernetes-axi.nix`, not the npm-global bootstrap.
 5. **`just bootstrap`** renders secrets, installs the FirstMate/Pi/Herdr and AXI
    tool stack, refreshes skills, and wires the generated skill directories.
 
@@ -177,6 +179,15 @@ SketchyBar cwd hook) behind `$OSTYPE`, so it loads cleanly on Linux. Like the
 Macs, the sandbox links live files from a `~/Code/dotfiles` checkout via
 `mkOutOfStoreSymlink`, so clone the repo there.
 
+`kubernetes-axi` is built from the exact upstream commit pinned by `flake.nix`
+and `flake.lock`. It is in the shared Home Manager package list, so the
+applicable local Mac profiles and every Linux sandbox profile get the same
+executable on `PATH`. The package build runs upstream's unit suite. The flake
+also exposes `packages.<system>.kubernetes-axi` and a bounded
+`checks.<system>.kubernetes-axi-doctor` smoke test. That smoke test removes
+`kubectl` from `PATH` before running `kubernetes-axi doctor`, which proves the
+installed executable starts without contacting or mutating a cluster.
+
 ### Validation
 
 `nix flake check` passes and every Linux output evaluates to a derivation, but
@@ -185,6 +196,8 @@ derivations without a remote Linux builder. To actually build on the Mac,
 configure one and run:
 
 ```bash
+nix flake check
+nix build .#kubernetes-axi
 nix build '.#nixosConfigurations.sandbox.config.system.build.toplevel' --system x86_64-linux
 nix build '.#homeConfigurations."captain@x86_64-linux".activationPackage' --system x86_64-linux
 ```
