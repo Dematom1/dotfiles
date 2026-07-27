@@ -2,9 +2,10 @@
 
 skills-dir := ".agents/skills"
 
-# AXI agent tools (npm globals, https://axi.md) relevant to this stack:
-# github, chrome, k8s, postgres, docker, npm + FirstMate's lavish/tasks/quota.
-axi-tools := "gh-axi chrome-devtools-axi lavish-axi tasks-axi quota-axi kubernetes-axi pg-axi docker-axi npm-axi"
+# AXI agent tools installed as npm globals (https://axi.md).
+# kubernetes-axi is intentionally absent: flake.nix pins and packages it through
+# Nix so both Macs and the Linux sandbox receive the same reproducible build.
+axi-tools := "gh-axi chrome-devtools-axi lavish-axi tasks-axi quota-axi pg-axi docker-axi npm-axi"
 
 # work-machine-only AXI tools - installed by setup/update-firstmate only when
 # ~/.config/dotfiles-profile says "work" (the same marker rebuild.sh reads).

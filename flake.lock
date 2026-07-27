@@ -38,6 +38,23 @@
         "type": "github"
       }
     },
+    "kubernetes-axi": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1783741534,
+        "narHash": "sha256-SiWOs7pPSckPg7mXmD1Sx5xAdPHuEyYpr99aOsRfN94=",
+        "owner": "thatdudealso",
+        "repo": "kubernetes-axi",
+        "rev": "c05c686e02cb0074ccf1ba5284d2941c05e9a54e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "thatdudealso",
+        "repo": "kubernetes-axi",
+        "rev": "c05c686e02cb0074ccf1ba5284d2941c05e9a54e",
+        "type": "github"
+      }
+    },
     "nix-darwin": {
       "inputs": {
         "nixpkgs": [
@@ -96,6 +113,7 @@
     "root": {
       "inputs": {
         "home-manager": "home-manager",
+        "kubernetes-axi": "kubernetes-axi",
         "nix-darwin": "nix-darwin",
         "nix-homebrew": "nix-homebrew",
         "nixpkgs": "nixpkgs"
