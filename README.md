@@ -196,13 +196,20 @@ derivations without a remote Linux builder. To actually build on the Mac,
 configure one and run:
 
 ```bash
-nix flake check
-nix build .#kubernetes-axi
-nix build '.#nixosConfigurations.sandbox.config.system.build.toplevel' --system x86_64-linux
-nix build '.#homeConfigurations."captain@x86_64-linux".activationPackage' --system x86_64-linux
+nix build '.#packages.x86_64-linux.kubernetes-axi'
+nix build '.#packages.x86_64-linux.default'
+nix build '.#checks.x86_64-linux.kubernetes-axi-doctor'
+nix build '.#packages.aarch64-linux.kubernetes-axi'
+nix build '.#packages.aarch64-linux.default'
+nix build '.#checks.aarch64-linux.kubernetes-axi-doctor'
+nix build '.#nixosConfigurations.sandbox.config.system.build.toplevel'
+nix build '.#homeConfigurations."captain@x86_64-linux".activationPackage'
+nix build '.#homeConfigurations."root@x86_64-linux".activationPackage'
+nix build '.#homeConfigurations."captain@aarch64-linux".activationPackage'
+nix build '.#homeConfigurations."root@aarch64-linux".activationPackage'
 ```
 
-Without a Linux builder, both `nix build`s fail fast with a platform mismatch;
+Without a Linux builder, these `nix build` commands fail fast with a platform mismatch;
 the real build happens on the Linux host during `nixos-rebuild` /
 `home-manager switch`.
 
