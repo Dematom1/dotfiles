@@ -209,8 +209,8 @@ nix build '.#homeConfigurations."captain@aarch64-linux".activationPackage'
 nix build '.#homeConfigurations."root@aarch64-linux".activationPackage'
 ```
 
-Without a Linux builder, these `nix build` commands fail fast with a platform mismatch;
-the real build happens on the Linux host during `nixos-rebuild` /
+Without a Linux builder, these `nix build` commands fail fast with a platform
+mismatch; the real build happens on the Linux host during `nixos-rebuild` /
 `home-manager switch`.
 
 ## Credentials and authenticated skills
@@ -309,6 +309,7 @@ dotfiles/
 ├── configuration.nix    # shared nix-darwin system and Homebrew configuration
 ├── home.nix             # Home Manager packages, links, zsh (macOS-gated where needed)
 ├── hosts/               # personal.nix, work.nix (Mac deltas), sandbox.nix (Linux NixOS)
+├── packages/            # custom Nix package definitions
 ├── rebuild.sh           # validated profile selection and darwin-rebuild
 ├── justfile             # bootstrap, update, skills, and checks
 ├── tests/               # account-selection and shell regressions
