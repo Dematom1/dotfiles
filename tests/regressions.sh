@@ -429,7 +429,7 @@ fi
 exit 0
 EOF
 chmod +x "$fake_bin/stack-command"
-for command in gh jq node npm curl pi herdr treehouse no-mistakes gh-axi; do
+for command in gh jq node npm curl pi claude herdr treehouse no-mistakes gh-axi; do
   ln -s stack-command "$fake_bin/$command"
 done
 ln -s "$(command -v just)" "$fake_bin/just"
