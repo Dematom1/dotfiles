@@ -83,8 +83,8 @@ in
 
     # AI tooling - one AGENTS.md shared across Claude + Codex
     ".config/herdr".source         = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/herdr";
-    # ~/.claude/settings.json is intentionally NOT managed here: the AXI tools
-    # (`gh-axi setup hooks` etc.) mutate it, so it's tool-owned like the skills.
+    # ~/.claude/settings.json is intentionally NOT managed here: AXI setup hooks
+    # and Claude's plugin manager mutate it, so it's tool-owned like the skills.
     # Claude gets a composition entrypoint (shared AGENTS.md + Claude-only RTK)
     ".claude/CLAUDE.md".source     = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/claude/CLAUDE.md";
     ".codex/AGENTS.md".source      = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/AGENTS.md";

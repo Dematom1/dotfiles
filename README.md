@@ -108,8 +108,8 @@ existing non-symlink at that path.
    `kubernetes-axi` CLI comes from the pinned Nix package in
    `packages/kubernetes-axi.nix`, not the npm-global bootstrap.
 5. **`just bootstrap`** renders secrets, installs the FirstMate/Pi/Herdr and AXI
-   tool stack, installs Ponytail for Pi and Claude Code, refreshes skills, and
-   wires the generated skill directories.
+   tool stack, installs Ponytail for Pi and for Claude Code where available,
+   refreshes skills, and wires the generated skill directories.
 
 Home Manager uses `mkOutOfStoreSymlink`, so edits to linked files apply without
 copying them into the Nix store or rebuilding. On first activation, an existing
