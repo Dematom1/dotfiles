@@ -202,6 +202,7 @@ _setup-ponytail:
 _update-ponytail: _setup-ponytail
     #!/usr/bin/env bash
     set -euo pipefail
+    pi update {{ ponytail-pi-source }}
     command -v claude >/dev/null 2>&1 || exit 0
     claude plugin marketplace update ponytail
     claude plugin update {{ ponytail-claude-plugin }}

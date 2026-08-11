@@ -47,6 +47,7 @@ done
 
 for expected in \
   'pi install git:github.com/DietrichGebert/ponytail' \
+  'pi update git:github.com/DietrichGebert/ponytail' \
   'claude plugin marketplace add --scope user DietrichGebert/ponytail' \
   'claude plugin install --scope user ponytail@ponytail' \
   'claude plugin marketplace update ponytail' \
