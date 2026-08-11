@@ -15,6 +15,12 @@ axi-tools-work := "slack-axi aws-axi gws-axi notion-axi"
 # the repo (basename of the spec), which is what `setup hooks` runs.
 axi-tools-git := "nikolauska/linear-axi"
 
+# Reviewed upstream agent package/plugin identities. Keep these user-scoped and
+# tool-owned: Pi and Claude Code both reconcile repeated installs idempotently.
+ponytail-pi-source := "git:github.com/DietrichGebert/ponytail"
+ponytail-claude-marketplace := "DietrichGebert/ponytail"
+ponytail-claude-plugin := "ponytail@ponytail"
+
 # Show available tasks.
 default:
     @just --list
@@ -167,10 +173,39 @@ refresh-secrets:
 bootstrap: refresh-secrets setup-firstmate update-skills
     @echo "Bootstrap done. If GitHub isn't authed yet: gh auth login"
 
-# Focused regression checks for account selection, setup hooks, and shell safety.
+# Focused regression checks for account selection, agent setup, and shell safety.
 check-regressions:
     ./tests/usernames.sh
+    ./tests/ponytail.sh
     ./tests/regressions.sh
+
+# Install Ponytail through each agent's native user-scoped package manager.
+# Claude Code is shared by both Mac profiles; the Linux sandbox remains Pi-only
+# unless Claude is installed there separately.
+_setup-ponytail:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    pi install {{ ponytail-pi-source }}
+    if ! command -v claude >/dev/null 2>&1; then
+      if [[ $(uname -s) == Darwin ]]; then
+        echo "missing Claude Code: run 'just rebuild' before agent bootstrap" >&2
+        exit 1
+      fi
+      echo "    - Claude Code unavailable; installed Ponytail for Pi only"
+      exit 0
+    fi
+    claude plugin marketplace add --scope user {{ ponytail-claude-marketplace }}
+    claude plugin install --scope user {{ ponytail-claude-plugin }}
+
+# Reconcile missing installs first, then refresh Claude's mutable marketplace
+# checkout and installed plugin through its native update contract.
+_update-ponytail: _setup-ponytail
+    #!/usr/bin/env bash
+    set -euo pipefail
+    pi update {{ ponytail-pi-source }}
+    command -v claude >/dev/null 2>&1 || exit 0
+    claude plugin marketplace update ponytail
+    claude plugin update {{ ponytail-claude-plugin }}
 
 # Run setup hooks only when the AXI tool advertises them, and preserve failures.
 _setup-axi-hooks tool:
@@ -232,6 +267,7 @@ setup-firstmate:
     npm install -g --ignore-scripts @earendil-works/pi-coding-agent
     curl -fsSL https://herdr.dev/install.sh | sh
     herdr integration install pi
+    just _setup-ponytail
 
     echo "==> Treehouse + No Mistakes + AXI tools"
     curl -fsSL https://kunchenguid.github.io/treehouse/install.sh | sh
@@ -286,6 +322,7 @@ update-firstmate:
     ws="$HOME/kun-agent-workspace"
     if [[ -d "$ws/.git" ]]; then git -C "$ws" pull --ff-only; fi
     pi update --self
+    just _update-ponytail
     herdr update
     treehouse update
     no-mistakes update
