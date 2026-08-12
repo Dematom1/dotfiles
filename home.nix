@@ -14,6 +14,10 @@ in
   # users.users entry in configuration.nix.
   home.stateVersion = "26.05";
 
+  # Automic Vault installs its signed CLI stub here after the app is opened.
+  # Declare the path explicitly so `av` is available in Home Manager shells.
+  home.sessionPath = lib.optionals pkgs.stdenv.isDarwin [ "/usr/local/bin" ];
+
   home.packages = with pkgs; [
     # core cli - portable across macOS and the Linux sandbox
     just doppler tmux jq yq bat fd fzf eza zoxide atuin direnv delta

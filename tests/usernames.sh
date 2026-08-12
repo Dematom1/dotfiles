@@ -38,6 +38,13 @@ for profile_user in personal:laszlohoranszky work:laszlo; do
     || fail "$profile profile did not select the Nix-managed chrome-devtools-mcp launcher"
   [[ $launcher != *"/Users/"*"/Code/dotfiles"* ]] \
     || fail "$profile profile browser launcher depends on a source checkout path"
+  [[ $(nix eval --raw "$repo#darwinConfigurations.$profile.config.homebrew.casks" \
+    --apply 'casks: builtins.concatStringsSep "," (map (cask: cask.name) casks)') == \
+    *"automic-vault/isotopes/automic-vault"* ]] \
+    || fail "$profile profile does not install Automic Vault through Homebrew"
+  [[ $(nix eval --raw "$repo#darwinConfigurations.$profile.config.home-manager.users.$user.home.sessionPath" \
+    --apply 'paths: builtins.concatStringsSep ":" paths') == *"/usr/local/bin"* ]] \
+    || fail "$profile profile does not expose the Automic Vault CLI location on PATH"
   nix build --no-link "$repo#darwinConfigurations.$profile.config.home-manager.users.$user.home.activationPackage"
   [[ -x $launcher ]] || fail "$profile profile browser launcher is not executable"
   node --check "$launcher" >/dev/null \

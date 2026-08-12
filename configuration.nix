@@ -57,6 +57,7 @@
       "opensuperwhisper"
       "agentsview"
       "kunchenguid/tap/baby-menu"
+      "automic-vault/isotopes/automic-vault"
       # fonts
       "font-hack-nerd-font"
       "font-meslo-lg-nerd-font"
