@@ -37,6 +37,7 @@ without the work marker as `laszlo` cannot silently target the personal home.
 | **atuin** | Shell history search |
 | **direnv** | Per-project environments |
 | **git** | Git configuration with delta |
+| **Automic Vault** | Local macOS Keychain and command-approval boundary |
 | **yazi** | Terminal file manager |
 | **bat** | Syntax-highlighted output |
 | **aerospace** | macOS window manager |
@@ -233,6 +234,95 @@ installer's masked prompt. The recipes remove any inherited `UIDOTSH_TOKEN` and
 do not pass a token through argv. Do not put the token in a command, environment
 file, repository file, chat, logs, or agent pane. The setup does not inspect the
 clipboard.
+
+### Automic Vault GitHub CLI pilot
+
+Automic Vault is declared as the official
+`automic-vault/isotopes/automic-vault` Homebrew cask in `configuration.nix`, so
+both Mac profiles install it during a rebuild. Home Manager also places the
+vendor's `/usr/local/bin` CLI location on `PATH`. The third-party cask follows
+this repository's existing rolling Homebrew convention and is not pinned by
+`flake.lock`; its cask metadata pins each release artifact by SHA-256. At pilot
+start the captain observed `av 3.3.0`.
+
+The [official CLI manual](https://www.automicvault.com/docs/) and
+[source repository](https://github.com/automic-vault/automic-vault) are the
+authoritative product references.
+
+This is a bounded, manual pilot for `GH_TOKEN`. It does not harden or replace
+the Nix-provided `gh`, migrate credentials, or remove any existing GitHub CLI
+authentication.
+
+1. Apply the selected Mac profile with `just rebuild personal` or
+   `just rebuild work`.
+2. Open the app once so its approval service is running and its signed CLI stub
+   is installed, then verify the command is the expected stub:
+
+   ```bash
+   open /Applications/Automic\ Vault.app
+   command -v av
+   av --version
+   ```
+
+   `command -v av` should print `/usr/local/bin/av`.
+3. Audit all reported exposure without changing it:
+
+   ```bash
+   av scan --show-all
+   ```
+
+   Review the report. Do not treat exit status `0` as a clean audit, and do not
+   apply unrelated hardeners as part of this pilot.
+4. Keep the current GitHub CLI authentication intact. In a private interactive
+   terminal, save the token through Automic Vault's hidden `/dev/tty` prompt:
+
+   ```bash
+   av save GH_TOKEN
+   ```
+
+   Never pipe, echo, log, or pass the token on the command line. This step needs
+   the captain's direct entry and approval and must not be automated.
+5. With the app open, request approval and test the injected path:
+
+   ```bash
+   av inject +GH_TOKEN gh auth status
+   ```
+
+   An existing `GH_TOKEN` environment value wins by default. If `av` reports
+   that conflict, prove Keychain injection in a temporary clean environment
+   without changing the durable fallback:
+
+   ```bash
+   env -u GH_TOKEN av inject +GH_TOKEN gh auth status
+   ```
+
+6. Inspect the current GitHub CLI integration:
+
+   ```bash
+   av doctor gh
+   ```
+
+   The pilot baseline reports that `/opt/homebrew/opt/gh-cli/bin/gh` is missing
+   and the Nix `gh` at `/etc/profiles/per-user/$USER/bin/gh` is not the signed
+   Automic Vault isotope. That result is expected for this injection-only
+   pilot. Do not run `av harden gh` within this pilot, because it would replace
+   the current command path and migrate authentication.
+7. Only after the injected command succeeds may the captain separately decide
+   whether to remove an old plaintext or exported credential. No rebuild or
+   repository automation removes it.
+
+Rollback is to stop using `av inject` and continue with the preserved GitHub CLI
+authentication. To uninstall the application declaratively, remove its cask
+entry from `configuration.nix` and rebuild the selected profile. That does not
+delete the `GH_TOKEN` Keychain item. If desired, the captain can remove that
+item interactively in Automic Vault after confirming the fallback works.
+
+The security boundary is local to this Mac. Keychain storage plus per-target
+and launcher authorization reduce ambient secret exposure to local agents, but
+an approved target controls a secret after receiving it, including in process
+memory and its environment. This does not contain same-user malware or a root
+compromise, and it does not replace CI, Kubernetes, production, or centralized
+secret management.
 
 ## Agent wrappers
 
