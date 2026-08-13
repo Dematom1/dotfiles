@@ -550,6 +550,7 @@ cat > "$pi_home/.local/bin/pi" <<'EOF'
 #!/usr/bin/env bash
 echo 1 >> "$TEST_TMP/pi-real-invocations"
 printf '%s\n' "$@" > "$TEST_TMP/pi-real-args"
+printf '%s' "${OPENCODE_API_KEY-}" > "$TEST_TMP/pi-real-env-key"
 EOF
 chmod +x "$pi_home/.local/bin/pi"
 
@@ -558,20 +559,31 @@ mkdir -p "$fake_av_bin"
 cat > "$fake_av_bin/av" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$@" > "$TEST_TMP/av-args"
-[[ "$1" == inject && "$2" == "+OPENCODE_API_KEY" && "$3" == "--" ]] \
+[[ "$1" == inject && "$2" == "--replace-existing-env" && "$3" == "+OPENCODE_API_KEY" && "$4" == "--" ]] \
   || { echo "unexpected av invocation: $*" >&2; exit 1; }
-shift 3
-exec "$@"
+shift 4
+OPENCODE_API_KEY="injected-test-secret" exec "$@"
 EOF
 chmod +x "$fake_av_bin/av"
 
 TEST_TMP="$tmp" HOME="$pi_home" PATH="$pi_home/Code/dotfiles/bin:$fake_av_bin:/usr/bin:/bin" \
   pi arg1 "arg two" "arg\$3" --flag=value
-[[ "$(<"$tmp/av-args")" == $'inject\n+OPENCODE_API_KEY\n--\n'"$pi_home/.local/bin/pi"$'\narg1\narg two\narg$3\n--flag=value' ]] \
-  || fail "bin/pi did not call av inject with OPENCODE_API_KEY and the real pi path"
+[[ "$(<"$tmp/av-args")" == $'inject\n--replace-existing-env\n+OPENCODE_API_KEY\n--\n'"$pi_home/.local/bin/pi"$'\narg1\narg two\narg$3\n--flag=value' ]] \
+  || fail "bin/pi did not call av inject with --replace-existing-env, OPENCODE_API_KEY, and the real pi path"
 [[ "$(<"$tmp/pi-real-args")" == $'arg1\narg two\narg$3\n--flag=value' ]] \
   || fail "bin/pi did not forward arguments to the real pi unchanged"
 [[ $(wc -l < "$tmp/pi-real-invocations") -eq 1 ]] \
   || fail "bin/pi invoked the real pi more than once (recursion?)"
+
+# A stale OPENCODE_API_KEY already in the environment (e.g. left over from an
+# earlier shell) must not shadow the vault-injected value: bin/pi must pass
+# --replace-existing-env so av's injected value always wins, and av itself
+# must never see the secret value on its own argv.
+TEST_TMP="$tmp" HOME="$pi_home" PATH="$pi_home/Code/dotfiles/bin:$fake_av_bin:/usr/bin:/bin" \
+  OPENCODE_API_KEY="stale-should-be-replaced" pi arg1
+[[ "$(<"$tmp/pi-real-env-key")" == "injected-test-secret" ]] \
+  || fail "bin/pi did not let av override a stale, pre-existing OPENCODE_API_KEY"
+grep -qE 'stale-should-be-replaced|injected-test-secret' "$tmp/av-args" \
+  && fail "av-args unexpectedly contains a secret value instead of only invocation arguments"
 
 echo "shell regressions OK"

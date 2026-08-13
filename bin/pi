@@ -3,6 +3,8 @@
 # OPENCODE_API_KEY, even when launched by long-lived tools such as Herdr
 # panes that don't inherit interactive-shell-only alias/function definitions.
 # Invokes the real, npm-managed pi by absolute path so this can never recurse
-# into itself regardless of PATH order.
+# into itself regardless of PATH order. --replace-existing-env makes the
+# vault value win even if a stale OPENCODE_API_KEY is already in the
+# environment (e.g. left over from an earlier shell or tool).
 set -euo pipefail
-exec av inject +OPENCODE_API_KEY -- "$HOME/.local/bin/pi" "$@"
+exec av inject --replace-existing-env +OPENCODE_API_KEY -- "$HOME/.local/bin/pi" "$@"
