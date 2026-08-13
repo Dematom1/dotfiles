@@ -339,6 +339,13 @@ them:
 The Codex wrapper therefore keeps its current no-proxy and no-TokenSave posture
 while preserving the existing Headroom invocation and port.
 
+Pi uses the real executable at `~/Code/dotfiles/bin/pi` instead of an alias or
+function, so non-interactive launchers such as Herdr can resolve it. The wrapper
+asks Automic Vault to inject `OPENCODE_API_KEY`, then invokes the npm-managed
+`~/.local/bin/pi` by absolute path and forwards every argument unchanged. Save
+the credential through Automic Vault's private prompt with
+`av save OPENCODE_API_KEY`; never put its value in this repository or a command.
+
 ## AI runtime hygiene
 
 The runtime uses a selective diagnostics policy:

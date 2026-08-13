@@ -566,7 +566,7 @@ EOF
 chmod +x "$fake_av_bin/av"
 
 TEST_TMP="$tmp" HOME="$pi_home" PATH="$pi_home/Code/dotfiles/bin:$fake_av_bin:/usr/bin:/bin" \
-  pi arg1 "arg two" 'arg$3' --flag=value
+  pi arg1 "arg two" "arg\$3" --flag=value
 [[ "$(<"$tmp/av-args")" == $'inject\n+OPENCODE_API_KEY\n--\n'"$pi_home/.local/bin/pi"$'\narg1\narg two\narg$3\n--flag=value' ]] \
   || fail "bin/pi did not call av inject with OPENCODE_API_KEY and the real pi path"
 [[ "$(<"$tmp/pi-real-args")" == $'arg1\narg two\narg$3\n--flag=value' ]] \
