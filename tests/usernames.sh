@@ -10,6 +10,8 @@ fail() {
   exit 1
 }
 
+av_bin=$(command -v av) || fail "installed Automic Vault scanner is unavailable"
+
 nix_value() {
   nix eval --raw "$repo#$1"
 }
@@ -50,7 +52,32 @@ for profile_user in personal:laszlohoranszky work:laszlo; do
   if grep -Eqi 'TOKEN|SECRET|PASSWORD|PASS|API_KEY|ACCESS_KEY|PRIVATE_KEY|AUTH' <<<"$alias_names"; then
     fail "$profile profile renders a shell alias that Automic Vault treats as a secret assignment"
   fi
-  nix build --no-link "$repo#darwinConfigurations.$profile.config.home-manager.users.$user.home.activationPackage"
+  activation=$(nix build --no-link --print-out-paths \
+    "$repo#darwinConfigurations.$profile.config.home-manager.users.$user.home.activationPackage")
+  scan_home="$tmp/av-$profile"
+  mkdir -p "$scan_home"
+  cp -L "$activation/home-files/.zshenv" "$scan_home/.zshenv"
+  cp -L "$activation/home-files/.zshrc" "$scan_home/.zshrc"
+  chmod u+w "$scan_home/.zshenv" "$scan_home/.zshrc"
+
+  set +e
+  scan_output=$(env -i HOME="$scan_home" ZDOTDIR="$scan_home" PATH=/usr/bin:/bin \
+    "$av_bin" scan --json 2>/dev/null)
+  scan_status=$?
+  set -e
+  [[ $scan_status -eq 0 || $scan_status -eq 1 ]] \
+    || fail "$profile profile scanner exited with unexpected state $scan_status"
+  jq -e . >/dev/null <<<"$scan_output" \
+    || fail "$profile profile scanner did not return JSON"
+  if jq -e --arg root "$scan_home/" '
+    .findings[]
+    | select(.source == "zsh" or .source == "bash+zsh")
+    | .affected[]?.path
+    | select(startswith($root))
+  ' >/dev/null <<<"$scan_output"; then
+    fail "$profile profile generated zsh files trigger an Automic Vault warning"
+  fi
+
   [[ -x $launcher ]] || fail "$profile profile browser launcher is not executable"
   node --check "$launcher" >/dev/null \
     || fail "$profile profile browser launcher is not a Node-compatible JavaScript entrypoint"
