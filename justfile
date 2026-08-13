@@ -185,6 +185,14 @@ check-regressions:
     ./tests/just-update.sh
     ./tests/regressions.sh
 
+# Redacted Automic Vault scan through the real login-shell operator path.
+av-scan:
+    ./scripts/av-scan-summary.sh
+
+# Final app-visible acceptance gate. This fails while any finding remains.
+av-check:
+    ./scripts/av-scan-summary.sh --require-clean
+
 # Install Ponytail through each agent's native user-scoped package manager.
 # Claude Code is shared by both Mac profiles; the Linux sandbox remains Pi-only
 # unless Claude is installed there separately.

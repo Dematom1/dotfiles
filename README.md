@@ -431,19 +431,33 @@ authentication.
    ```
 
    `command -v av` should print `/usr/local/bin/av`.
-3. Audit all reported exposure without changing it:
+3. Audit all reported exposure without changing it. The repository wrapper
+   runs the real login-shell path and prints only category, severity, and count:
 
    ```bash
-   av scan --show-all
+   just av-scan
    ```
 
-   Review the report. Do not treat exit status `0` as a clean audit, and do not
-   apply unrelated hardeners as part of this pilot. This repository owns the
-   generated shell configuration behind the `zsh` and `bash+zsh` categories.
-   Other categories describe credentials, tool configuration, Homebrew, sudo,
-   or Docker ownership, or external account and vault state. They are outside
-   this repository; report them separately and do not suppress, migrate,
-   harden, or claim them as part of a shell-config fix.
+   `just av-scan` exits successfully when the scanner ran, even if findings are
+   present. Use `just av-check` for final acceptance; it fails until the same
+   app-visible scan has zero findings. Generated-profile regressions isolate
+   repository-owned zsh behavior, but they are not a substitute for this real
+   operator-path gate.
+
+   Classify every finding before changing state. Generated `zsh` and
+   `bash+zsh` configuration is repository-owned. A finding involving both a
+   managed command and existing credentials, such as `hcloud` or Git's helper
+   selection, needs a repository change only after the captain completes the
+   credential migration. Findings for retained tools, Keychain access,
+   Homebrew, sudo, Docker, SSH, and external accounts require an explicit
+   captain decision. Remove stale tool state only after the captain confirms
+   the tool is unused. Preserve Cloudflare Wrangler unless that decision is
+   changed explicitly.
+
+   The tracked Git include resets legacy credential helpers and selects the
+   native macOS Keychain helper. Do not delete `~/.git-credentials` until a
+   private authenticated Git operation succeeds through Keychain; removing the
+   old file is a separate captain action.
 4. Keep the current GitHub CLI authentication intact. In a private interactive
    terminal, save the token through Automic Vault's hidden `/dev/tty` prompt:
 

@@ -10,6 +10,45 @@ fail() {
   exit 1
 }
 
+av_probe="$tmp/av-probe"
+cat > "$av_probe" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' '{"findings":[{"source":"probe","severity":"high","value":"MUST_NOT_LEAK","affected":[{"path":"MUST_NOT_LEAK"}]}]}'
+EOF
+chmod +x "$av_probe"
+
+output=$("$repo/scripts/av-scan-summary.sh" --scanner "$av_probe")
+[[ $output == '{"total":1,"categories":[{"source":"probe","severity":"high","count":1}]}' ]] \
+  || fail "Automic Vault operator summary exposed or misreported finding payloads"
+[[ $output != *MUST_NOT_LEAK* ]] \
+  || fail "Automic Vault operator summary leaked raw finding data"
+
+set +e
+output=$("$repo/scripts/av-scan-summary.sh" --require-clean --scanner "$av_probe" 2>&1)
+status=$?
+set -e
+[[ $status -eq 1 ]] || fail "Automic Vault clean acceptance allowed findings"
+[[ $output != *MUST_NOT_LEAK* ]] || fail "Automic Vault clean acceptance leaked raw finding data"
+
+av_error_probe="$tmp/av-error-probe"
+cat > "$av_error_probe" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' '{"findings":[]}'
+exit 9
+EOF
+chmod +x "$av_error_probe"
+set +e
+output=$("$repo/scripts/av-scan-summary.sh" --scanner "$av_error_probe" 2>&1)
+status=$?
+set -e
+[[ $status -eq 1 ]] || fail "Automic Vault operator summary accepted an operational scanner failure"
+[[ $output == *"failed operationally with exit 9"* ]] \
+  || fail "Automic Vault operator summary hid the scanner exit state"
+
+mapfile -t git_helpers < <(git config --file "$repo/git/config" --get-all credential.helper)
+[[ ${#git_helpers[@]} -eq 2 && -z ${git_helpers[0]} && ${git_helpers[1]} == osxkeychain ]] \
+  || fail "tracked Git config does not reset plaintext helpers before selecting macOS Keychain"
+
 cat > "$tmp/failing-axi" <<'EOF'
 #!/usr/bin/env bash
 if [[ "$*" == "setup --help" ]]; then
