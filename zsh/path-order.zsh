@@ -36,7 +36,9 @@ _dotfiles_order_path_safely() {
         continue
       fi
     else
-      user_path+=("$entry")
+      # PATH entries must be existing directories. Missing entries provide no
+      # commands and may later become replaceable through a writable ancestor.
+      continue
     fi
   done
 

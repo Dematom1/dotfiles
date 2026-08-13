@@ -123,8 +123,9 @@ for profile_user in personal:laszlohoranszky work:laszlo; do
   scan_home="$tmp/av-$profile"
   mkdir -p "$scan_home"
   cp -L "$activation/home-files/.zshenv" "$scan_home/.zshenv"
+  cp -L "$activation/home-files/.zprofile" "$scan_home/.zprofile"
   cp -L "$activation/home-files/.zshrc" "$scan_home/.zshrc"
-  chmod u+w "$scan_home/.zshenv" "$scan_home/.zshrc"
+  chmod u+w "$scan_home/.zshenv" "$scan_home/.zprofile" "$scan_home/.zshrc"
 
   scan_generated_zsh "$profile" "$av_bin" "$scan_home" \
     || fail "$profile profile generated zsh scan failed"
