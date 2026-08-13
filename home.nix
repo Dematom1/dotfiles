@@ -2,6 +2,7 @@
 
 let
   dotfiles = "${config.home.homeDirectory}/Code/dotfiles";
+  securePathOrder = builtins.readFile ./zsh/path-order.zsh;
   chromeDevtoolsMcp = pkgs.writeTextFile {
     name = "chrome-devtools-mcp";
     destination = "/bin/chrome-devtools-mcp";
@@ -120,11 +121,20 @@ in
     envExtra = ''
       [ -r "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 
-      # Put nix + user bins on PATH for NON-interactive shells too (agents, git
-      # hooks, tool subprocesses). init.zsh only runs for interactive shells, so
-      # anything launched outside a terminal couldn't find gh/just/prek/etc.
+      # Keep the same managed tools available to interactive and non-interactive
+      # shells, then place protected directories ahead of user-writable ones.
       typeset -U path PATH
-      path=("/etc/profiles/per-user/$USER/bin" "$HOME/.local/bin" $path)
+      path=(
+        "/etc/profiles/per-user/$USER/bin"
+        "$HOME/.local/bin"
+        "$HOME/go/bin"
+        "$HOME/.bun/bin"
+        "/usr/local/zig"
+        "$HOME/.lmstudio/bin"
+        "$HOME/.opencode/bin"
+        $path
+      )
+      ${securePathOrder}
     '';
 
     history = {
@@ -151,8 +161,6 @@ in
       gl     = "git log --oneline -20";
       claude = "headroom wrap claude --1m --";
       codex  = "headroom wrap codex --no-proxy --port 8787 --no-context-tool --no-mcp --no-tokensave --no-serena --";
-      # regenerate ~/.secrets from 1Password (needs `op signin`)
-      refresh-secrets = "op inject -f -i ~/Code/dotfiles/zsh/secrets.tpl -o ~/.secrets && echo '✓ ~/.secrets refreshed'";
     };
 
     oh-my-zsh = {

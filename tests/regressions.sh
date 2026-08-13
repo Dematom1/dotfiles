@@ -226,6 +226,22 @@ done
 
 ! grep -q 'UIDOTSH_TOKEN' "$repo/zsh/secrets.tpl" || fail "UI token remains in credential automation"
 
+protected_path="$tmp/protected-path"
+writable_path="$tmp/writable-path"
+missing_path="$tmp/missing-path"
+mkdir -p "$protected_path" "$writable_path"
+chmod 0555 "$protected_path"
+zsh_bin=$(command -v zsh)
+output=$(PATH="$writable_path:$protected_path:$writable_path:$missing_path:relative" \
+  "$zsh_bin" -dfc 'source "$1"; print -l -- "${path[@]}"' -- "$repo/zsh/path-order.zsh")
+expected=$(printf '%s\n' "$protected_path" "$writable_path" "$missing_path" relative)
+[[ "$output" == "$expected" ]] \
+  || fail "shell PATH ordering did not put protected directories first and deduplicate entries"
+
+output=$(cd "$repo" && just --summary)
+[[ " $output " == *" refresh-secrets "* ]] \
+  || fail "the explicit 1Password refresh recipe is no longer available"
+
 policy_surfaces=()
 while IFS= read -r -d '' surface; do
   case "$surface" in
