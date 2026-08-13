@@ -5,7 +5,11 @@ _dotfiles_order_path_safely() {
   local -a protected_path user_path
 
   for entry in "${(@)path}"; do
-    if [[ -n "$entry" && "$entry" == /* && -d "$entry" && ! -w "$entry" ]]; then
+    # Empty and relative entries resolve through the current working directory.
+    # Drop them so changing directories cannot introduce command shadowing.
+    if [[ -z "$entry" || "$entry" != /* ]]; then
+      continue
+    elif [[ -d "$entry" && ! -w "$entry" ]]; then
       protected_path+=("$entry")
     else
       user_path+=("$entry")

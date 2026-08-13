@@ -12,6 +12,50 @@ fail() {
 
 av_bin=$(command -v av) || fail "installed Automic Vault scanner is unavailable"
 
+scan_generated_zsh() {
+  local profile=$1
+  local scanner=$2
+  local scan_home=$3
+  local scan_output scan_status
+
+  set +e
+  scan_output=$(env -i HOME="$scan_home" ZDOTDIR="$scan_home" PATH=/usr/bin:/bin \
+    "$scanner" scan --json 2>/dev/null)
+  scan_status=$?
+  set -e
+  if [[ $scan_status -ne 0 ]]; then
+    echo "$profile profile scanner failed operationally with exit $scan_status" >&2
+    return 1
+  fi
+  jq -e . >/dev/null <<<"$scan_output" || {
+    echo "$profile profile scanner did not return JSON" >&2
+    return 1
+  }
+  if jq -e --arg root "$scan_home/" '
+    .findings[]
+    | select(.source == "zsh" or .source == "bash+zsh")
+    | .affected[]?.path
+    | select(startswith($root))
+  ' >/dev/null <<<"$scan_output"; then
+    echo "$profile profile generated zsh files trigger an Automic Vault warning" >&2
+    return 1
+  fi
+}
+
+# A valid-looking empty report cannot mask an operational scanner failure.
+scanner_probe="$tmp/av-operational-error"
+cat > "$scanner_probe" <<'EOF'
+#!/bin/sh
+printf '%s\n' '{"findings":[]}'
+exit 1
+EOF
+chmod +x "$scanner_probe"
+scanner_probe_home="$tmp/av-operational-error-home"
+mkdir -p "$scanner_probe_home"
+if scan_generated_zsh probe "$scanner_probe" "$scanner_probe_home" 2>/dev/null; then
+  fail "generated-profile scanner regression accepted an operational failure"
+fi
+
 nix_value() {
   nix eval --raw "$repo#$1"
 }
@@ -60,23 +104,8 @@ for profile_user in personal:laszlohoranszky work:laszlo; do
   cp -L "$activation/home-files/.zshrc" "$scan_home/.zshrc"
   chmod u+w "$scan_home/.zshenv" "$scan_home/.zshrc"
 
-  set +e
-  scan_output=$(env -i HOME="$scan_home" ZDOTDIR="$scan_home" PATH=/usr/bin:/bin \
-    "$av_bin" scan --json 2>/dev/null)
-  scan_status=$?
-  set -e
-  [[ $scan_status -eq 0 || $scan_status -eq 1 ]] \
-    || fail "$profile profile scanner exited with unexpected state $scan_status"
-  jq -e . >/dev/null <<<"$scan_output" \
-    || fail "$profile profile scanner did not return JSON"
-  if jq -e --arg root "$scan_home/" '
-    .findings[]
-    | select(.source == "zsh" or .source == "bash+zsh")
-    | .affected[]?.path
-    | select(startswith($root))
-  ' >/dev/null <<<"$scan_output"; then
-    fail "$profile profile generated zsh files trigger an Automic Vault warning"
-  fi
+  scan_generated_zsh "$profile" "$av_bin" "$scan_home" \
+    || fail "$profile profile generated zsh scan failed"
 
   [[ -x $launcher ]] || fail "$profile profile browser launcher is not executable"
   node --check "$launcher" >/dev/null \
