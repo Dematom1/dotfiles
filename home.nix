@@ -125,13 +125,13 @@ in
       # shells, then place protected directories ahead of user-writable ones.
       typeset -U path PATH
       path=(
-        "/etc/profiles/per-user/$USER/bin"
-        "$HOME/.local/bin"
-        "$HOME/go/bin"
-        "$HOME/.bun/bin"
-        "/usr/local/zig"
-        "$HOME/.lmstudio/bin"
         "$HOME/.opencode/bin"
+        "$HOME/.lmstudio/bin"
+        "/usr/local/zig"
+        "$HOME/.bun/bin"
+        "$HOME/go/bin"
+        "$HOME/.local/bin"
+        "/etc/profiles/per-user/$USER/bin"
         $path
       )
       ${securePathOrder}
