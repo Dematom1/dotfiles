@@ -1,5 +1,5 @@
 # =============================================================================
-# Zsh extras - live-editable (functions, PATH, tool init, env).
+# Zsh extras - live-editable (functions, tool init, env).
 # Structure (prompt, plugins, aliases, history) is declared in home.nix.
 # Sourced at the end of the home-manager-generated ~/.zshrc.
 # =============================================================================

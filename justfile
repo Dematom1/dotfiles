@@ -154,7 +154,7 @@ _select-profile profile="":
 # ---------------------------------------------------------------------------
 # FirstMate + Herdr + Pi agent stack. These are npm globals + curl installers
 # that self-update; the base deps (git/gh/jq/node/curl) come from nix. Tools
-# install to ~/.local/bin (already on PATH via zsh/init.zsh).
+# install to ~/.local/bin (managed on PATH by the Home Manager zsh setup).
 # ---------------------------------------------------------------------------
 
 # Update EVERYTHING in one shot - skills + the FirstMate stack.

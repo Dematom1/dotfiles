@@ -232,6 +232,8 @@ missing_path="$tmp/missing-path"
 mkdir -p "$protected_path" "$writable_path"
 chmod 0555 "$protected_path"
 zsh_bin=$(command -v zsh)
+# The single-quoted program expands path inside the child zsh, not this shell.
+# shellcheck disable=SC2016
 output=$(PATH="$writable_path:$protected_path:$writable_path:$missing_path:relative" \
   "$zsh_bin" -dfc 'source "$1"; print -l -- "${path[@]}"' -- "$repo/zsh/path-order.zsh")
 expected=$(printf '%s\n' "$protected_path" "$writable_path" "$missing_path" relative)
