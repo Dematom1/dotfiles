@@ -43,8 +43,10 @@ for target in "${targets[@]}"; do
   home_path=$(nix build --no-link --print-out-paths "$repo#$prefix.path")
   [[ -x "$home_path/bin/terraform" ]] \
     || fail "$profile profile Home Manager path does not contain an executable Terraform"
-  [[ $("$home_path/bin/terraform" version) == "Terraform v${expected_version}"* ]] \
-    || fail "$profile profile Home Manager Terraform executable did not report expected version v${expected_version}"
+  version_output=$("$home_path/bin/terraform" version)
+  version_line=${version_output%%$'\n'*}
+  [[ "$version_line" == "Terraform v${expected_version}" ]] \
+    || fail "$profile profile Home Manager Terraform executable reported '$version_line', expected 'Terraform v${expected_version}'"
 
   activation_bin="/etc/profiles/per-user/$user/bin"
   if [[ "$user" == "$(id -un)" && -x "$activation_bin/terraform" ]]; then
