@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Persistent PATH wrapper (not a shell alias/function) so Pi always has its
+# OPENCODE_API_KEY, even when launched by long-lived tools such as Herdr
+# panes that don't inherit interactive-shell-only alias/function definitions.
+# Invokes the real, npm-managed pi by absolute path so this can never recurse
+# into itself regardless of PATH order.
+set -euo pipefail
+exec av inject +OPENCODE_API_KEY -- "$HOME/.local/bin/pi" "$@"

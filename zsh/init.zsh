@@ -13,6 +13,12 @@ export PATH="/usr/local/zig:$PATH"
 export PATH="$HOME/.lmstudio/bin:$PATH"
 export PATH="$HOME/.opencode/bin:$PATH"
 
+# Must win over every entry above: bin/pi shadows the npm-managed
+# ~/.local/bin/pi to inject its OPENCODE_API_KEY via Automic Vault (av)
+# before every invocation, including from non-interactive launchers like
+# Herdr panes that don't inherit alias/function definitions. See bin/pi.
+export PATH="$HOME/Code/dotfiles/bin:$PATH"
+
 # Keep the vendor browser telemetry opt-out explicit in interactive shells.
 export CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS="1"
 

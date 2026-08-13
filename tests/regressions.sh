@@ -539,4 +539,39 @@ rc=$?
 ! git rev-parse -q --verify "refs/tags/$tag" >/dev/null || { print -u2 "FAIL: rejected push left the local tag behind"; exit 1; }
 EOF
 
+# bin/pi must inject OPENCODE_API_KEY via `av inject`, forward args to the
+# real npm-managed pi byte-for-byte, invoke it exactly once (no recursion),
+# and win the PATH race against ~/.local/bin/pi.
+pi_home="$tmp/pi-wrapper-home"
+mkdir -p "$pi_home/.local/bin" "$pi_home/Code/dotfiles"
+ln -s "$repo/bin" "$pi_home/Code/dotfiles/bin"
+
+cat > "$pi_home/.local/bin/pi" <<'EOF'
+#!/usr/bin/env bash
+echo 1 >> "$TEST_TMP/pi-real-invocations"
+printf '%s\n' "$@" > "$TEST_TMP/pi-real-args"
+EOF
+chmod +x "$pi_home/.local/bin/pi"
+
+fake_av_bin="$tmp/fake-av-bin"
+mkdir -p "$fake_av_bin"
+cat > "$fake_av_bin/av" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$@" > "$TEST_TMP/av-args"
+[[ "$1" == inject && "$2" == "+OPENCODE_API_KEY" && "$3" == "--" ]] \
+  || { echo "unexpected av invocation: $*" >&2; exit 1; }
+shift 3
+exec "$@"
+EOF
+chmod +x "$fake_av_bin/av"
+
+TEST_TMP="$tmp" HOME="$pi_home" PATH="$pi_home/Code/dotfiles/bin:$fake_av_bin:/usr/bin:/bin" \
+  pi arg1 "arg two" 'arg$3' --flag=value
+[[ "$(<"$tmp/av-args")" == $'inject\n+OPENCODE_API_KEY\n--\n'"$pi_home/.local/bin/pi"$'\narg1\narg two\narg$3\n--flag=value' ]] \
+  || fail "bin/pi did not call av inject with OPENCODE_API_KEY and the real pi path"
+[[ "$(<"$tmp/pi-real-args")" == $'arg1\narg two\narg$3\n--flag=value' ]] \
+  || fail "bin/pi did not forward arguments to the real pi unchanged"
+[[ $(wc -l < "$tmp/pi-real-invocations") -eq 1 ]] \
+  || fail "bin/pi invoked the real pi more than once (recursion?)"
+
 echo "shell regressions OK"
