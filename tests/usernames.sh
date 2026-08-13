@@ -45,6 +45,11 @@ for profile_user in personal:laszlohoranszky work:laszlo; do
   [[ $(nix eval --raw "$repo#darwinConfigurations.$profile.config.home-manager.users.$user.home.sessionPath" \
     --apply 'paths: builtins.concatStringsSep ":" paths') == *"/usr/local/bin"* ]] \
     || fail "$profile profile does not expose the Automic Vault CLI location on PATH"
+  alias_names=$(nix eval --raw "$repo#darwinConfigurations.$profile.config.home-manager.users.$user.programs.zsh.shellAliases" \
+    --apply 'aliases: builtins.concatStringsSep "," (builtins.attrNames aliases)')
+  if grep -Eqi 'TOKEN|SECRET|PASSWORD|PASS|API_KEY|ACCESS_KEY|PRIVATE_KEY|AUTH' <<<"$alias_names"; then
+    fail "$profile profile renders a shell alias that Automic Vault treats as a secret assignment"
+  fi
   nix build --no-link "$repo#darwinConfigurations.$profile.config.home-manager.users.$user.home.activationPackage"
   [[ -x $launcher ]] || fail "$profile profile browser launcher is not executable"
   node --check "$launcher" >/dev/null \
