@@ -19,7 +19,7 @@ for profile_user in personal:laszlohoranszky work:laszlo; do
   home_path=$(nix build --no-link --print-out-paths "$repo#$prefix.path")
   [[ -x "$home_path/bin/terraform" ]] \
     || fail "$profile profile Home Manager path does not contain an executable Terraform"
-  [[ $($home_path/bin/terraform version) == Terraform\ v* ]] \
+  [[ $("$home_path/bin/terraform" version) == Terraform\ v* ]] \
     || fail "$profile profile Home Manager Terraform executable did not report its version"
 
   activation_bin="/etc/profiles/per-user/$user/bin"
