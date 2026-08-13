@@ -272,7 +272,11 @@ authentication.
    ```
 
    Review the report. Do not treat exit status `0` as a clean audit, and do not
-   apply unrelated hardeners as part of this pilot.
+   apply unrelated hardeners as part of this pilot. This repository owns the
+   generated shell configuration behind the `zsh` and `bash+zsh` categories.
+   Other categories describe machine credentials, tool configuration, package
+   ownership, or external account and vault state; report them separately and
+   do not suppress, migrate, or claim them as part of a shell-config fix.
 4. Keep the current GitHub CLI authentication intact. In a private interactive
    terminal, save the token through Automic Vault's hidden `/dev/tty` prompt:
 

@@ -11,16 +11,22 @@ fail() {
 }
 
 av_bin=$(command -v av) || fail "installed Automic Vault scanner is unavailable"
+zsh_bin=$(command -v zsh) || fail "zsh is unavailable"
+operator_home=$HOME
+operator_user=$(id -un)
 
 scan_generated_zsh() {
   local profile=$1
   local scanner=$2
-  local scan_home=$3
+  local generated_zdot=$3
+  local scan_scope_home=$4
   local scan_output scan_status
 
   set +e
-  scan_output=$(env -i HOME="$scan_home" ZDOTDIR="$scan_home" PATH=/usr/bin:/bin \
-    "$scanner" scan --json 2>/dev/null)
+  scan_output=$(env -i HOME="$scan_scope_home" USER="$operator_user" \
+    ZDOTDIR="$generated_zdot" PATH=/usr/bin:/bin \
+    "$zsh_bin" -dfc 'source "$ZDOTDIR/.zshenv"; exec "$1" scan --json' \
+    -- "$scanner" 2>/dev/null)
   scan_status=$?
   set -e
   if [[ $scan_status -ne 0 ]]; then
@@ -31,13 +37,11 @@ scan_generated_zsh() {
     echo "$profile profile scanner did not return JSON" >&2
     return 1
   }
-  if jq -e --arg root "$scan_home/" '
+  if jq -e '
     .findings[]
     | select(.source == "zsh" or .source == "bash+zsh")
-    | .affected[]?.path
-    | select(startswith($root))
   ' >/dev/null <<<"$scan_output"; then
-    echo "$profile profile generated zsh files trigger an Automic Vault warning" >&2
+    echo "$profile profile generated zsh configuration triggers a repository-owned Automic Vault warning" >&2
     return 1
   fi
 }
@@ -52,7 +56,9 @@ EOF
 chmod +x "$scanner_probe"
 scanner_probe_home="$tmp/av-operational-error-home"
 mkdir -p "$scanner_probe_home"
-if scan_generated_zsh probe "$scanner_probe" "$scanner_probe_home" 2>/dev/null; then
+: > "$scanner_probe_home/.zshenv"
+: > "$scanner_probe_home/.zshrc"
+if scan_generated_zsh probe "$scanner_probe" "$scanner_probe_home" "$scanner_probe_home" 2>/dev/null; then
   fail "generated-profile scanner regression accepted an operational failure"
 fi
 
@@ -104,7 +110,9 @@ for profile_user in personal:laszlohoranszky work:laszlo; do
   cp -L "$activation/home-files/.zshrc" "$scan_home/.zshrc"
   chmod u+w "$scan_home/.zshenv" "$scan_home/.zshrc"
 
-  scan_generated_zsh "$profile" "$av_bin" "$scan_home" \
+  # Preserve the operator HOME so the regression covers the same scan scope as
+  # the app while replacing only the generated zsh configuration under test.
+  scan_generated_zsh "$profile" "$av_bin" "$scan_home" "$operator_home" \
     || fail "$profile profile generated zsh scan failed"
 
   [[ -x $launcher ]] || fail "$profile profile browser launcher is not executable"

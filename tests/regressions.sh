@@ -238,13 +238,15 @@ zsh_bin=$(command -v zsh)
 protected_path=$(dirname "$zsh_bin")
 symlink_path="$tmp/symlink-path"
 ln -s "$symlink_target/read-only-path" "$symlink_path"
+replaceable_symlink="$tmp/replaceable-symlink"
+ln -s "$protected_path" "$replaceable_symlink"
 # The single-quoted program expands path inside the child zsh, not this shell.
 # shellcheck disable=SC2016
-output=$(PATH="$writable_path:$replaceable_read_only_path:$symlink_path:$protected_path::$writable_path:$missing_path:relative" \
+output=$(PATH="$writable_path:$replaceable_read_only_path:$symlink_path:$replaceable_symlink:$protected_path::$writable_path:$missing_path:relative" \
   "$zsh_bin" -dfc 'source "$1"; print -l -- "${path[@]}"' -- "$repo/zsh/path-order.zsh")
-expected=$(printf '%s\n' "$protected_path" "$writable_path" "$replaceable_read_only_path" "$symlink_path" "$missing_path")
+expected=$(printf '%s\n' "$protected_path" "$writable_path" "$replaceable_read_only_path" "$symlink_path" "$replaceable_symlink" "$missing_path")
 [[ "$output" == "$expected" ]] \
-  || fail "shell PATH ordering did not reject relative entries, classify replaceable and symlinked directories as writable, preserve original entries, put protected directories first, and deduplicate entries"
+  || fail "shell PATH ordering did not reject relative entries, classify replaceable directories and symlinks as writable, preserve original entries, put protected directories first, and deduplicate entries"
 
 managed_path=$(sed -n '/^      path=(/,/^      )/p' "$repo/home.nix")
 expected_managed_path=$(cat <<'EOF'
