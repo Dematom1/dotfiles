@@ -24,7 +24,7 @@ in
     # git
     git git-crypt lazygit lazydocker
     # kubernetes / infra
-    argocd kubectl kubernetes-helm kustomize k9s kubectx kubernetes-axi tailscale
+    argocd kubectl kubernetes-helm kustomize k9s kubectx kubernetes-axi terraform tailscale
     # dev / build
     neovim gh prek cmake lld luarocks protobuf
     nodejs_24 python311 uv memray

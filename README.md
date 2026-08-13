@@ -371,10 +371,13 @@ just check-regressions
 ```
 
 `just check-regressions` evaluates both flake profiles and verifies their
-Darwin and Home Manager homes. It also checks profile validation, selective
-OpenCode links, masked ui.sh installation, SketchyBar state-file safety (on
-macOS; on Linux it instead asserts the hook stays undefined), AXI hook
-failures, and shell regressions.
+Darwin and Home Manager homes. Its Terraform check selects both Darwin profiles
+on Apple Silicon macOS or the portable sandbox Home Manager output on supported
+Linux systems, then verifies the selected package sets and the activated
+operator path when safe local evidence is available. It also checks profile
+validation, selective OpenCode links, masked ui.sh installation, SketchyBar
+state-file safety (on macOS; on Linux it instead asserts the hook stays
+undefined), AXI hook failures, and shell regressions.
 
 ## Key bindings
 
