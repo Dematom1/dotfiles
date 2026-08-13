@@ -137,6 +137,13 @@ in
       ${securePathOrder}
     '';
 
+    # macOS /etc/zprofile runs after .zshenv and invokes path_helper, which can
+    # restore unsafe inherited ordering. Re-apply the ordering in .zprofile so
+    # login shells pass the final PATH to child processes.
+    profileExtra = ''
+      ${securePathOrder}
+    '';
+
     history = {
       size = 10000;
       save = 10000;
@@ -193,6 +200,7 @@ in
         [[ -f ~/.p10k.zsh ]]     && source ~/.p10k.zsh
         [[ -f ~/.secrets ]]      && source ~/.secrets
         [[ -f ~/.zshrc.local ]]  && source ~/.zshrc.local
+        ${securePathOrder}
       '')
     ];
   };
