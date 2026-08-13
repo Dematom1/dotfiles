@@ -8,9 +8,28 @@ fail() {
   exit 1
 }
 
-for profile_user in personal:laszlohoranszky work:laszlo; do
-  IFS=: read -r profile user <<<"$profile_user"
-  prefix="darwinConfigurations.$profile.config.home-manager.users.$user.home"
+if grep -Eq '^[[:space:]]*brew "[^"]*terraform' "$repo/Brewfile"; then
+  fail "Brewfile still declares Terraform outside the Nix-managed operator package path"
+fi
+
+system=$(nix eval --impure --raw --expr 'builtins.currentSystem')
+case "$system" in
+  aarch64-darwin)
+    targets=(
+      "personal:laszlohoranszky:darwinConfigurations.personal.config.home-manager.users.laszlohoranszky.home"
+      "work:laszlo:darwinConfigurations.work.config.home-manager.users.laszlo.home"
+    )
+    ;;
+  x86_64-linux|aarch64-linux)
+    targets=("sandbox:captain:homeConfigurations.\"captain@$system\".config.home")
+    ;;
+  *)
+    fail "unsupported test host system '$system'"
+    ;;
+esac
+
+for target in "${targets[@]}"; do
+  IFS=: read -r profile user prefix <<<"$target"
 
   [[ $(nix eval --raw "$repo#$prefix.packages" \
     --apply 'pkgs: if builtins.any (pkg: (pkg.pname or "") == "terraform") pkgs then "present" else "absent"') == present ]] \

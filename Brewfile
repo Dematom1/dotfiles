@@ -65,7 +65,6 @@ brew "velero"             # K8s backup
 brew "dopplerhq/cli/doppler"  # Secrets management
 brew "heroku/brew/heroku"     # Heroku CLI
 brew "jesseduffield/lazydocker/lazydocker"  # Docker TUI
-brew "hashicorp/tap/terraform"  # Infrastructure as code
 brew "stripe/stripe-cli/stripe" # Stripe CLI
 
 # -----------------------------------------------------------------------------
