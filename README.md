@@ -329,7 +329,10 @@ secret management.
 Home Manager persists the Headroom wrappers as zsh aliases, so rebuilds retain
 them:
 
-- `claude` runs `headroom wrap claude --1m --`.
+- `claude` runs `headroom wrap claude --` with Claude Code's standard 200K
+  context window.
+- `claude1m` runs `headroom wrap claude --1m --`, providing the opt-in 1M
+  context window for tasks that truly need it.
 - `codex` runs Headroom on local port `8787` with `--no-proxy`,
   `--no-context-tool`, `--no-mcp`, `--no-tokensave`, and `--no-serena`.
 

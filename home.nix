@@ -149,7 +149,8 @@ in
       gs     = "git status";
       gd     = "git diff";
       gl     = "git log --oneline -20";
-      claude = "headroom wrap claude --1m --";
+      claude   = "headroom wrap claude --";       # 200K default - caps per-turn context re-read
+      claude1m = "headroom wrap claude --1m --";   # opt-in 1M window for tasks that truly need it
       codex  = "headroom wrap codex --no-proxy --port 8787 --no-context-tool --no-mcp --no-tokensave --no-serena --";
       # regenerate ~/.secrets from 1Password (needs `op signin`)
       refresh-secrets = "op inject -f -i ~/Code/dotfiles/zsh/secrets.tpl -o ~/.secrets && echo '✓ ~/.secrets refreshed'";
