@@ -27,8 +27,13 @@ _dotfiles_order_path_safely() {
         && _dotfiles_path_chain_is_protected "$entry" \
         && _dotfiles_path_chain_is_protected "$physical"; then
         protected_path+=("$entry")
-      else
+      elif [[ -w "$entry" ]]; then
         user_path+=("$entry")
+      else
+        # A read-only directory below a writable lexical or physical parent is
+        # replaceable. Do not promote it or retain it as a misleadingly
+        # protected entry after writable directories.
+        continue
       fi
     else
       user_path+=("$entry")

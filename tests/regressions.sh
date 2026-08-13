@@ -244,9 +244,9 @@ ln -s "$protected_path" "$replaceable_symlink"
 # shellcheck disable=SC2016
 output=$(PATH="$writable_path:$replaceable_read_only_path:$symlink_path:$replaceable_symlink:$protected_path::$writable_path:$missing_path:relative" \
   "$zsh_bin" -dfc 'source "$1"; print -l -- "${path[@]}"' -- "$repo/zsh/path-order.zsh")
-expected=$(printf '%s\n' "$protected_path" "$writable_path" "$replaceable_read_only_path" "$symlink_path" "$replaceable_symlink" "$missing_path")
+expected=$(printf '%s\n' "$protected_path" "$writable_path" "$missing_path")
 [[ "$output" == "$expected" ]] \
-  || fail "shell PATH ordering did not reject relative entries, classify replaceable directories and symlinks as writable, preserve original entries, put protected directories first, and deduplicate entries"
+  || fail "shell PATH ordering did not reject relative and replaceable read-only entries, put protected directories first, preserve safe class order, and deduplicate entries"
 
 managed_path=$(sed -n '/^      path=(/,/^      )/p' "$repo/home.nix")
 expected_managed_path=$(cat <<'EOF'
