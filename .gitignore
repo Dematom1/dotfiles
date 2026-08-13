@@ -10,6 +10,7 @@
 # via `just setup-firstmate` / `just update-skills`).
 /.tokensave/
 /.claude/
+/herdr/release-notes.json
 /profile.json.gz
 /opencode/plugin/
 /opencode/plugins/
