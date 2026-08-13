@@ -12,42 +12,55 @@ fail() {
 
 av_bin=$(command -v av) || fail "installed Automic Vault scanner is unavailable"
 zsh_bin=$(command -v zsh) || fail "zsh is unavailable"
-operator_home=$HOME
-operator_user=$(id -un)
-operator_path=$PATH
+scan_external_summary=
 
 scan_generated_zsh() {
   local profile=$1
   local scanner=$2
-  local generated_zdot=$3
-  local scan_scope_home=$4
+  local generated_zdot=${3-}
   local scan_output scan_status
 
   set +e
-  # Expand ZDOTDIR and $1 inside the child zsh, not this shell.
-  # shellcheck disable=SC2016
-  scan_output=$(env -i HOME="$scan_scope_home" USER="$operator_user" \
-    ZDOTDIR="$generated_zdot" PATH="$operator_path" \
-    "$zsh_bin" -dfc 'source "$ZDOTDIR/.zshenv"; exec "$1" scan --json' \
-    -- "$scanner" 2>/dev/null)
+  if [[ -n $generated_zdot ]]; then
+    scan_output=$(ZDOTDIR="$generated_zdot" "$zsh_bin" -lic 'exec "$1" scan --json' \
+      -- "$scanner" 2>/dev/null)
+  else
+    scan_output=$("$zsh_bin" -lic 'exec "$1" scan --json' \
+      -- "$scanner" 2>/dev/null)
+  fi
   scan_status=$?
   set -e
   if [[ $scan_status -ne 0 ]]; then
     echo "$profile profile scanner failed operationally with exit $scan_status" >&2
     return 1
   fi
-  jq -e . >/dev/null <<<"$scan_output" || {
+  jq -e 'type == "object" and (.findings | type == "array")' >/dev/null <<<"$scan_output" || {
     echo "$profile profile scanner did not return JSON" >&2
     return 1
   }
-  if jq -e '
+  if [[ -n $generated_zdot ]] && jq -e '
     .findings[]
     | select(.source == "zsh" or .source == "bash+zsh")
   ' >/dev/null <<<"$scan_output"; then
     echo "$profile profile generated zsh configuration triggers a repository-owned Automic Vault warning" >&2
     return 1
   fi
+  scan_external_summary=$(jq -c '
+    [.findings[]
+      | select(.source != "zsh" and .source != "bash+zsh")
+      | {source, severity}]
+    | group_by([.source, .severity])
+    | map({source: .[0].source, severity: .[0].severity, count: length})
+    | sort_by([.source, .severity])
+  ' <<<"$scan_output") || {
+    echo "$profile profile scanner findings could not be summarized" >&2
+    return 1
+  }
 }
+
+scan_generated_zsh baseline "$av_bin" \
+  || fail "configured login-shell scanner baseline failed"
+baseline_external_summary=$scan_external_summary
 
 # A valid-looking empty report cannot mask an operational scanner failure.
 scanner_probe="$tmp/av-operational-error"
@@ -61,7 +74,7 @@ scanner_probe_home="$tmp/av-operational-error-home"
 mkdir -p "$scanner_probe_home"
 : > "$scanner_probe_home/.zshenv"
 : > "$scanner_probe_home/.zshrc"
-if scan_generated_zsh probe "$scanner_probe" "$scanner_probe_home" "$scanner_probe_home" 2>/dev/null; then
+if scan_generated_zsh probe "$scanner_probe" "$scanner_probe_home" 2>/dev/null; then
   fail "generated-profile scanner regression accepted an operational failure"
 fi
 
@@ -113,10 +126,10 @@ for profile_user in personal:laszlohoranszky work:laszlo; do
   cp -L "$activation/home-files/.zshrc" "$scan_home/.zshrc"
   chmod u+w "$scan_home/.zshenv" "$scan_home/.zshrc"
 
-  # Preserve the operator HOME so the regression covers the same scan scope as
-  # the app while replacing only the generated zsh configuration under test.
-  scan_generated_zsh "$profile" "$av_bin" "$scan_home" "$operator_home" \
+  scan_generated_zsh "$profile" "$av_bin" "$scan_home" \
     || fail "$profile profile generated zsh scan failed"
+  [[ $scan_external_summary == "$baseline_external_summary" ]] \
+    || fail "$profile profile changed external Automic Vault findings"
 
   [[ -x $launcher ]] || fail "$profile profile browser launcher is not executable"
   node --check "$launcher" >/dev/null \
