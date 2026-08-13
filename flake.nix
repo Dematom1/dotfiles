@@ -19,9 +19,13 @@
     # Terraform releases aren't backported onto the stable release branch
     # above, so the pinned nixpkgs there lags HashiCorp's latest stable by
     # months. This second input exists solely so terraformOverlay (below) can
-    # borrow just the terraform package from a fresher tree; nothing else is
-    # taken from it, and it does not `follow` nixpkgs, so it stays fully
-    # independent of the stable pin.
+    # pin just the terraform package to a newer nixpkgs-unstable revision -
+    # currently Terraform 1.15.8. Nothing else is taken from it, and it does
+    # not `follow` nixpkgs, so it stays fully independent of the stable pin.
+    # Like any flake input, it is a point-in-time pin, not a moving target:
+    # picking up a later Terraform release means bumping this input's lock
+    # entry (`nix flake lock --update-input nixpkgs-unstable`), and updating
+    # the expected version in tests/terraform.sh to match.
     nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
 
     # Agent-facing Kubernetes CLI. The source commit is pinned here and in
@@ -49,10 +53,10 @@
       };
     };
 
-    # Swaps in terraform from nixpkgs-unstable so it tracks HashiCorp's
-    # latest stable release; see the nixpkgs-unstable input comment above.
-    # Terraform stays Nix/Home Manager's sole responsibility - this only
-    # changes which nixpkgs tree the one package comes from.
+    # Swaps in terraform from nixpkgs-unstable, currently pinning it to
+    # 1.15.8; see the nixpkgs-unstable input comment above for how to move to
+    # a newer release. Terraform stays Nix/Home Manager's sole responsibility
+    # - this only changes which nixpkgs tree the one package comes from.
     terraformOverlay = final: _: {
       terraform = (import nixpkgs-unstable {
         inherit (final) system;

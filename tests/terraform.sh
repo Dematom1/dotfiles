@@ -3,6 +3,11 @@ set -euo pipefail
 
 repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 
+# Pinned via the nixpkgs-unstable overlay in flake.nix. Bump this alongside
+# that input's lock entry so a stale pin (e.g. a silent fall-back to the
+# older stable-branch build) fails this test instead of going unnoticed.
+expected_version="1.15.8"
+
 fail() {
   echo "FAIL: $*" >&2
   exit 1
@@ -38,8 +43,8 @@ for target in "${targets[@]}"; do
   home_path=$(nix build --no-link --print-out-paths "$repo#$prefix.path")
   [[ -x "$home_path/bin/terraform" ]] \
     || fail "$profile profile Home Manager path does not contain an executable Terraform"
-  [[ $("$home_path/bin/terraform" version) == Terraform\ v* ]] \
-    || fail "$profile profile Home Manager Terraform executable did not report its version"
+  [[ $("$home_path/bin/terraform" version) == "Terraform v${expected_version}"* ]] \
+    || fail "$profile profile Home Manager Terraform executable did not report expected version v${expected_version}"
 
   activation_bin="/etc/profiles/per-user/$user/bin"
   if [[ "$user" == "$(id -un)" && -x "$activation_bin/terraform" ]]; then
