@@ -21,6 +21,8 @@ scan_generated_zsh() {
   local scan_output scan_status
 
   set +e
+  # The child zsh expands $1 to the scanner path passed after --.
+  # shellcheck disable=SC2016
   if [[ -n $generated_zdot ]]; then
     scan_output=$(ZDOTDIR="$generated_zdot" "$zsh_bin" -lic 'exec "$1" scan --json' \
       -- "$scanner" 2>/dev/null)
