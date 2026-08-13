@@ -12,7 +12,7 @@ _dotfiles_order_path_safely() {
       continue
     elif [[ -d "$entry" ]]; then
       is_protected=1
-      ancestor="$entry"
+      ancestor=$(cd -q -- "$entry" && pwd -P)
       while true; do
         if [[ -w "$ancestor" ]]; then
           is_protected=0
