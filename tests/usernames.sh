@@ -23,6 +23,8 @@ scan_generated_zsh() {
   local scan_output scan_status
 
   set +e
+  # Expand ZDOTDIR and $1 inside the child zsh, not this shell.
+  # shellcheck disable=SC2016
   scan_output=$(env -i HOME="$scan_scope_home" USER="$operator_user" \
     ZDOTDIR="$generated_zdot" PATH=/usr/bin:/bin \
     "$zsh_bin" -dfc 'source "$ZDOTDIR/.zshenv"; exec "$1" scan --json' \
