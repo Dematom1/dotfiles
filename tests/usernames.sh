@@ -14,6 +14,7 @@ av_bin=$(command -v av) || fail "installed Automic Vault scanner is unavailable"
 zsh_bin=$(command -v zsh) || fail "zsh is unavailable"
 operator_home=$HOME
 operator_user=$(id -un)
+operator_path=$PATH
 
 scan_generated_zsh() {
   local profile=$1
@@ -26,7 +27,7 @@ scan_generated_zsh() {
   # Expand ZDOTDIR and $1 inside the child zsh, not this shell.
   # shellcheck disable=SC2016
   scan_output=$(env -i HOME="$scan_scope_home" USER="$operator_user" \
-    ZDOTDIR="$generated_zdot" PATH=/usr/bin:/bin \
+    ZDOTDIR="$generated_zdot" PATH="$operator_path" \
     "$zsh_bin" -dfc 'source "$ZDOTDIR/.zshenv"; exec "$1" scan --json' \
     -- "$scanner" 2>/dev/null)
   scan_status=$?
