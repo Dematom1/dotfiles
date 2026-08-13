@@ -226,19 +226,20 @@ done
 
 ! grep -q 'UIDOTSH_TOKEN' "$repo/zsh/secrets.tpl" || fail "UI token remains in credential automation"
 
-protected_path="$tmp/protected-path"
+replaceable_read_only_path="$tmp/replaceable-read-only-path"
 writable_path="$tmp/writable-path"
 missing_path="$tmp/missing-path"
-mkdir -p "$protected_path" "$writable_path"
-chmod 0555 "$protected_path"
+mkdir -p "$replaceable_read_only_path" "$writable_path"
+chmod 0555 "$replaceable_read_only_path"
 zsh_bin=$(command -v zsh)
+protected_path=$(dirname "$zsh_bin")
 # The single-quoted program expands path inside the child zsh, not this shell.
 # shellcheck disable=SC2016
-output=$(PATH="$writable_path:$protected_path::$writable_path:$missing_path:relative" \
+output=$(PATH="$writable_path:$replaceable_read_only_path:$protected_path::$writable_path:$missing_path:relative" \
   "$zsh_bin" -dfc 'source "$1"; print -l -- "${path[@]}"' -- "$repo/zsh/path-order.zsh")
-expected=$(printf '%s\n' "$protected_path" "$writable_path" "$missing_path")
+expected=$(printf '%s\n' "$protected_path" "$writable_path" "$replaceable_read_only_path" "$missing_path")
 [[ "$output" == "$expected" ]] \
-  || fail "shell PATH ordering did not reject relative entries, put protected directories first, and deduplicate entries"
+  || fail "shell PATH ordering did not reject relative entries, classify replaceable directories as writable, put protected directories first, and deduplicate entries"
 
 managed_path=$(sed -n '/^      path=(/,/^      )/p' "$repo/home.nix")
 expected_managed_path=$(cat <<'EOF'
