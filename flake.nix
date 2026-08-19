@@ -5,7 +5,7 @@
     # Use `github:NixOS/nixpkgs/nixpkgs-26.05-darwin` to use Nixpkgs 26.05.
     # This release branch also carries the full Linux/NixOS package set and
     # modules, so the same pin drives both the Darwin hosts and the Linux
-    # sandbox below - no second nixpkgs input to keep in sync.
+    # sandbox below.
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-26.05-darwin";
     # Use `github:nix-darwin/nix-darwin/nix-darwin-26.05` to use Nixpkgs 26.05.
     nix-darwin.url = "github:nix-darwin/nix-darwin/nix-darwin-26.05";
@@ -16,6 +16,18 @@
     home-manager.url = "github:nix-community/home-manager/release-26.05";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
 
+    # Terraform releases aren't backported onto the stable release branch
+    # above, so the pinned nixpkgs there lags HashiCorp's latest stable by
+    # months. This second input exists solely so terraformOverlay (below) can
+    # pin just the terraform package to a newer nixpkgs-unstable revision -
+    # currently Terraform 1.15.8. Nothing else is taken from it, and it does
+    # not `follow` nixpkgs, so it stays fully independent of the stable pin.
+    # Like any flake input, it is a point-in-time pin, not a moving target:
+    # picking up a later Terraform release means bumping this input's lock
+    # entry (`nix flake lock --update-input nixpkgs-unstable`), and updating
+    # the expected version in tests/terraform.sh to match.
+    nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
+
     # Agent-facing Kubernetes CLI. The source commit is pinned here and in
     # flake.lock; packages/kubernetes-axi.nix supplies the reproducible build.
     kubernetes-axi = {
@@ -24,7 +36,7 @@
     };
   };
 
-  outputs = inputs@{ self, nix-darwin, nix-homebrew, home-manager, nixpkgs, kubernetes-axi }:
+  outputs = inputs@{ self, nix-darwin, nix-homebrew, home-manager, nixpkgs, nixpkgs-unstable, kubernetes-axi }:
   let
     supportedSystems = [
       "aarch64-darwin"
@@ -41,10 +53,23 @@
       };
     };
 
+    # Swaps in terraform from nixpkgs-unstable, currently pinning it to
+    # 1.15.8; see the nixpkgs-unstable input comment above for how to move to
+    # a newer release. Terraform stays Nix/Home Manager's sole responsibility
+    # - this only changes which nixpkgs tree the one package comes from.
+    terraformOverlay = final: _: {
+      terraform = (import nixpkgs-unstable {
+        inherit (final) system;
+        config.allowUnfree = true;
+      }).terraform;
+    };
+
+    sharedOverlays = [ kubernetesAxiOverlay terraformOverlay ];
+
     pkgsFor = system: import nixpkgs {
       inherit system;
       config.allowUnfree = true;
-      overlays = [ kubernetesAxiOverlay ];
+      overlays = sharedOverlays;
     };
 
     # Shared Home Manager wiring, identical for every platform. `profile` tells
@@ -69,7 +94,7 @@
     mkDarwinHost = { profile, username, hostModule }: nix-darwin.lib.darwinSystem {
       specialArgs = { inherit username; };
       modules = [
-        { nixpkgs.overlays = [ kubernetesAxiOverlay ]; }
+        { nixpkgs.overlays = sharedOverlays; }
         ./configuration.nix
         hostModule
         nix-homebrew.darwinModules.nix-homebrew
@@ -84,7 +109,7 @@
     mkNixosHost = { profile, username, hostModule }: nixpkgs.lib.nixosSystem {
       specialArgs = { inherit username; };
       modules = [
-        { nixpkgs.overlays = [ kubernetesAxiOverlay ]; }
+        { nixpkgs.overlays = sharedOverlays; }
         hostModule
         home-manager.nixosModules.home-manager
         (hmModule { inherit profile username; })
