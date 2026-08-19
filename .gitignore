@@ -9,6 +9,7 @@
 # (tokensave index DB, Claude project state, opencode plugins from AXI/memtrace,
 # via `just setup-firstmate` / `just update-skills`).
 /.tokensave/
+/.memdb/
 /.claude/
 /herdr/release-notes.json
 /profile.json.gz
