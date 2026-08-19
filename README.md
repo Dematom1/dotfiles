@@ -142,9 +142,11 @@ M87 `0.1.10` is installed from the exact `@kunchenguid/m87` npm identity,
 whose authoritative upstream is <https://github.com/kunchenguid/m87>, with
 integrity hashes pinned in `packages/m87-npm/package-lock.json`. Upstream
 requires Node 22.13 or newer and publishes no license declaration, so the Nix
-package uses Node 24 and is marked unfree. Home Manager puts the executable at
-`/etc/profiles/per-user/$USER/bin/m87`; it does not replace or delete `~/.m87`,
-so the existing queue, audit history, and operator state remain in place.
+package uses Node 24 and is marked unfree. On the managed Mac profiles, Home
+Manager puts the executable at `/etc/profiles/per-user/$USER/bin/m87`; the
+standalone Linux Home Manager outputs expose it through their normal profile
+path. It does not replace or delete `~/.m87`, so the existing queue, audit
+history, and operator state remain in place.
 
 For fresh state, Home Manager uses M87's native headless initializer,
 `m87 init --yes --plugin github --github-repo ... --no-install-service`, with
@@ -156,8 +158,8 @@ intended selectors:
 - `owned_repos=true` preserves Dematom1-owned repository discovery;
 - `authored_external=true` adds Dematom1-authored issues and PRs in other repos
   within M87's upstream lookback window;
-- `explicit_repos` adds only the six Dematom Labs repositories currently known
-  to contain open PRs: `agent-sandbox-runtime`, `alteran`,
+- `explicit_repos` adds only the six declared Dematom Labs repositories:
+  `agent-sandbox-runtime`, `alteran`,
   `conference-directory`, `infrastructure`, `seo-scout`, and `truediyer`.
 
 The configuration deliberately omits `username=dematom-labs`: M87 must continue

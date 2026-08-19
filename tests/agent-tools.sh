@@ -70,7 +70,7 @@ skills_sandbox=$(mktemp -d "$repo/.agent-tools-skills.XXXXXX")
 trap 'rm -rf "$m87_sandbox" "$skills_sandbox"' EXIT
 M87_STATE_DIR="$m87_sandbox/state" "$m87_package/bin/m87" \
   init --yes --plugin skip --no-install-service >/dev/null
-DRY_RUN_CMD= M87_STATE_DIR="$m87_sandbox/state" HOME="$m87_sandbox/home" \
+DRY_RUN_CMD='' M87_STATE_DIR="$m87_sandbox/state" HOME="$m87_sandbox/home" \
   bash -euo pipefail -c "$m87_config"
 M87_STATE_DIR="$m87_sandbox/state" "$m87_package/bin/m87" plugin list \
   | awk '
