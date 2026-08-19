@@ -1,0 +1,7 @@
+{
+  "name": "dotfiles-pi-fff-package",
+  "private": true,
+  "dependencies": {
+    "@ff-labs/pi-fff": "0.10.5"
+  }
+}

@@ -45,12 +45,14 @@
     ];
     forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
 
-    # One overlay keeps the package identity identical in standalone package
+    # One overlay keeps package identities identical in standalone package
     # builds, nix-darwin, NixOS, and standalone Home Manager configurations.
-    kubernetesAxiOverlay = final: _: {
+    dotfilesOverlay = final: _: {
       kubernetes-axi = final.callPackage ./packages/kubernetes-axi.nix {
         src = kubernetes-axi;
       };
+      m87 = final.callPackage ./packages/m87.nix { };
+      pi-fff = final.callPackage ./packages/pi-fff.nix { };
     };
 
     # Swaps in terraform from nixpkgs-unstable, currently pinning it to
@@ -64,7 +66,7 @@
       }).terraform;
     };
 
-    sharedOverlays = [ kubernetesAxiOverlay terraformOverlay ];
+    sharedOverlays = [ dotfilesOverlay terraformOverlay ];
 
     pkgsFor = system: import nixpkgs {
       inherit system;
@@ -139,16 +141,16 @@
         ];
       };
   in {
-    overlays.default = kubernetesAxiOverlay;
+    overlays.default = dotfilesOverlay;
 
-    # Direct package outputs make the pin easy to build and inspect separately
+    # Direct package outputs make pins easy to build and inspect separately
     # from a complete host or Home Manager activation.
     packages = forAllSystems (system:
       let
-        package = (pkgsFor system).kubernetes-axi;
+        pkgs = pkgsFor system;
       in {
-        kubernetes-axi = package;
-        default = package;
+        inherit (pkgs) kubernetes-axi m87 pi-fff;
+        default = pkgs.kubernetes-axi;
       });
 
     # The package build runs upstream's unit suite. This additional bounded
@@ -166,6 +168,14 @@
             kubernetes-axi doctor > "$out/doctor.toon"
           grep -q '^summary:' "$out/doctor.toon"
           grep -q 'kubectl' "$out/doctor.toon"
+        '';
+
+        agent-tools-layout = pkgs.runCommand "agent-tools-layout" {
+          nativeBuildInputs = [ pkgs.m87 pkgs.nodejs_24 ];
+        } ''
+          test "$(m87 --version)" = 0.1.10
+          test -f ${pkgs.pi-fff}/${pkgs.pi-fff.extensionPath}/index.ts
+          mkdir "$out"
         '';
       });
 

@@ -3,8 +3,13 @@
 The shared agent-agnostic skill set lives in `.agents/skills/` (SKILL.md dirs).
 Each configured agent reads that source:
 
-- Claude   -> `~/.claude/skills` symlinks to `.agents/skills` (see `home.nix`)
+- Claude   -> `~/.claude/skills` resolves to `.agents/skills` (see `home.nix`)
+- Pi        -> the skills CLI copies compatible skills into Pi's global discovery surface
 - opencode -> managed per-skill symlinks in `opencode/skills/` (created by `just update-skills`, without replacing tool-managed entries)
+
+All all-agent `skills add` commands use `--copy`. Claude's Home Manager-owned
+skills root is itself a symlink, so generated relative leaf links can point back
+to themselves; physical generated copies avoid that self-loop.
 
 ## Not committed - regenerated from source
 
@@ -35,8 +40,9 @@ Enter the ui.sh token manually when its masked prompt appears.
 |---|---|---|---|
 | learning-opportunities | git repo | `https://github.com/DrCatHicks/learning-opportunities.git` | none (public) |
 | ui.sh (design, ideas, ...) | authenticated npx | `@uidotsh/install` | manual entry in the masked prompt |
-| whathappened | git repo (skills CLI) | `npx -y skills add kunchenguid/whathappened -g -y --agent '*'` | none |
-| vercel-labs skills | skills CLI | `npx -y skills add <source> -g -y --agent '*'` for `vercel-labs/agent-skills` and `vercel-labs/skills` | none |
+| vision | git repo (skills CLI) | `npx -y skills add kunchenguid/vision -g -y --agent '*' --copy` | none (MIT) |
+| whathappened | git repo (skills CLI) | `npx -y skills add kunchenguid/whathappened -g -y --agent '*' --copy` | none |
+| vercel-labs skills | skills CLI | `npx -y skills add <source> -g -y --agent '*' --copy` for `vercel-labs/agent-skills` and `vercel-labs/skills` | none |
 | memtrace-* (opencode) | tool-generated | `memtrace doctor --fix --repair-install` | memtrace license |
 
 The memtrace-* skills declare `compatibility: opencode` and stay in

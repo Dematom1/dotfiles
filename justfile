@@ -72,10 +72,13 @@ update-skills:
     echo "==> ui.sh skill  (paste the token into the installer's masked prompt)"
     env -u UIDOTSH_TOKEN npx -y @uidotsh/install
 
-    echo "==> npx skills CLI (whathappened + vercel-labs)"
-    npx -y skills add kunchenguid/whathappened -g -y --agent '*'
-    npx -y skills add vercel-labs/agent-skills -g -y --agent '*'
-    npx -y skills add vercel-labs/skills -g -y --agent '*'
+    echo "==> npx skills CLI (Vision + whathappened + vercel-labs)"
+    npx -y skills add kunchenguid/vision -g -y --agent '*' --copy
+    # Copy mode is required because Claude's Home Manager-owned skill root is
+    # itself a symlink; relative compatibility links there can become self-loops.
+    npx -y skills add kunchenguid/whathappened -g -y --agent '*' --copy
+    npx -y skills add vercel-labs/agent-skills -g -y --agent '*' --copy
+    npx -y skills add vercel-labs/skills -g -y --agent '*' --copy
 
     echo "==> wire shared skills into opencode (regenerated, not committed)"
     mkdir -p opencode/skills
@@ -177,6 +180,7 @@ bootstrap: refresh-secrets setup-firstmate update-skills
 check-regressions:
     ./tests/usernames.sh
     ./tests/terraform.sh
+    ./tests/agent-tools.sh
     ./tests/ponytail.sh
     ./tests/regressions.sh
 
