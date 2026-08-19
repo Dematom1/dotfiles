@@ -57,6 +57,9 @@
       "opensuperwhisper"
       "agentsview"
       "kunchenguid/tap/baby-menu"
+      "kunchenguid/tap/pi-launcher"
+      # One cask owns both the Automic Vault app and its signed `av` CLI stub,
+      # preventing the separately installed app/CLI version skew.
       "automic-vault/isotopes/automic-vault"
       # fonts
       "font-hack-nerd-font"

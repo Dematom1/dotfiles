@@ -1,0 +1,7 @@
+{
+  "name": "dotfiles-m87-package",
+  "private": true,
+  "dependencies": {
+    "@kunchenguid/m87": "0.1.10"
+  }
+}

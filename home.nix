@@ -8,6 +8,14 @@ let
     executable = true;
     text = builtins.readFile ./scripts/chrome-devtools-mcp.js;
   };
+  m87GithubRepos = [
+    "dematom-labs/agent-sandbox-runtime"
+    "dematom-labs/alteran"
+    "dematom-labs/conference-directory"
+    "dematom-labs/infrastructure"
+    "dematom-labs/seo-scout"
+    "dematom-labs/truediyer"
+  ];
 in
 {
   # home.username / home.homeDirectory are derived from the profile's
@@ -25,6 +33,8 @@ in
     git git-crypt lazygit lazydocker
     # kubernetes / infra
     argocd kubectl kubernetes-helm kustomize k9s kubectx kubernetes-axi terraform tailscale
+    # agent review queue (npm identity/integrity are pinned in packages/m87-npm)
+    m87
     # dev / build
     neovim gh prek cmake lld luarocks protobuf
     nodejs_24 python311 uv memray
@@ -92,9 +102,12 @@ in
     # Claude gets a composition entrypoint (shared AGENTS.md + Claude-only RTK)
     ".claude/CLAUDE.md".source     = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/claude/CLAUDE.md";
     ".codex/AGENTS.md".source      = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/AGENTS.md";
-    # Agent-agnostic skill source; OpenCode wiring is owned by `just update-skills`.
-    # See .agents/SKILLS.md for the managed-link contract.
-    ".claude/skills".source        = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/.agents/skills";
+    # Agent-agnostic generated skills. `just update-skills` uses the skills
+    # CLI's copy mode because a relative leaf symlink under this linked root can
+    # otherwise point back to itself. See .agents/SKILLS.md.
+    ".claude/skills".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/.agents/skills";
+    # pi-fff is a real Pi extension entrypoint, not merely an installed package.
+    ".pi/agent/extensions/pi-fff".source = "${pkgs.pi-fff}/${pkgs.pi-fff.extensionPath}";
   }
   # macOS-only: configs for GUI apps (window manager, terminals, status bar,
   # keyboard remapper) that don't exist on the headless Linux sandbox.
@@ -106,6 +119,33 @@ in
     ".config/karabiner/karabiner.json".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/karabiner/karabiner.json";
     ".wezterm.lua".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/.wezterm.lua";
   };
+
+  # M87 stores plugin configuration with its existing queue in ~/.m87. Use its
+  # native non-interactive initializer only for a fresh state, without starting
+  # a daemon mid-activation. Then apply the full replacement config so existing
+  # owned sources survive alongside authored work and the explicit org allowlist.
+  home.activation.m87GithubDiscovery = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    state_dir="''${M87_STATE_DIR:-$HOME/.m87}"
+    if [[ ! -f "$state_dir/m87.sqlite" ]]; then
+      $DRY_RUN_CMD ${lib.getExe pkgs.m87} init --yes --plugin github \
+        --github-repo ${lib.escapeShellArgs m87GithubRepos} \
+        --no-install-service
+    fi
+    if [[ -f "$state_dir/m87.sqlite" ]]; then
+      if ! $DRY_RUN_CMD ${lib.getExe pkgs.m87} plugin list | awk '
+        /^installed:/ { in_installed = 1; next }
+        /^[^[:space:]]/ { in_installed = 0 }
+        in_installed && /^[[:space:]]*-[[:space:]]+id:[[:space:]]+github[[:space:]]*$/ { found = 1 }
+        END { exit !found }
+      '; then
+        $DRY_RUN_CMD ${lib.getExe pkgs.m87} plugin add github
+      fi
+      $DRY_RUN_CMD ${lib.getExe pkgs.m87} plugin configure github --config \
+        owned_repos=true \
+        authored_external=true \
+        'explicit_repos=${lib.concatStringsSep "," m87GithubRepos}'
+    fi
+  '';
 
   # ---------------------------------------------------------------------------
   # Zsh - declarative structure; imperative extras live-sourced from the repo.

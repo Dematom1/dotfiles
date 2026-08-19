@@ -291,13 +291,14 @@ browser_child_pid=$(<"$signal_child_pid")
   || fail "Clawdbot returned on a tracked configuration surface"
 
 output=$(cd "$repo" && just --dry-run update-skills 2>&1)
-[[ $(grep -c "skills add .* -g -y --agent '\*'" <<<"$output") -eq 3 ]] || fail "skills installers are not explicit and non-interactive"
+[[ $(grep -c "skills add .* -g -y --agent '\*' --copy" <<<"$output") -eq 4 ]] || fail "all-agent skills installers do not all use copy mode"
+[[ $(grep -c "skills add kunchenguid/vision -g -y --agent '\*' --copy" <<<"$output") -eq 1 ]] || fail "Vision copy-mode source is not declared exactly once"
 [[ $output == *"\$(readlink \"\$link\")"* ]] || fail "skill-link cleanup does not inspect symlink targets"
 [[ $output != *"-type l -delete"* ]] || fail "skill-link cleanup removes tool-managed symlinks"
 
 skills_sandbox="$tmp/skills-sandbox"
 mkdir -p "$skills_sandbox/.agents/skills/shared" "$skills_sandbox/.agents/skills/fresh" \
-  "$skills_sandbox/opencode/skills" "$skills_sandbox/bin"
+  "$skills_sandbox/opencode/skills" "$skills_sandbox/home" "$skills_sandbox/bin"
 cp "$repo/justfile" "$skills_sandbox/justfile"
 ln -s /tool-managed/shared "$skills_sandbox/opencode/skills/shared"
 ln -s ../../.agents/skills/stale "$skills_sandbox/opencode/skills/stale"
@@ -326,7 +327,8 @@ fi
 EOF
 chmod +x "$skills_sandbox/bin/"*
 for recipe in update-skills update-ui-skill; do
-  UIDOTSH_TOKEN=automated PATH="$skills_sandbox/bin:$PATH" just --justfile "$skills_sandbox/justfile" "$recipe" >/dev/null
+  HOME="$skills_sandbox/home" UIDOTSH_TOKEN=automated PATH="$skills_sandbox/bin:$PATH" \
+    just --justfile "$skills_sandbox/justfile" "$recipe" >/dev/null
 done
 [[ $(wc -l < "$skills_sandbox/ui-installs") -eq 2 ]] || fail "UI installers did not run without inherited credentials"
 [[ $(readlink "$skills_sandbox/opencode/skills/shared") == /tool-managed/shared ]] || fail "shared-skill linking replaced a tool-managed link"
@@ -334,7 +336,8 @@ done
 [[ $(readlink "$skills_sandbox/opencode/skills/fresh") == ../../.agents/skills/fresh ]] || fail "missing shared skill link was not created"
 
 rm -rf "$skills_sandbox/opencode"
-UIDOTSH_TOKEN=automated PATH="$skills_sandbox/bin:$PATH" just --justfile "$skills_sandbox/justfile" update-skills >/dev/null
+HOME="$skills_sandbox/home" UIDOTSH_TOKEN=automated PATH="$skills_sandbox/bin:$PATH" \
+  just --justfile "$skills_sandbox/justfile" update-skills >/dev/null
 [[ -d "$skills_sandbox/opencode/skills" ]] || fail "skill linking did not create its parent directory"
 [[ $(readlink "$skills_sandbox/opencode/skills/fresh") == ../../.agents/skills/fresh ]] || fail "fresh checkout skill link was not created"
 
