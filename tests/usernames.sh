@@ -10,6 +10,76 @@ fail() {
   exit 1
 }
 
+av_bin=$(command -v av) || fail "installed Automic Vault scanner is unavailable"
+zsh_bin=$(command -v zsh) || fail "zsh is unavailable"
+scan_external_summary=
+
+scan_generated_zsh() {
+  local profile=$1
+  local scanner=$2
+  local generated_zdot=${3-}
+  local scan_output scan_status
+
+  set +e
+  # The child zsh expands $1 to the scanner path passed after --.
+  # shellcheck disable=SC2016
+  if [[ -n $generated_zdot ]]; then
+    scan_output=$(ZDOTDIR="$generated_zdot" "$zsh_bin" -lic 'exec "$1" scan --json' \
+      -- "$scanner" 2>/dev/null)
+  else
+    scan_output=$("$zsh_bin" -lic 'exec "$1" scan --json' \
+      -- "$scanner" 2>/dev/null)
+  fi
+  scan_status=$?
+  set -e
+  if [[ $scan_status -ne 0 ]]; then
+    echo "$profile profile scanner failed operationally with exit $scan_status" >&2
+    return 1
+  fi
+  jq -e 'type == "object" and (.findings | type == "array")' >/dev/null <<<"$scan_output" || {
+    echo "$profile profile scanner did not return JSON" >&2
+    return 1
+  }
+  if [[ -n $generated_zdot ]] && jq -e '
+    .findings[]
+    | select(.source == "zsh" or .source == "bash+zsh")
+  ' >/dev/null <<<"$scan_output"; then
+    echo "$profile profile generated zsh configuration triggers a repository-owned Automic Vault warning" >&2
+    return 1
+  fi
+  scan_external_summary=$(jq -c '
+    [.findings[]
+      | select(.source != "zsh" and .source != "bash+zsh")
+      | {source, severity}]
+    | group_by([.source, .severity])
+    | map({source: .[0].source, severity: .[0].severity, count: length})
+    | sort_by([.source, .severity])
+  ' <<<"$scan_output") || {
+    echo "$profile profile scanner findings could not be summarized" >&2
+    return 1
+  }
+}
+
+scan_generated_zsh baseline "$av_bin" \
+  || fail "configured login-shell scanner baseline failed"
+baseline_external_summary=$scan_external_summary
+
+# A valid-looking empty report cannot mask an operational scanner failure.
+scanner_probe="$tmp/av-operational-error"
+cat > "$scanner_probe" <<'EOF'
+#!/bin/sh
+printf '%s\n' '{"findings":[]}'
+exit 1
+EOF
+chmod +x "$scanner_probe"
+scanner_probe_home="$tmp/av-operational-error-home"
+mkdir -p "$scanner_probe_home"
+: > "$scanner_probe_home/.zshenv"
+: > "$scanner_probe_home/.zshrc"
+if scan_generated_zsh probe "$scanner_probe" "$scanner_probe_home" 2>/dev/null; then
+  fail "generated-profile scanner regression accepted an operational failure"
+fi
+
 nix_value() {
   nix eval --raw "$repo#$1"
 }
@@ -45,7 +115,25 @@ for profile_user in personal:laszlohoranszky work:laszlo; do
   [[ $(nix eval --raw "$repo#darwinConfigurations.$profile.config.home-manager.users.$user.home.sessionPath" \
     --apply 'paths: builtins.concatStringsSep ":" paths') == *"/usr/local/bin"* ]] \
     || fail "$profile profile does not expose the Automic Vault CLI location on PATH"
-  nix build --no-link "$repo#darwinConfigurations.$profile.config.home-manager.users.$user.home.activationPackage"
+  alias_names=$(nix eval --raw "$repo#darwinConfigurations.$profile.config.home-manager.users.$user.programs.zsh.shellAliases" \
+    --apply 'aliases: builtins.concatStringsSep "," (builtins.attrNames aliases)')
+  if grep -Eqi 'TOKEN|SECRET|PASSWORD|PASS|API_KEY|ACCESS_KEY|PRIVATE_KEY|AUTH' <<<"$alias_names"; then
+    fail "$profile profile renders a shell alias that Automic Vault treats as a secret assignment"
+  fi
+  activation=$(nix build --no-link --print-out-paths \
+    "$repo#darwinConfigurations.$profile.config.home-manager.users.$user.home.activationPackage")
+  scan_home="$tmp/av-$profile"
+  mkdir -p "$scan_home"
+  cp -L "$activation/home-files/.zshenv" "$scan_home/.zshenv"
+  cp -L "$activation/home-files/.zprofile" "$scan_home/.zprofile"
+  cp -L "$activation/home-files/.zshrc" "$scan_home/.zshrc"
+  chmod u+w "$scan_home/.zshenv" "$scan_home/.zprofile" "$scan_home/.zshrc"
+
+  scan_generated_zsh "$profile" "$av_bin" "$scan_home" \
+    || fail "$profile profile generated zsh scan failed"
+  [[ $scan_external_summary == "$baseline_external_summary" ]] \
+    || fail "$profile profile changed external Automic Vault findings"
+
   [[ -x $launcher ]] || fail "$profile profile browser launcher is not executable"
   node --check "$launcher" >/dev/null \
     || fail "$profile profile browser launcher is not a Node-compatible JavaScript entrypoint"

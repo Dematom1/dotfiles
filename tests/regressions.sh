@@ -226,6 +226,49 @@ done
 
 ! grep -q 'UIDOTSH_TOKEN' "$repo/zsh/secrets.tpl" || fail "UI token remains in credential automation"
 
+replaceable_read_only_path="$tmp/replaceable-read-only-path"
+writable_path="$tmp/writable-path"
+missing_path="$tmp/missing-path"
+symlink_target="$tmp/symlink-target"
+mkdir -p "$replaceable_read_only_path" "$writable_path"
+mkdir -p "$symlink_target/read-only-path"
+chmod 0555 "$replaceable_read_only_path"
+chmod 0555 "$symlink_target/read-only-path"
+zsh_bin=$(command -v zsh)
+protected_path=$(dirname "$zsh_bin")
+symlink_path="$tmp/symlink-path"
+ln -s "$symlink_target/read-only-path" "$symlink_path"
+replaceable_symlink="$tmp/replaceable-symlink"
+ln -s "$protected_path" "$replaceable_symlink"
+# The single-quoted program expands path inside the child zsh, not this shell.
+# shellcheck disable=SC2016
+output=$(PATH="$writable_path:$replaceable_read_only_path:$symlink_path:$replaceable_symlink:$protected_path::$writable_path:$missing_path:relative" \
+  "$zsh_bin" -dfc 'source "$1"; print -l -- "${path[@]}"' -- "$repo/zsh/path-order.zsh")
+expected=$(printf '%s\n' "$protected_path" "$writable_path")
+[[ "$output" == "$expected" ]] \
+  || fail "shell PATH ordering did not reject relative and replaceable read-only entries, put protected directories first, preserve safe class order, and deduplicate entries"
+
+managed_path=$(sed -n '/^      path=(/,/^      )/p' "$repo/home.nix")
+expected_managed_path=$(cat <<'EOF'
+      path=(
+        "$HOME/.opencode/bin"
+        "$HOME/.lmstudio/bin"
+        "/usr/local/zig"
+        "$HOME/.bun/bin"
+        "$HOME/go/bin"
+        "$HOME/.local/bin"
+        "/etc/profiles/per-user/$USER/bin"
+        $path
+      )
+EOF
+)
+[[ "$managed_path" == "$expected_managed_path" ]] \
+  || fail "managed shell PATH entries no longer preserve historical command precedence"
+
+output=$(cd "$repo" && just --summary)
+[[ " $output " == *" refresh-secrets "* ]] \
+  || fail "the explicit 1Password refresh recipe is no longer available"
+
 policy_surfaces=()
 while IFS= read -r -d '' surface; do
   case "$surface" in

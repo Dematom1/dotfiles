@@ -2,6 +2,7 @@
 
 let
   dotfiles = "${config.home.homeDirectory}/Code/dotfiles";
+  securePathOrder = builtins.readFile ./zsh/path-order.zsh;
   chromeDevtoolsMcp = pkgs.writeTextFile {
     name = "chrome-devtools-mcp";
     destination = "/bin/chrome-devtools-mcp";
@@ -120,11 +121,27 @@ in
     envExtra = ''
       [ -r "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 
-      # Put nix + user bins on PATH for NON-interactive shells too (agents, git
-      # hooks, tool subprocesses). init.zsh only runs for interactive shells, so
-      # anything launched outside a terminal couldn't find gh/just/prek/etc.
+      # Keep the same managed tools available to interactive and non-interactive
+      # shells, then place protected directories ahead of user-writable ones.
       typeset -U path PATH
-      path=("/etc/profiles/per-user/$USER/bin" "$HOME/.local/bin" $path)
+      path=(
+        "$HOME/.opencode/bin"
+        "$HOME/.lmstudio/bin"
+        "/usr/local/zig"
+        "$HOME/.bun/bin"
+        "$HOME/go/bin"
+        "$HOME/.local/bin"
+        "/etc/profiles/per-user/$USER/bin"
+        $path
+      )
+      ${securePathOrder}
+    '';
+
+    # macOS /etc/zprofile runs after .zshenv and invokes path_helper, which can
+    # restore unsafe inherited ordering. Re-apply the ordering in .zprofile so
+    # login shells pass the final PATH to child processes.
+    profileExtra = ''
+      ${securePathOrder}
     '';
 
     history = {
@@ -152,8 +169,6 @@ in
       claude   = "headroom wrap claude --";       # 200K default - caps per-turn context re-read
       claude1m = "headroom wrap claude --1m --";   # opt-in 1M window for tasks that truly need it
       codex  = "headroom wrap codex --no-proxy --port 8787 --no-context-tool --no-mcp --no-tokensave --no-serena --";
-      # regenerate ~/.secrets from 1Password (needs `op signin`)
-      refresh-secrets = "op inject -f -i ~/Code/dotfiles/zsh/secrets.tpl -o ~/.secrets && echo '✓ ~/.secrets refreshed'";
     };
 
     oh-my-zsh = {
@@ -186,6 +201,7 @@ in
         [[ -f ~/.p10k.zsh ]]     && source ~/.p10k.zsh
         [[ -f ~/.secrets ]]      && source ~/.secrets
         [[ -f ~/.zshrc.local ]]  && source ~/.zshrc.local
+        ${securePathOrder}
       '')
     ];
   };
