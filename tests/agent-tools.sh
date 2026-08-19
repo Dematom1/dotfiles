@@ -76,6 +76,14 @@ if [[ "$system" == aarch64-darwin ]]; then
   done
 fi
 
+skills_sandbox=$(mktemp -d "$repo/.agent-tools-skills.XXXXXX")
+trap 'rm -rf "$skills_sandbox"' EXIT
+HOME="$skills_sandbox" npx -y skills add kunchenguid/vision -g -y --agent '*' --copy >/dev/null
+[[ -f "$skills_sandbox/.claude/skills/vision/SKILL.md" ]] \
+  || fail "sandboxed Claude runtime cannot discover Vision"
+[[ -f "$skills_sandbox/.pi/agent/skills/vision/SKILL.md" ]] \
+  || fail "sandboxed Pi runtime cannot discover Vision"
+
 skills_update=$(cd "$repo" && just --dry-run update-skills 2>&1)
 [[ "$skills_update" == *"skills add kunchenguid/vision -g -y --agent '*' --copy"* ]] \
   || fail "Vision is not declared through the all-agent copy-mode owner"
