@@ -1,21 +1,82 @@
-font-size = 21
-window-padding-color = background
-window-colorspace = "display-p3"
-theme = Catpuccin Mocha
-font-feature = -liga
-background-blur-radius = 10
-keybind = global:cmd+s=toggle_quick_terminal
+# =============================================================================
+# FONT
+# =============================================================================
 font-family = BerkleyMono Nerd Font
-mouse-hide-while-typing = true
+font-size = 21
+font-feature = -liga
+adjust-cursor-thickness = 1
 
-# Option key acts as Alt (for tmux Alt+number, etc.)
-macos-option-as-alt = true
-
+# =============================================================================
+# COLORS
+# =============================================================================
+theme = Catppuccin Mocha
 background = 011423
 foreground = CBE0F0
 cursor-color = 47FF9C
-adjust-cursor-thickness = 1
 selection-foreground = CBE0F0
 selection-background = 033259
+
+# =============================================================================
+# WINDOW
+# =============================================================================
+window-padding-color = background
+window-colorspace = display-p3
 window-decoration = true
 macos-titlebar-style = transparent
+background-blur-radius = 10
+
+# =============================================================================
+# BEHAVIOR
+# =============================================================================
+mouse-hide-while-typing = true
+macos-option-as-alt = true
+window-save-state = always
+confirm-close-surface = false
+
+# =============================================================================
+# KEYBINDS — leader: escape>space (mirrors tmux workflow)
+# =============================================================================
+
+# Quick terminal (global hotkey)
+keybind = global:cmd+s=toggle_quick_terminal
+
+# --- Splits ---
+# escape>space>| = vertical split (new pane to the right)
+keybind = escape>space>backslash=new_split:right
+# escape>space>- = horizontal split (new pane below)
+keybind = escape>space>minus=new_split:down
+# escape>space>z = zoom/unzoom current split (like tmux prefix+z)
+keybind = escape>space>z=toggle_split_zoom
+# escape>space>x = close current split/pane
+keybind = escape>space>x=close_surface
+
+# --- Split navigation (vim-style) ---
+keybind = escape>space>h=goto_split:left
+keybind = escape>space>j=goto_split:down
+keybind = escape>space>k=goto_split:up
+keybind = escape>space>l=goto_split:right
+
+# --- Tabs (tmux windows equivalent) ---
+# escape>space>c = new tab
+keybind = escape>space>c=new_tab
+# escape>space>n/p = next/prev tab
+keybind = escape>space>n=next_tab
+keybind = escape>space>p=previous_tab
+# escape>space>1-9 = jump to tab by number
+keybind = escape>space>one=goto_tab:1
+keybind = escape>space>two=goto_tab:2
+keybind = escape>space>three=goto_tab:3
+keybind = escape>space>four=goto_tab:4
+keybind = escape>space>five=goto_tab:5
+keybind = escape>space>six=goto_tab:6
+keybind = escape>space>seven=goto_tab:7
+keybind = escape>space>eight=goto_tab:8
+keybind = escape>space>nine=goto_tab:9
+# escape>space>, = rename current tab
+keybind = escape>space>comma=change_tab_title
+# escape>space>w = close tab
+keybind = escape>space>w=close_tab
+
+# --- Windows (tmux sessions equivalent) ---
+# escape>space>N = new window
+keybind = escape>space>shift+n=new_window
