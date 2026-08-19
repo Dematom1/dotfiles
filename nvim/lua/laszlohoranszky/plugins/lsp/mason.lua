@@ -1,70 +1,71 @@
 return {
-  "williamboman/mason.nvim",
-  dependencies = {
-    "williamboman/mason-lspconfig.nvim",
-    "WhoIsSethDaniel/mason-tool-installer.nvim",
-  },
-  config = function()
-    -- import mason
-    local mason = require("mason")
+	"williamboman/mason.nvim",
+	dependencies = {
+		"williamboman/mason-lspconfig.nvim",
+		"WhoIsSethDaniel/mason-tool-installer.nvim",
+	},
+	config = function()
+		-- import mason
+		local mason = require("mason")
 
-    -- import mason-lspconfig
-    local mason_lspconfig = require("mason-lspconfig")
+		-- import mason-lspconfig
+		local mason_lspconfig = require("mason-lspconfig")
 
-    local mason_tool_installer = require("mason-tool-installer")
-    -- enable mason and configure icons
-    mason.setup({
-      ui = {
-        icons = {
-          package_installed = "✓",
-          package_pending = "➜",
-          package_uninstalled = "✗",
-        },
-      },
-    })
+		local mason_tool_installer = require("mason-tool-installer")
+		-- enable mason and configure icons
+		mason.setup({
+			ui = {
+				icons = {
+					package_installed = "✓",
+					package_pending = "➜",
+					package_uninstalled = "✗",
+				},
+			},
+		})
 
-    mason_lspconfig.setup({
-      -- list of servers for mason to install
-      ensure_installed = {
-        "html",
-        "cssls",
-        "tailwindcss",
-        "graphql",
-        "gopls",
-        "templ",
-        "prismals",
-        "basedpyright",
-        "jsonls",
-        "dockerls",
-        "marksman",
-        "ruff",
-        "bashls",
-        "helm_ls",
-        "rust_analyzer",
-        "jinja_lsp",
-        "ts_ls",
-        "oxlint",
-        "docker_compose_language_service",
-        "zls",
-        "eslint",
-        "emmet_ls",
-        "lua_ls",
-      },
-      -- Use new vim.lsp.enable() under the hood (Neovim 0.11+)
-      automatic_enable = true,
-    })
+		mason_lspconfig.setup({
+			-- list of servers for mason to install
+			ensure_installed = {
+				"html",
+				"cssls",
+				"tailwindcss",
+				"graphql",
+				"gopls",
+				"templ",
+				"prismals",
+				"basedpyright",
+				"jsonls",
+				"dockerls",
+				"marksman",
+				"ruff",
+				"bashls",
+				"helm_ls",
+				"rust_analyzer",
+				"jinja_lsp",
+				"ts_ls",
+				"oxlint",
+				"docker_compose_language_service",
+				"zls",
+				"eslint",
+				"emmet_ls",
+				"lua_ls",
+				"gitlab_ci_ls",
+			},
+			-- Use new vim.lsp.enable() under the hood (Neovim 0.11+)
+			automatic_enable = true,
+		})
 
-    mason_tool_installer.setup({
-      ensure_installed = {
-        "prettier",     -- prettier formatter
-        "ruff",         -- python
-        "eslint_d",     -- js linter
-        "cpptools",     -- rust
-        "luaformatter", -- lua
-        "delve",        -- go
-        "debugpy",      -- python
-        "js-debug-adapter",
-      },
-    })
-  end,
+		mason_tool_installer.setup({
+			ensure_installed = {
+				"prettier", -- prettier formatter
+				"ruff", -- python
+				"eslint_d", -- js linter
+				"cpptools", -- rust
+				"luaformatter", -- lua
+				"delve", -- go
+				"debugpy", -- python
+				"js-debug-adapter",
+			},
+		})
+	end,
 }

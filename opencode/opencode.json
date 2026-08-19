@@ -21,5 +21,9 @@
       "enabled": true,
       "environment": {}
     }
-  }
+  },
+  "plugin": [
+    "specops",
+    "atomize-agent-swarm"
+  ]
 }

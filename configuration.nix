@@ -40,6 +40,7 @@
     onActivation.extraFlags = [ "--force" ];
     brews = [
       # not in nixpkgs
+      "felixkratz/formulae/sketchybar"
       "herdr"
       "rtk"
     ];
