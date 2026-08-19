@@ -132,6 +132,14 @@ in
         --no-install-service
     fi
     if [[ -f "$state_dir/m87.sqlite" ]]; then
+      if ! $DRY_RUN_CMD ${lib.getExe pkgs.m87} plugin list | awk '
+        /^installed:/ { in_installed = 1; next }
+        /^[^[:space:]]/ { in_installed = 0 }
+        in_installed && /^[[:space:]]*-[[:space:]]+id:[[:space:]]+github[[:space:]]*$/ { found = 1 }
+        END { exit !found }
+      '; then
+        $DRY_RUN_CMD ${lib.getExe pkgs.m87} plugin add github
+      fi
       $DRY_RUN_CMD ${lib.getExe pkgs.m87} plugin configure github --config \
         owned_repos=true \
         authored_external=true \

@@ -65,6 +65,22 @@ for target in "${targets[@]}"; do
     || fail "$profile M87 discovery embeds credentials or changes viewer identity"
 done
 
+m87_sandbox=$(mktemp -d "$repo/.agent-tools-m87.XXXXXX")
+skills_sandbox=$(mktemp -d "$repo/.agent-tools-skills.XXXXXX")
+trap 'rm -rf "$m87_sandbox" "$skills_sandbox"' EXIT
+M87_STATE_DIR="$m87_sandbox/state" "$m87_package/bin/m87" \
+  init --yes --plugin skip --no-install-service >/dev/null
+DRY_RUN_CMD= M87_STATE_DIR="$m87_sandbox/state" HOME="$m87_sandbox/home" \
+  bash -euo pipefail -c "$m87_config"
+M87_STATE_DIR="$m87_sandbox/state" "$m87_package/bin/m87" plugin list \
+  | awk '
+      /^installed:/ { in_installed = 1; next }
+      /^[^[:space:]]/ { in_installed = 0 }
+      in_installed && /^[[:space:]]*-[[:space:]]+id:[[:space:]]+github[[:space:]]*$/ { found = 1 }
+      END { exit !found }
+    ' \
+  || fail "M87 activation did not add the missing bundled GitHub plugin"
+
 if [[ "$system" == aarch64-darwin ]]; then
   for profile in personal work; do
     casks=$(nix eval --raw "$repo#darwinConfigurations.$profile.config.homebrew.casks" \
@@ -76,8 +92,6 @@ if [[ "$system" == aarch64-darwin ]]; then
   done
 fi
 
-skills_sandbox=$(mktemp -d "$repo/.agent-tools-skills.XXXXXX")
-trap 'rm -rf "$skills_sandbox"' EXIT
 HOME="$skills_sandbox" npx -y skills add kunchenguid/vision -g -y --agent '*' --copy >/dev/null
 [[ -f "$skills_sandbox/.claude/skills/vision/SKILL.md" ]] \
   || fail "sandboxed Claude runtime cannot discover Vision"
