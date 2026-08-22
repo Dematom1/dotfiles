@@ -230,7 +230,7 @@ For an approved per-process model command, use Automic Vault's documented
 injection boundary and keep the signed launcher target intact:
 
 ```bash
-env -u OPENCODE_API_KEY FM_PI_HARNESS=pi-signed \\
+env -u OPENCODE_API_KEY FM_PI_HARNESS=pi-signed \
   av inject +OPENCODE_API_KEY -- pi-signed --list-models
 ```
 
