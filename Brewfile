@@ -110,7 +110,6 @@ brew "memray"             # Python memory profiler
 # -----------------------------------------------------------------------------
 brew "prek"               # Fast pre-commit (Rust)
 brew "shellcheck"         # Shell script linter
-brew "gnupg"              # GPG for git signing
 
 # -----------------------------------------------------------------------------
 # macOS Apps
