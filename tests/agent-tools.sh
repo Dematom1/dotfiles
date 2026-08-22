@@ -142,6 +142,9 @@ cat > "$pi_sandbox/.pi/agent/settings.json" <<'EOF'
   ]
 }
 EOF
+chmod 600 "$pi_sandbox/.pi/agent/settings.json"
+printf 'keep me\n' > "$pi_sandbox/temp-symlink-target"
+ln -s "$pi_sandbox/temp-symlink-target" "$pi_sandbox/.pi/agent/settings.json.tmp"
 DRY_RUN_CMD='' HOME="$pi_sandbox" bash -euo pipefail -c "$pi_packages"
 settings="$pi_sandbox/.pi/agent/settings.json"
 [[ $(jq '[.packages[] | select(. == "npm:pi-autoresearch")] | length' "$settings") -eq 1 ]] \
@@ -150,6 +153,11 @@ settings="$pi_sandbox/.pi/agent/settings.json"
   || fail "generated Pi settings retain the duplicate Nix-managed pi-fff package"
 [[ $(jq -r '.theme' "$settings") == captain-local ]] \
   || fail "Pi package reconciliation discarded unrelated local settings"
+settings_mode=$(stat -f '%Lp' "$settings" 2>/dev/null || stat -c '%a' "$settings")
+[[ "$settings_mode" == 600 ]] \
+  || fail "Pi package reconciliation changed private settings mode to $settings_mode"
+[[ $(cat "$pi_sandbox/temp-symlink-target") == "keep me" ]] \
+  || fail "Pi package reconciliation followed a predictable temporary-file symlink"
 for package in \
   'npm:pi-web-access@0.14.0' \
   'npm:@ryan_nookpi/pi-extension-codex-fast-mode@0.2.6' \

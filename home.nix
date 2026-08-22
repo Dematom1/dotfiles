@@ -133,12 +133,13 @@ in
     if [[ -v DRY_RUN ]]; then
       echo "Would reconcile Pi packages in $settings"
     elif [[ -f "$settings" ]]; then
-      tmp="$settings.tmp"
+      tmp=$(${pkgs.coreutils}/bin/mktemp "$settings.tmp.XXXXXX")
       if ! ${lib.getExe pkgs.jq} \
         --arg autoresearch ${lib.escapeShellArg piAutoresearchPackage} \
         --arg nixManaged ${lib.escapeShellArg nixManagedPiPackage} \
         '.packages = (((.packages // []) | map(select(. != $nixManaged and . != $autoresearch))) + [$autoresearch])' \
-        "$settings" > "$tmp"; then
+        "$settings" > "$tmp" \
+        || ! ${pkgs.coreutils}/bin/chmod --reference="$settings" "$tmp"; then
         rm -f "$tmp"
         echo "ERROR: unable to reconcile Pi packages in $settings" >&2
         exit 1
