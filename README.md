@@ -40,7 +40,7 @@ without the work marker as `laszlo` cannot silently target the personal home.
 | **Automic Vault** | Local macOS Keychain and command-approval boundary |
 | **Pi Launcher** | Signed identity-only Pi launcher for supervised Firstmate sessions |
 | **M87** | Local-first GitHub review queue with pinned Nix packaging |
-| **Vision / pi-fff** | Declared cross-agent vision skill and pinned Pi-native FFF search extension |
+| **Agent skills / Pi extensions** | Declared cross-agent skills, pi-autoresearch, and pinned Pi-native FFF search extension |
 | **yazi** | Terminal file manager |
 | **bat** | Syntax-highlighted output |
 | **aerospace** | macOS window manager |
@@ -167,15 +167,16 @@ to derive the viewer as Dematom1. It also adds no credential. M87 continues to
 use the existing `gh` authentication selected by its upstream plugin.
 
 This change does not activate or restart the live installation. After merging,
-the operator runs `just rebuild`; if `m87 daemon status` still reports a service
-whose executable is outside `/etc/profiles/per-user/$USER/bin`, run
+the personal-machine operator runs `just rebuild personal`; if
+`m87 daemon status` still reports a service whose executable is outside
+`/etc/profiles/per-user/$USER/bin`, run
 `m87 daemon install` once to repoint the managed service without replacing
 `~/.m87`. Then run `m87 plugin doctor` and `m87 plugin sync github`; do not
 approve any recommendation merely to test discovery. Review/merge actions,
 credentials, and repository action policy are separate operator concerns and
 are not changed by this discovery configuration.
 
-### Vision, Ponytail, and pi-fff
+### Agent skills and Pi packages
 
 `just update-skills` declares the authoritative `kunchenguid/vision` source and
 installs it for every supported agent with the skills CLI's `--copy` mode. This
@@ -187,8 +188,10 @@ discoverable:
 - Pi registers `~/.pi/agent/skills/vision/SKILL.md` as `/skill:vision`;
 - Claude Code registers `~/.claude/skills/vision/SKILL.md` as `/vision`.
 
-The copies and tool registries are never committed. After shipping, run
-`just update-skills` to repair existing Vision and other all-agent skill copies.
+The same recipe installs only the approved `teach` skill from
+`mattpocock/skills` and `show-me` from `humanlayer/skills`, preserving the
+existing skill set. The copies and tool registries are never committed. After
+shipping, run `just update-skills` to refresh all-agent skill copies.
 Ponytail remains owned by its existing native package-manager recipe; run the
 focused `just _setup-ponytail`, then verify `claude plugin details
 ponytail@ponytail`. Use `/reload-plugins` in an existing Claude session or start
@@ -197,8 +200,16 @@ a new one. Do not edit Claude's generated plugin registry or settings JSON.
 The exact npm package `@ff-labs/pi-fff@0.10.5` is pinned with npm integrity
 hashes and linked at Pi's native extension path
 `~/.pi/agent/extensions/pi-fff/index.ts`. This registers the `fffind`,
-`ffgrep`, and `fff-multi-grep` tools without adding the package to mutable Pi
-settings. Existing Pi sessions use `/reload`.
+`ffgrep`, and `fff-multi-grep` tools. Home Manager removes only its duplicate
+`npm:@ff-labs/pi-fff` mutable registration, preserves every other Pi setting and
+package, and reconciles the upstream-documented `npm:pi-autoresearch` package
+exactly once. Existing Pi sessions use `/reload` after
+`just rebuild personal`.
+
+The personal Home Manager profile also supplies GnuPG's `gpg` command for the
+Terraform secret workflow. It replaces the former Homebrew formula without
+creating or importing keys or changing credential storage. Apply it after merge
+with `just rebuild personal`.
 
 ### Signed Pi Launcher
 
