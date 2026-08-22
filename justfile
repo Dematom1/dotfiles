@@ -183,6 +183,7 @@ check-regressions:
     ./tests/usernames.sh
     ./tests/terraform.sh
     ./tests/agent-tools.sh
+    ./tests/pi-signed.sh
     ./tests/ponytail.sh
     ./tests/regressions.sh
 
@@ -321,6 +322,16 @@ setup-firstmate:
     echo
     echo "Done. Next:  gh auth login   then   cd $ws && herdr   (run 'pi' in pane 1)"
 
+# Read-only signed-Pi drift report; the signed app exists only on macOS.
+report-pi-signed-drift:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ "$(uname -s)" == Darwin ]]; then
+      ./scripts/pi-signed-drift.sh
+    else
+      echo "pi-signed: drift check skipped (signed bundle is macOS-only)."
+    fi
+
 # Update the FirstMate stack via each tool's native updater (guide's order).
 update-firstmate:
     #!/usr/bin/env bash
@@ -341,4 +352,5 @@ update-firstmate:
     fi
     for spec in {{ axi-tools-git }}; do npm install -g "$spec"; just _setup-axi-hooks "$(basename "$spec")"; done
     herdr integration install pi   # refresh Pi integration after a herdr update
+    just report-pi-signed-drift
     echo "FirstMate stack updated."

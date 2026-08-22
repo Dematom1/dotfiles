@@ -38,7 +38,7 @@ without the work marker as `laszlo` cannot silently target the personal home.
 | **direnv** | Per-project environments |
 | **git** | Git configuration with delta |
 | **Automic Vault** | Local macOS Keychain and command-approval boundary |
-| **Pi Launcher** | Signed identity-only Pi launcher for supervised Firstmate sessions |
+| **Pi Launcher** | Credentialed signed Pi route for supervised Firstmate sessions |
 | **M87** | Local-first GitHub review queue with pinned Nix packaging |
 | **Agent skills / Pi extensions** | Declared cross-agent skills, pi-autoresearch, and pinned Pi-native FFF search extension |
 | **yazi** | Terminal file manager |
@@ -218,6 +218,15 @@ single `automic-vault/isotopes/automic-vault` cask that owns the Automic Vault
 app and signed `av` CLI stub. After `just rebuild`, verify that `av --version`
 matches the app's `CFBundleShortVersionString`; stop if they differ.
 
+Home Manager installs exactly one credentialed `pi-signed` entrypoint at
+`~/.local/bin/pi-signed`. It sets `FM_PI_HARNESS=pi-signed`, requests only
+`OPENCODE_API_KEY` from Automic Vault, and targets the absolute signed app
+executable `/Applications/Pi Launcher.app/Contents/MacOS/pi-launcher`, preserving
+all Pi arguments. Regular `pi` remains unchanged and on `PATH`; there is no
+fallback from the signed route to regular Pi. `pi-signed update --self` is
+rejected only by this signed route, while the existing regular `pi update --self`
+path remains in `just update-firstmate`.
+
 Before making signed launch the normal path, perform one disposable signed
 Firstmate supervision smoke. Start Pi exactly as follows, let `pi-signed`
 resolve through `PATH`, verify from its bash tool that
@@ -229,26 +238,39 @@ FM_PI_HARNESS=pi-signed pi-signed
 ```
 
 That command does not assign or change `FM_HOME`; the existing Firstmate home
-continues to apply. It is identity-only and intentionally does not wrap the
-whole Pi session in `av inject` or inject `OPENCODE_API_KEY`. Keep any separately
-authorized Vault injection scoped to its individual command. No Firstmate
-source, crew dispatch rule, or worker-default change is part of this rollout.
+continues to apply. Firstmate source and dispatch rules remain unchanged. The
+raw signed-app diagnostic path bypasses Vault and injects no secret:
+
+```bash
+/Applications/Pi\ Launcher.app/Contents/MacOS/pi-launcher --version
+```
 
 The durable custom Pi model catalog is `pi/models.json`; Home Manager links it to
 `~/.pi/agent/models.json` without copying it into the Nix store. It contains only
 the `OPENCODE_API_KEY` environment-variable reference, never the key itself.
-For an approved per-process model command, use Automic Vault's documented
-injection boundary and keep the signed launcher target intact:
+Use the managed route for an approved per-process model command:
 
 ```bash
-env -u OPENCODE_API_KEY FM_PI_HARNESS=pi-signed \
-  av inject +OPENCODE_API_KEY -- pi-signed --list-models
+pi-signed --list-models
 ```
 
 Ox Alpha supports only the `low`, `high`, and `max` thinking levels. The trial
 uses `--thinking high`; `max` requires a separate explicit captain instruction.
 Do not put the key in a shell profile, command argument, log, session
 environment, or generated file.
+
+`just report-pi-signed-drift` is a read-only report of the bundled Pi version
+against upstream stable and any open `upstream-pi-blocked` issue. The existing
+`just update-firstmate` recipe runs this report after its unchanged regular-Pi
+update. The report never updates or installs anything and never closes or
+retries an upstream issue. On macOS, verify the new route without an attended
+rebuild with:
+
+```bash
+just rebuild personal
+just report-pi-signed-drift
+./tests/pi-signed.sh
+```
 
 ## Linux sandbox server
 
