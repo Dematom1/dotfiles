@@ -16,6 +16,9 @@ let
     "dematom-labs/seo-scout"
     "dematom-labs/truediyer"
   ];
+  # Follow Pi's existing mutable-package policy; upstream documents this spec.
+  piAutoresearchPackage = "npm:pi-autoresearch";
+  nixManagedPiPackage = "npm:@ff-labs/pi-fff";
 in
 {
   # home.username / home.homeDirectory are derived from the profile's
@@ -55,7 +58,7 @@ in
   # personal Mac only (the Homebrew equivalent lives in hosts/personal.nix)
   ++ lib.optionals (profile == "personal") [
     # personal-only nix packages
-    argo-workflows velero hcloud
+    gnupg argo-workflows velero hcloud
   ]
   # work Mac only (the Homebrew equivalent lives in hosts/work.nix)
   ++ lib.optionals (profile == "work") [
@@ -107,6 +110,7 @@ in
     # otherwise point back to itself. See .agents/SKILLS.md.
     ".claude/skills".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/.agents/skills";
     # pi-fff is a real Pi extension entrypoint, not merely an installed package.
+    # The activation reconciliation below removes its duplicate npm registry entry.
     ".pi/agent/extensions/pi-fff".source = "${pkgs.pi-fff}/${pkgs.pi-fff.extensionPath}";
     ".pi/agent/models.json".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/pi/models.json";
   }
@@ -121,6 +125,31 @@ in
     ".wezterm.lua".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/.wezterm.lua";
   };
 
+  # Reconcile only the declarative Pi package entries. Preserve the mutable
+  # settings and every other package; pi-fff is loaded by its Nix-managed
+  # extension path above, so removing its npm entry prevents double loading.
+  home.activation.piPackageReconciliation = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    settings="$HOME/.pi/agent/settings.json"
+    if [[ -v DRY_RUN ]]; then
+      echo "Would reconcile Pi packages in $settings"
+    elif [[ -f "$settings" ]]; then
+      tmp="$settings.tmp"
+      if ! ${lib.getExe pkgs.jq} \
+        --arg autoresearch ${lib.escapeShellArg piAutoresearchPackage} \
+        --arg nixManaged ${lib.escapeShellArg nixManagedPiPackage} \
+        '.packages = (((.packages // []) | map(select(. != $nixManaged and . != $autoresearch))) + [$autoresearch])' \
+        "$settings" > "$tmp"; then
+        rm -f "$tmp"
+        echo "ERROR: unable to reconcile Pi packages in $settings" >&2
+        exit 1
+      fi
+      mv "$tmp" "$settings"
+    else
+      mkdir -p "$(dirname "$settings")"
+      printf '{"packages":["%s"]}\n' ${lib.escapeShellArg piAutoresearchPackage} > "$settings"
+    fi
+  '';
+
   # M87 stores plugin configuration with its existing queue in ~/.m87. Use its
   # native non-interactive initializer only for a fresh state, without starting
   # a daemon mid-activation. Then apply the full replacement config so existing
@@ -133,12 +162,27 @@ in
         --no-install-service
     fi
     if [[ -f "$state_dir/m87.sqlite" ]]; then
-      if ! $DRY_RUN_CMD ${lib.getExe pkgs.m87} plugin list | awk '
+      if plugin_list=$($DRY_RUN_CMD ${lib.getExe pkgs.m87} plugin list); then
+        :
+      else
+        status=$?
+        [[ -z "$plugin_list" ]] || printf '%s\n' "$plugin_list" >&2
+        echo "ERROR: m87 plugin list failed (exit $status)" >&2
+        exit "$status"
+      fi
+      if ${pkgs.gawk}/bin/awk '
         /^installed:/ { in_installed = 1; next }
         /^[^[:space:]]/ { in_installed = 0 }
         in_installed && /^[[:space:]]*-[[:space:]]+id:[[:space:]]+github[[:space:]]*$/ { found = 1 }
         END { exit !found }
-      '; then
+      ' <<<"$plugin_list"; then
+        :
+      else
+        status=$?
+        if [[ $status -ne 1 ]]; then
+          echo "ERROR: m87 plugin list output could not be parsed (exit $status)" >&2
+          exit "$status"
+        fi
         $DRY_RUN_CMD ${lib.getExe pkgs.m87} plugin add github
       fi
       $DRY_RUN_CMD ${lib.getExe pkgs.m87} plugin configure github --config \

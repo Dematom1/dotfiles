@@ -291,8 +291,11 @@ browser_child_pid=$(<"$signal_child_pid")
   || fail "Clawdbot returned on a tracked configuration surface"
 
 output=$(cd "$repo" && just --dry-run update-skills 2>&1)
-[[ $(grep -c "skills add .* -g -y --agent '\*' --copy" <<<"$output") -eq 4 ]] || fail "all-agent skills installers do not all use copy mode"
+[[ $(grep -c "skills add .* -g -y --agent '\*' --copy" <<<"$output") -eq 6 ]] || fail "all-agent skills installers do not all use copy mode"
 [[ $(grep -c "skills add kunchenguid/vision -g -y --agent '\*' --copy" <<<"$output") -eq 1 ]] || fail "Vision copy-mode source is not declared exactly once"
+[[ $(grep -c "skills add mattpocock/skills --skill teach -g -y --agent '\*' --copy" <<<"$output") -eq 1 ]] || fail "Matt Teach source is not declared exactly once"
+[[ $(grep -c "skills add humanlayer/skills --skill show-me -g -y --agent '\*' --copy" <<<"$output") -eq 1 ]] || fail "HumanLayer Show Me source is not declared exactly once"
+[[ $(grep -Fc 'mattpocock/skills --skill' <<<"$output") -eq 1 ]] || fail "an unapproved Matt Pocock skill source is declared"
 [[ $output == *"\$(readlink \"\$link\")"* ]] || fail "skill-link cleanup does not inspect symlink targets"
 [[ $output != *"-type l -delete"* ]] || fail "skill-link cleanup removes tool-managed symlinks"
 

@@ -16,6 +16,9 @@ fail() {
 if grep -Eq '^[[:space:]]*brew "[^"]*terraform' "$repo/Brewfile"; then
   fail "Brewfile still declares Terraform outside the Nix-managed operator package path"
 fi
+if grep -Eq '^[[:space:]]*brew "gnupg"' "$repo/Brewfile"; then
+  fail "Brewfile still declares GnuPG outside the personal Nix package path"
+fi
 
 system=$(nix eval --impure --raw --expr 'builtins.currentSystem')
 case "$system" in
@@ -43,6 +46,16 @@ for target in "${targets[@]}"; do
   home_path=$(nix build --no-link --print-out-paths "$repo#$prefix.path")
   [[ -x "$home_path/bin/terraform" ]] \
     || fail "$profile profile Home Manager path does not contain an executable Terraform"
+  if [[ "$profile" == personal ]]; then
+    packages=$(nix eval --raw "$repo#$prefix.packages" \
+      --apply 'pkgs: builtins.concatStringsSep "," (map (pkg: pkg.pname or "") pkgs)')
+    [[ ",$packages," == *,gnupg,* ]] \
+      || fail "personal profile does not include the Nix-managed GnuPG package"
+    [[ -x "$home_path/bin/gpg" ]] \
+      || fail "personal profile Home Manager path does not contain executable gpg"
+    [[ $("$home_path/bin/gpg" --version | head -1) == "gpg (GnuPG) "* ]] \
+      || fail "personal profile Home Manager gpg executable is not GnuPG"
+  fi
   version_output=$("$home_path/bin/terraform" version)
   version_line=${version_output%%$'\n'*}
   [[ "$version_line" == "Terraform v${expected_version}" ]] \

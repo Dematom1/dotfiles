@@ -41,6 +41,8 @@ Enter the ui.sh token manually when its masked prompt appears.
 | learning-opportunities | git repo | `https://github.com/DrCatHicks/learning-opportunities.git` | none (public) |
 | ui.sh (design, ideas, ...) | authenticated npx | `@uidotsh/install` | manual entry in the masked prompt |
 | vision | git repo (skills CLI) | `npx -y skills add kunchenguid/vision -g -y --agent '*' --copy` | none (MIT) |
+| teach | git repo (skills CLI) | `mattpocock/skills:teach` via `npx -y skills add mattpocock/skills --skill teach -g -y --agent '*' --copy` | none |
+| show-me | git repo (skills CLI) | `humanlayer/skills:show-me` via `npx -y skills add humanlayer/skills --skill show-me -g -y --agent '*' --copy` | none |
 | whathappened | git repo (skills CLI) | `npx -y skills add kunchenguid/whathappened -g -y --agent '*' --copy` | none |
 | vercel-labs skills | skills CLI | `npx -y skills add <source> -g -y --agent '*' --copy` for `vercel-labs/agent-skills` and `vercel-labs/skills` | none |
 | memtrace-* (opencode) | tool-generated | `memtrace doctor --fix --repair-install` | memtrace license |

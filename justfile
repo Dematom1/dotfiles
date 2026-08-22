@@ -72,8 +72,10 @@ update-skills:
     echo "==> ui.sh skill  (paste the token into the installer's masked prompt)"
     env -u UIDOTSH_TOKEN npx -y @uidotsh/install
 
-    echo "==> npx skills CLI (Vision + whathappened + vercel-labs)"
+    echo "==> npx skills CLI (Vision + Teach + Show Me + whathappened + vercel-labs)"
     npx -y skills add kunchenguid/vision -g -y --agent '*' --copy
+    npx -y skills add mattpocock/skills --skill teach -g -y --agent '*' --copy
+    npx -y skills add humanlayer/skills --skill show-me -g -y --agent '*' --copy
     # Copy mode is required because Claude's Home Manager-owned skill root is
     # itself a symlink; relative compatibility links there can become self-loops.
     npx -y skills add kunchenguid/whathappened -g -y --agent '*' --copy
