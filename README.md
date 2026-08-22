@@ -234,9 +234,10 @@ env -u OPENCODE_API_KEY FM_PI_HARNESS=pi-signed \
   av inject +OPENCODE_API_KEY -- pi-signed --list-models
 ```
 
-The Ox Alpha trial uses `--thinking high`; `max` requires a separate explicit
-captain instruction. Do not put the key in a shell profile, command argument,
-log, session environment, or generated file.
+Ox Alpha supports only the `low`, `high`, and `max` thinking levels. The trial
+uses `--thinking high`; `max` requires a separate explicit captain instruction.
+Do not put the key in a shell profile, command argument, log, session
+environment, or generated file.
 
 ## Linux sandbox server
 
