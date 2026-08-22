@@ -19,6 +19,17 @@ let
   # Follow Pi's existing mutable-package policy; upstream documents this spec.
   piAutoresearchPackage = "npm:pi-autoresearch";
   nixManagedPiPackage = "npm:@ff-labs/pi-fff";
+  piSignedExecutable = "/Applications/Pi Launcher.app/Contents/MacOS/pi-launcher";
+  piSignedEntrypoint = pkgs.writeShellScript "pi-signed" ''
+    set -eu
+    if [ "''${1-}" = update ] && [ "''${2-}" = --self ]; then
+      echo "pi-signed: 'pi update --self' is disabled for the signed route" >&2
+      exit 64
+    fi
+    export FM_PI_HARNESS=pi-signed
+    exec /usr/local/bin/av inject +OPENCODE_API_KEY -- \
+      ${lib.escapeShellArg piSignedExecutable} "$@"
+  '';
 in
 {
   # home.username / home.homeDirectory are derived from the profile's
@@ -27,7 +38,10 @@ in
 
   # Automic Vault installs its signed CLI stub here after the app is opened.
   # Declare the path explicitly so `av` is available in Home Manager shells.
-  home.sessionPath = lib.optionals pkgs.stdenv.isDarwin [ "/usr/local/bin" ];
+  home.sessionPath = lib.optionals pkgs.stdenv.isDarwin [
+    "${config.home.homeDirectory}/.local/bin"
+    "/usr/local/bin"
+  ];
 
   home.packages = with pkgs; [
     # core cli - portable across macOS and the Linux sandbox
@@ -123,6 +137,8 @@ in
     # only the JSON - let Karabiner keep its assets/ + automatic_backups/ out of the repo
     ".config/karabiner/karabiner.json".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/karabiner/karabiner.json";
     ".wezterm.lua".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/.wezterm.lua";
+    # One credentialed signed-Pi entrypoint; regular `pi` remains unchanged.
+    ".local/bin/pi-signed".source = piSignedEntrypoint;
   };
 
   # Reconcile only the declarative Pi package entries. Preserve the mutable
