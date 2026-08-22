@@ -6,8 +6,8 @@ app_dir=${PI_SIGNED_APP_DIR:-/Applications/Pi Launcher.app}
 pi_binary=${PI_SIGNED_PI_BINARY:-$app_dir/Contents/Resources/pi/pi}
 curl_bin=${PI_SIGNED_CURL:-curl}
 jq_bin=${PI_SIGNED_JQ:-jq}
-releases_url=${PI_SIGNED_UPSTREAM_RELEASES_URL:-https://api.github.com/repos/earendil-works/pi/releases?per_page=100}
-blocked_url=${PI_SIGNED_BLOCKED_ISSUES_URL:-https://api.github.com/repos/kunchenguid/pi-launcher/issues?state=open&labels=upstream-pi-blocked&per_page=100}
+releases_url="${PI_SIGNED_UPSTREAM_RELEASES_URL:-https://api.github.com/repos/earendil-works/pi/releases?per_page=100}"
+blocked_url="${PI_SIGNED_BLOCKED_ISSUES_URL:-https://api.github.com/repos/kunchenguid/pi-launcher/issues?state=open&labels=upstream-pi-blocked&per_page=100}"
 
 fail() {
   echo "pi-signed: drift check failed: $*" >&2

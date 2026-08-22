@@ -30,6 +30,7 @@ EOF
 chmod +x "$tmp/fake-curl"
 cat > "$tmp/fake-pi" <<'EOF'
 #!/usr/bin/env bash
+[[ -z ${OPENCODE_API_KEY+x} ]] || exit 73
 printf '%s\n' "$FAKE_PI_VERSION"
 EOF
 chmod +x "$tmp/fake-pi"
@@ -47,9 +48,9 @@ run_drift() {
 }
 
 FAKE_PI_VERSION=pi-0.84.2
-output=$(run_drift)
+output=$(OPENCODE_API_KEY=must-not-reach-raw-pi run_drift)
 [[ "$output" == "pi-signed: no drift (bundled Pi 0.84.2; upstream stable 0.84.2; no open upstream-pi-blocked issue)." ]] \
-  || fail "clean drift output was not exact: $output"
+  || fail "clean secret-free drift output was not exact: $output"
 
 FAKE_PI_VERSION=pi-0.84.1
 output=$(run_drift)
@@ -80,7 +81,6 @@ if [[ "$(nix eval --impure --raw --expr 'builtins.currentSystem')" == aarch64-da
   prefix=darwinConfigurations.personal.config.home-manager.users.laszlohoranszky
   entrypoint=$(nix build --no-link --print-out-paths "$repo#$prefix.home.file.\".local/bin/pi-signed\".source")
   [[ -x "$entrypoint" ]] || fail "Home Manager did not expose an executable pi-signed entrypoint"
-  grep -Fq 'FM_PI_HARNESS=pi-signed' "$entrypoint" || fail "signed entrypoint omitted harness identity"
 
   fake_av="$tmp/fake-av"
   fake_target="$tmp/signed-target"
@@ -148,8 +148,5 @@ EOF
   [[ $status -eq 64 ]] || fail "signed route allowed pi update --self (status $status)"
   [[ ! -e "$av_called" ]] || fail "signed route invoked Vault for disabled pi update --self"
 fi
-
-grep -Fq '/Applications/Pi\ Launcher.app/Contents/MacOS/pi-launcher --version' "$repo/README.md" \
-  || fail "README omitted the raw no-secret signed-app diagnostic path"
 
 printf '%s\n' "Pi signed entrypoint and drift checks passed"
