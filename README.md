@@ -38,7 +38,7 @@ without the work marker as `laszlo` cannot silently target the personal home.
 | **direnv** | Per-project environments |
 | **git** | Git configuration with delta |
 | **Automic Vault** | Local macOS Keychain and command-approval boundary |
-| **Pi Launcher** | Signed identity-only Pi launcher for supervised Firstmate sessions |
+| **Pi Launcher** | Credentialed signed Pi route for supervised Firstmate sessions |
 | **M87** | Local-first GitHub review queue with pinned Nix packaging |
 | **Agent skills / Pi extensions** | Declared cross-agent skills, pi-autoresearch, and pinned Pi-native FFF search extension |
 | **yazi** | Terminal file manager |
