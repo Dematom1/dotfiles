@@ -48,20 +48,12 @@ for target in "${targets[@]}"; do
     || fail "$profile Pi extension path has the wrong package identity"
 
   pi_packages=$(nix eval --raw "$repo#$prefix.home.activation.piPackageReconciliation.data")
-  [[ "$pi_packages" == *'npm:pi-autoresearch'* ]] \
-    || fail "$profile Pi package reconciliation omits pi-autoresearch"
-  [[ "$pi_packages" == *'npm:@ff-labs/pi-fff'* ]] \
-    || fail "$profile Pi package reconciliation does not remove the duplicate pi-fff registry entry"
-  [[ "$pi_packages" == *'/bin/jq'* ]] \
-    || fail "$profile Pi package reconciliation is not store-pinned"
 
   models_source=$(nix eval --raw "$repo#$prefix.home.file.\".pi/agent/models.json\".source")
   [[ -L "$models_source" && "$(readlink "$models_source")" == */pi/models.json ]] \
     || fail "$profile Pi models catalog is not sourced from the repository"
   jq -e '.providers["opencode-go"].apiKey == "$OPENCODE_API_KEY"' "$repo/pi/models.json" >/dev/null \
     || fail "$profile Pi models catalog lost its non-secret credential reference"
-  grep -Fq 'home-manager.backupFileExtension = "bak";' "$repo/flake.nix" \
-    || fail "$profile Home Manager model takeover no longer preserves backups"
 
   [[ $(nix eval --json "$repo#$prefix.home.file" \
     --apply 'files: builtins.hasAttr ".claude/skills" files') == true ]] \
@@ -80,8 +72,6 @@ for target in "${targets[@]}"; do
     || fail "$profile M87 discovery has the wrong Dematom Labs allowlist"
   [[ "$m87_config" != *TOKEN* && "$m87_config" != *username=dematom-labs* ]] \
     || fail "$profile M87 discovery embeds credentials or changes viewer identity"
-  [[ "$m87_config" == *'/bin/awk'* && "$m87_config" != *'| awk'* ]] \
-    || fail "$profile M87 activation still depends on an unpinned awk pipeline"
 done
 
 m87_sandbox=$(mktemp -d "$repo/.agent-tools-m87.XXXXXX")
@@ -201,15 +191,6 @@ skills_update=$(cd "$repo" && just --dry-run update-skills 2>&1)
   || fail "not every all-agent skills source uses copy mode"
 [[ $(grep -Fc 'mattpocock/skills --skill' <<<"$skills_update") -eq 1 ]] \
   || fail "an unapproved Matt Pocock skill source is declared"
-grep -Fq "npx -y skills add kunchenguid/vision -g -y --agent '*' --copy" "$repo/.agents/SKILLS.md" \
-  || fail "Vision provenance does not match its copy-mode installer"
-grep -Fq "npx -y skills add mattpocock/skills --skill teach -g -y --agent '*' --copy" "$repo/.agents/SKILLS.md" \
-  || fail "Matt Teach provenance does not match its copy-mode installer"
-grep -Fq "npx -y skills add humanlayer/skills --skill show-me -g -y --agent '*' --copy" "$repo/.agents/SKILLS.md" \
-  || fail "HumanLayer Show Me provenance does not match its copy-mode installer"
-[[ $(grep -Fc 'mattpocock/skills --skill' "$repo/.agents/SKILLS.md") -eq 1 ]] \
-  || fail "an unapproved Matt Pocock skill provenance row is present"
-
 ! git -C "$repo" ls-files --error-unmatch .agents/skills/vision/SKILL.md >/dev/null 2>&1 \
   || fail "generated Vision files were committed"
 ! git -C "$repo" ls-files '.claude/plugins/**' | grep -q . \

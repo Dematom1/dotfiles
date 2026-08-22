@@ -13,10 +13,11 @@ fail() {
   exit 1
 }
 
-if grep -Eq '^[[:space:]]*brew "[^"]*terraform' "$repo/Brewfile"; then
+brew_formulae=$(brew bundle list --file="$repo/Brewfile" --brews)
+if grep -Eq '(^|/)terraform(@[^/]*)?$' <<<"$brew_formulae"; then
   fail "Brewfile still declares Terraform outside the Nix-managed operator package path"
 fi
-if grep -Eq '^[[:space:]]*brew "gnupg"' "$repo/Brewfile"; then
+if grep -Eq '(^|/)gnupg(@[^/]*)?$' <<<"$brew_formulae"; then
   fail "Brewfile still declares GnuPG outside the personal Nix package path"
 fi
 
