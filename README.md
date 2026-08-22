@@ -223,6 +223,22 @@ whole Pi session in `av inject` or inject `OPENCODE_API_KEY`. Keep any separatel
 authorized Vault injection scoped to its individual command. No Firstmate
 source, crew dispatch rule, or worker-default change is part of this rollout.
 
+The durable custom Pi model catalog is `pi/models.json`; Home Manager links it to
+`~/.pi/agent/models.json` without copying it into the Nix store. It contains only
+the `OPENCODE_API_KEY` environment-variable reference, never the key itself.
+For an approved per-process model command, use Automic Vault's documented
+injection boundary and keep the signed launcher target intact:
+
+```bash
+env -u OPENCODE_API_KEY FM_PI_HARNESS=pi-signed \
+  av inject +OPENCODE_API_KEY -- pi-signed --list-models
+```
+
+Ox Alpha supports only the `low`, `high`, and `max` thinking levels. The trial
+uses `--thinking high`; `max` requires a separate explicit captain instruction.
+Do not put the key in a shell profile, command argument, log, session
+environment, or generated file.
+
 ## Linux sandbox server
 
 The flake builds a headless Linux AI sandbox server that `captain` SSHes into.

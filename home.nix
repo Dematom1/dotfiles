@@ -108,6 +108,7 @@ in
     ".claude/skills".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/.agents/skills";
     # pi-fff is a real Pi extension entrypoint, not merely an installed package.
     ".pi/agent/extensions/pi-fff".source = "${pkgs.pi-fff}/${pkgs.pi-fff.extensionPath}";
+    ".pi/agent/models.json".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/pi/models.json";
   }
   # macOS-only: configs for GUI apps (window manager, terminals, status bar,
   # keyboard remapper) that don't exist on the headless Linux sandbox.
