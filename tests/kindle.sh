@@ -28,17 +28,71 @@ entry = {
     "title": "An Article",
     "author": "An Author",
     "url": "https://feed.invalid/article",
-    "content": '<p>Useful<br>text<p>More<br/></p><img src="/cover.png" alt="Cover">',
+    "content": '<p>Useful&#1;<br>text<p>More<br/></p><img src="/cover.png" alt="Cover">',
 }
 document = pilot.article_to_document(entry, lambda url: image)
 expect(document.media_type == "application/epub+zip", "HTML was not converted to EPUB")
 with zipfile.ZipFile(BytesIO(document.payload)) as archive:
     names = set(archive.namelist())
     expect("mimetype" in names and "OEBPS/content.opf" in names, "EPUB manifest is incomplete")
+    expect("OEBPS/nav.xhtml" in names, "EPUB navigation document is missing")
     expect("images/image-1.png" in names, "available image was not included")
     body = archive.read("OEBPS/content.xhtml")
     expect(b"An Article" in body and b"An Author" in body, "EPUB metadata was not preserved")
     ElementTree.fromstring(body)
+    package = ElementTree.fromstring(archive.read("OEBPS/content.opf"))
+    namespaces = {"opf": "http://www.idpf.org/2007/opf", "dc": "http://purl.org/dc/elements/1.1/"}
+    expect(package.find("opf:metadata/dc:language", namespaces) is not None, "EPUB language metadata is missing")
+    nav_items = package.findall("opf:manifest/opf:item[@properties='nav']", namespaces)
+    expect(len(nav_items) == 1, "EPUB navigation manifest item is missing")
+    ElementTree.fromstring(archive.read("OEBPS/nav.xhtml"))
+
+# Unavailable images are omitted instead of leaving an internal broken marker.
+def unavailable_image(url):
+    raise pilot.PilotError("unavailable")
+
+without_image = pilot.article_to_epub(entry, unavailable_image)
+with zipfile.ZipFile(BytesIO(without_image.payload)) as archive:
+    body = archive.read("OEBPS/content.xhtml")
+    expect(b"__KINDLE_IMAGE_" not in body and b"<img" not in body, "unavailable image remained in EPUB")
+
+# Remote fetches accept HTTPS only and stop reading at their explicit bound.
+original_urlopen = pilot.urllib.request.urlopen
+calls = []
+pilot.urllib.request.urlopen = lambda *args, **kwargs: calls.append(args) or None
+try:
+    pilot._fetch_bytes("file:///etc/passwd", 8)
+except pilot.PilotError:
+    pass
+else:
+    raise AssertionError("local file URL reached the remote fetch boundary")
+finally:
+    pilot.urllib.request.urlopen = original_urlopen
+expect(calls == [], "rejected URL invoked the network opener")
+
+class OversizedResponse:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return None
+
+    def geturl(self):
+        return "https://feed.invalid/file"
+
+    def read(self, size):
+        return b"x" * size
+
+
+pilot.urllib.request.urlopen = lambda *args, **kwargs: OversizedResponse()
+try:
+    pilot._fetch_bytes("https://feed.invalid/file", 8)
+except pilot.PilotError:
+    pass
+else:
+    raise AssertionError("oversized remote response was accepted")
+finally:
+    pilot.urllib.request.urlopen = original_urlopen
 
 # Atomic ledger saves make both file contents and the containing directory durable.
 with tempfile.TemporaryDirectory() as directory:

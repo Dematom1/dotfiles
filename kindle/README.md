@@ -69,8 +69,7 @@ credentials. The command's default is also dry-run. Check the
 prepared-item count in the launchd log or run manually:
 
 ```text
-MINIFLUX_URL=<miniflux-url> \
-  av inject +MINIFLUX_API_TOKEN -- ~/.local/bin/kindle-pilot
+av inject +MINIFLUX_URL +MINIFLUX_API_TOKEN -- ~/.local/bin/kindle-pilot
 ```
 
 No credential or address should appear in the output. The first validation is
@@ -83,8 +82,7 @@ the dry-run result and the starred items, then run one bounded batch from an
 interactive terminal:
 
 ```text
-MINIFLUX_URL=<miniflux-url> \
-  av inject +MINIFLUX_API_TOKEN +RESEND_API_KEY +KINDLE_TO_ADDRESS +KINDLE_FROM_ADDRESS -- \
+av inject +MINIFLUX_URL +MINIFLUX_API_TOKEN +RESEND_API_KEY +KINDLE_TO_ADDRESS +KINDLE_FROM_ADDRESS -- \
   ~/.local/bin/kindle-pilot --live-send --confirm-send "SEND TO KINDLE"
 ```
 

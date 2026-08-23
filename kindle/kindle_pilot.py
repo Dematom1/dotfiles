@@ -40,6 +40,7 @@ DEFAULT_STATE_PATH = Path.home() / ".local" / "state" / "kindle-pilot" / "state.
 CONFIRMATION_PHRASE = "SEND TO KINDLE"
 ALLOWED_MEDIA_TYPES = {"application/epub+zip", "application/pdf"}
 MACOS_F_FULLFSYNC = 51
+MAX_IMAGE_BYTES = 5 * 1024 * 1024
 
 
 class PilotError(Exception):
@@ -261,17 +262,39 @@ def runtime_config(*, require_delivery: bool) -> RuntimeConfig:
     return config
 
 
-def _fetch_bytes(url: str) -> bytes:
+def _validate_fetch_url(url: str) -> None:
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme != "https" or not parsed.hostname:
+        raise PilotError("remote document and image URLs must use HTTPS")
+
+
+def _fetch_bytes(url: str, max_bytes: int = RESEND_MAX_MESSAGE_BYTES) -> bytes:
+    _validate_fetch_url(url)
     request = urllib.request.Request(url, headers={"User-Agent": "kindle-pilot/1"})
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
-            return response.read()
+            _validate_fetch_url(response.geturl())
+            payload = response.read(max_bytes + 1)
     except (OSError, urllib.error.URLError) as exc:
         raise PilotError("article or image fetch failed") from exc
+    if len(payload) > max_bytes:
+        raise PilotError("remote document or image exceeds the download limit")
+    return payload
+
+
+def _xml_safe(value: object) -> str:
+    return "".join(
+        character
+        for character in str(value)
+        if character in "\t\n\r"
+        or "\x20" <= character <= "\ud7ff"
+        or "\ue000" <= character <= "\ufffd"
+        or "\U00010000" <= character <= "\U0010ffff"
+    )
 
 
 def _clean_text(value: object, fallback: str = "Untitled") -> str:
-    text = re.sub(r"\s+", " ", html.unescape(str(value or ""))).strip()
+    text = re.sub(r"\s+", " ", _xml_safe(html.unescape(str(value or "")))).strip()
     return text or fallback
 
 
@@ -295,7 +318,7 @@ class _ArticleParser(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.base_url = base_url
         self.parts: list[str] = []
-        self.images: list[tuple[str, str]] = []
+        self.images: list[tuple[str, str, str]] = []
         self.open_tags: list[str] = []
         self.skip_depth = 0
 
@@ -328,14 +351,15 @@ class _ArticleParser(HTMLParser):
                     break
         attributes = dict(attrs)
         if tag == "img" and attributes.get("src"):
-            source = urllib.parse.urljoin(self.base_url, attributes["src"] or "")
+            source = urllib.parse.urljoin(self.base_url, _xml_safe(attributes["src"] or ""))
             marker = f"__KINDLE_IMAGE_{len(self.images)}__"
-            self.images.append((marker, source))
-            self.parts.append(f'<img src="{marker}" alt="{html.escape(attributes.get("alt") or "image", quote=True)}" />')
+            alt = html.escape(_xml_safe(attributes.get("alt") or "image"), quote=True)
+            self.images.append((marker, source, alt))
+            self.parts.append(marker)
         elif tag == "br":
             self.parts.append("<br />")
         elif tag == "a" and attributes.get("href"):
-            href = html.escape(urllib.parse.urljoin(self.base_url, attributes["href"] or ""), quote=True)
+            href = html.escape(urllib.parse.urljoin(self.base_url, _xml_safe(attributes["href"] or "")), quote=True)
             self.parts.append(f'<a href="{href}">')
         elif tag in self.allowed:
             self.parts.append(f"<{tag}>")
@@ -360,7 +384,7 @@ class _ArticleParser(HTMLParser):
 
     def handle_data(self, data: str) -> None:
         if not self.skip_depth:
-            self.parts.append(html.escape(data))
+            self.parts.append(html.escape(_xml_safe(data)))
 
     @property
     def body(self) -> str:
@@ -384,25 +408,30 @@ def _image_type(url: str, payload: bytes) -> tuple[str, str] | None:
 def article_to_epub(entry: dict[str, object], fetcher: Callable[[str], bytes] | None = None) -> Document:
     title = _clean_text(entry.get("title"))
     author = _author(entry)
-    source_url = str(entry.get("url") or "")
+    source_url = _xml_safe(entry.get("url") or "")
+    language = _clean_text(entry.get("language"), "en")
+    if not re.fullmatch(r"[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*", language):
+        language = "en"
     content = entry.get("content", "")
     fetch = fetcher or _fetch_bytes
     parser = _ArticleParser(source_url)
     parser.feed(content.decode(errors="replace") if isinstance(content, bytes) else str(content))
     fallback_content = _clean_text(content, "No article content.")
     body = parser.body or f"<p>{html.escape(fallback_content)}</p>"
-    image_files: list[tuple[str, str, str, bytes]] = []
-    for marker, image_url in parser.images:
+    image_files: list[tuple[str, str, bytes, str]] = []
+    for marker, image_url, alt in parser.images:
         try:
-            image = fetch(image_url)
+            image = _fetch_bytes(image_url, MAX_IMAGE_BYTES) if fetcher is None else fetch(image_url)
             image_info = _image_type(image_url, image)
         except PilotError:
-            continue
-        if image_info is None or len(image) > 5 * 1024 * 1024:
+            image_info = None
+            image = b""
+        if image_info is None or len(image) > MAX_IMAGE_BYTES:
+            body = body.replace(marker, "")
             continue
         media_type, extension = image_info
         filename = f"image-{len(image_files) + 1}{extension}"
-        body = body.replace(marker, f"../images/{filename}")
+        body = body.replace(marker, f'<img src="../images/{filename}" alt="{alt}" />')
         image_files.append((filename, media_type, image, image_url))
 
     escaped_title = html.escape(title)
@@ -420,17 +449,22 @@ def article_to_epub(entry: dict[str, object], fetcher: Callable[[str], bytes] | 
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
     <dc:identifier id="book-id">urn:kindle-pilot:{hashlib.sha256(title.encode()).hexdigest()}</dc:identifier>
     <dc:title>{escaped_title}</dc:title>
+    <dc:language>{html.escape(language)}</dc:language>
     {creator}
     {source_meta}
     <meta property="dcterms:modified">{modified}</meta>
   </metadata>
   <manifest>
     <item id="content" href="content.xhtml" media-type="application/xhtml+xml" />
+    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav" />
     <item id="styles" href="styles.css" media-type="text/css" />
     {manifest_images}
   </manifest>
   <spine><itemref idref="content" /></spine>
 </package>'''
+    nav = f'''<?xml version="1.0" encoding="utf-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><head><title>Contents</title></head>
+<body><nav epub:type="toc"><h1>Contents</h1><ol><li><a href="content.xhtml">{escaped_title}</a></li></ol></nav></body></html>'''
     xhtml = f'''<?xml version="1.0" encoding="utf-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml"><head><title>{escaped_title}</title><link rel="stylesheet" type="text/css" href="styles.css" /></head>
 <body><h1>{escaped_title}</h1>{f'<p class="author">{escaped_author}</p>' if author else ''}<p class="source">{f'<a href="{source_link}">Source</a>' if source_url else ''}</p>{body}</body></html>'''
@@ -439,6 +473,7 @@ def article_to_epub(entry: dict[str, object], fetcher: Callable[[str], bytes] | 
         archive.writestr("mimetype", "application/epub+zip", compress_type=zipfile.ZIP_STORED)
         archive.writestr("META-INF/container.xml", '''<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml" /></rootfiles></container>''')
         archive.writestr("OEBPS/content.opf", opf)
+        archive.writestr("OEBPS/nav.xhtml", nav)
         archive.writestr("OEBPS/content.xhtml", xhtml)
         archive.writestr("OEBPS/styles.css", "body { font-family: serif; line-height: 1.45; } img { max-width: 100%; } .source { font-size: .8em; }")
         for name, _, image, _ in image_files:
@@ -459,7 +494,7 @@ def article_to_document(entry: dict[str, object], fetcher: Callable[[str], bytes
     if media_type == "application/pdf" or path.endswith(".pdf") or (isinstance(content, bytes) and content.startswith(b"%PDF-")):
         if not isinstance(content, bytes) and not url:
             raise UnsupportedMediaType("PDF source has no URL or inline content")
-        payload = content if isinstance(content, bytes) and content.startswith(b"%PDF-") else (fetcher or _fetch_bytes)(url)
+        payload = content if isinstance(content, bytes) and content.startswith(b"%PDF-") else (fetcher(url) if fetcher else _fetch_bytes(url))
         if not payload.startswith(b"%PDF-"):
             raise UnsupportedMediaType("PDF source did not return a PDF")
         title = _slug(_clean_text(entry.get("title")))
