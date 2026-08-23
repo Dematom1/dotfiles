@@ -1,0 +1,7 @@
+{
+  "name": "dotfiles-backpass-package",
+  "private": true,
+  "dependencies": {
+    "backpass": "0.1.1"
+  }
+}

@@ -52,6 +52,7 @@ in
     argocd kubectl kubernetes-helm kustomize k9s kubectx kubernetes-axi terraform tailscale
     # agent review queue (npm identity/integrity are pinned in packages/m87-npm)
     m87
+    backpass acpx
     # dev / build
     neovim gh prek cmake lld luarocks protobuf
     nodejs_24 python311 uv memray
