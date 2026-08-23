@@ -32,6 +32,8 @@ git show -s --format=%B HEAD
 git show -s --format='%H %s' HEAD
 ```
 
+The completed pilot used synthetic token, password, and credentialed URI values only. All three were redacted from the captured transcript, and checkpoint `01M0R8220JGCDCFHZHCMFE22J2` linked the Pi session to the pilot commit through its `Entire-Checkpoint` trailer.
+
 Record repository growth before and after the pilot with the same commands. Entire checkpoint growth is Git data, not a task outcome or cost metric:
 
 ```sh
