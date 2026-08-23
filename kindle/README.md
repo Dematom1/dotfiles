@@ -90,11 +90,11 @@ The exact phrase, a TTY, and all three delivery settings are required. A live
 run sends one batch by default and supports at most four explicitly requested
 batches, so a confirmation cannot authorize an unbounded queue. It commits each
 batch to the ledger only after Resend SMTP accepts it. A
-transport error known to occur before transmission is retried up to three
-times with bounded 1/2/4 second backoff. An uncertain SMTP outcome leaves a
-pending batch in the ledger and stops future delivery until it is checked by an
-attendee; it is never automatically resent and therefore cannot silently
-create duplicate deliveries.
+transport error known to occur before transmission gets up to three total
+attempts with bounded 1/2 second backoff between attempts. An uncertain SMTP
+outcome leaves a pending batch in the ledger and stops future delivery until
+it is checked by an attendee; it is never automatically resent and therefore
+cannot silently create duplicate deliveries.
 
 After confirming that Amazon did not receive the pending batch, copy its exact
 `batch_id` from the local state file and clear it from an attended terminal:
