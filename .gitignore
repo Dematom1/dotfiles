@@ -16,3 +16,7 @@
 /profile.json.gz
 /opencode/plugin/
 /opencode/plugins/
+
+# Python bytecode caches
+__pycache__/
+*.py[cod]
