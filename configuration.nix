@@ -45,6 +45,7 @@ in
       EnvironmentVariables = {
         HOMEBREW_NO_AUTO_UPDATE = "1";
         HOMEBREW_NO_ENV_HINTS = "1";
+        PATH = "/opt/homebrew/bin:/usr/local/bin:/etc/profiles/per-user/${username}/bin:/run/current-system/sw/bin:/Users/${username}/.nix-profile/bin:/Users/${username}/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
       };
       StartCalendarInterval = {
         Hour = 9;

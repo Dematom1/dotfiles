@@ -302,6 +302,35 @@ def github_release_details(
     return value
 
 
+def github_release_for_version(
+    repo: str,
+    version: str,
+    cache: dict[str, dict | None],
+    errors: dict[str, str],
+) -> dict | None:
+    tags = tuple(dict.fromkeys((version, f"v{version}")))
+    failures = []
+    for tag in tags:
+        key = f"{repo}#release:{tag}"
+        if key in cache:
+            if cache[key] is not None:
+                return cache[key]
+            continue
+        try:
+            value = fetch_json(github_url(repo, tag))
+        except (HTTPError, URLError, OSError, ValueError) as error:
+            failures.append(f"{tag}: {fetch_error(error)}")
+            cache[key] = None
+            continue
+        if isinstance(value, dict):
+            cache[key] = value
+            return value
+        failures.append(f"{tag}: release response is not an object")
+        cache[key] = None
+    errors[f"GitHub release {repo}@{version}"] = "; ".join(failures)
+    return None
+
+
 def latest_npm(
     package: str, cache: dict[str, dict | None], errors: dict[str, str]
 ) -> dict | None:
@@ -377,32 +406,29 @@ def enrich_notes(
     candidate: dict,
     github_cache: dict[str, dict | None],
     errors: dict[str, str],
-) -> tuple[str, str | None]:
+) -> tuple[str, str | None, bool]:
     release = candidate.get("release")
     repo = (release or {}).get("repo") or tool.get("github_repo")
     if release and repo and release.get("tag_name"):
         details = github_release_details(
             repo, str(release["tag_name"]), github_cache, errors
         )
-        release = details or release
+        if details is None:
+            return "", changelog_link(tool, release), False
+        release = details
     elif repo:
-        release = latest_github(repo, github_cache, errors)
-        if release and release.get("tag_name"):
-            release = (
-                github_release_details(
-                    repo, str(release["tag_name"]), github_cache, errors
-                )
-                or release
-            )
+        release = github_release_for_version(
+            repo, str(candidate["new"]), github_cache, errors
+        )
     if release:
-        return str(release.get("body") or ""), changelog_link(tool, release)
+        return str(release.get("body") or ""), changelog_link(tool, release), True
     changelog = safe_url(tool.get("changelog_url"))
     if changelog and changelog.lower().endswith((".md", ".txt")):
         try:
-            return fetch_text(changelog), changelog
+            return fetch_text(changelog), changelog, True
         except (HTTPError, URLError, OSError) as error:
             errors[f"changelog {tool['id']}"] = fetch_error(error)
-    return "", changelog_link(tool)
+    return "", changelog_link(tool), False
 
 
 def collect_candidates(
@@ -663,22 +689,28 @@ def main() -> int:
         key = state_key(candidate)
         record = releases.get(key)
         is_first_seen = not isinstance(record, dict)
-        if is_first_seen:
-            notes, link = enrich_notes(
+        if is_first_seen or not record.get("notes_fetched"):
+            notes, link, notes_fetched = enrich_notes(
                 candidate["tool"], candidate, github_cache, errors
             )
-            record = {
-                "tool": candidate["tool"]["id"],
-                "source": candidate["source"],
-                "version": candidate["new"],
-                "first_seen": timestamp(generated),
-                "last_seen": timestamp(generated),
-                "notified_at": None,
-                "notes": notes,
-                "link": link
-                or brew_link(candidate["tool"])
-                or safe_url(candidate["tool"].get("release_source")),
-            }
+            if is_first_seen:
+                record = {
+                    "tool": candidate["tool"]["id"],
+                    "source": candidate["source"],
+                    "version": candidate["new"],
+                    "first_seen": timestamp(generated),
+                    "notified_at": None,
+                }
+            record.update(
+                {
+                    "last_seen": timestamp(generated),
+                    "notes": notes,
+                    "notes_fetched": notes_fetched,
+                    "link": link
+                    or brew_link(candidate["tool"])
+                    or safe_url(candidate["tool"].get("release_source")),
+                }
+            )
             releases[key] = record
         else:
             record["last_seen"] = timestamp(generated)
@@ -689,7 +721,7 @@ def main() -> int:
             or safe_url(candidate["tool"].get("release_source"))
         )
         candidate["urgent"] = bool(SECURITY_RE.search(candidate["notes"]))
-        if record.get("notified_at") is None and (
+        if record.get("notes_fetched") and record.get("notified_at") is None and (
             args.force or generated.weekday() == 0 or candidate["urgent"]
         ):
             selected.append(candidate)
