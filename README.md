@@ -26,6 +26,25 @@ it with `id -un`. An unknown profile, an empty profile marker, or a profile for
 a different account fails without activating anything. In particular, running
 without the work marker as `laszlo` cannot silently target the personal home.
 
+### Apply and verify gcloud
+
+Nix owns the gcloud binary on macOS. The rebuild does not manage or modify
+`~/.config/gcloud`, so existing credentials, authentication state, and
+configuration remain owned by gcloud. Apply the selected macOS profile with:
+
+```bash
+./rebuild.sh
+```
+
+After the rebuild, verify the binary owner, SDK version, and existing auth state
+with these read-only commands:
+
+```bash
+type -a gcloud
+gcloud --version
+gcloud auth list
+```
+
 ## Included configuration
 
 | Tool | Purpose |
