@@ -8,6 +8,13 @@ fail() {
   exit 1
 }
 
+[[ $(jq -r '.mcp.memtrace.enabled' "$repo/opencode/opencode.json") == false ]] \
+  || fail "default OpenCode catalog still enables Memtrace"
+jq -e '.mcp.memtrace.command == ["memtrace", "mcp"]' "$repo/opencode/opencode.json" >/dev/null \
+  || fail "default OpenCode catalog lost the explicit Memtrace opt-in command"
+grep -Fq 'mcp.memtrace.enabled` to `true`' "$repo/README.md" \
+  || fail "README omits the explicit Memtrace opt-in path"
+
 system=$(nix eval --impure --raw --expr 'builtins.currentSystem')
 bash_bin=$(command -v bash)
 case "$system" in

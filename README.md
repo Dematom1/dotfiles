@@ -230,6 +230,16 @@ Terraform secret workflow. It replaces the former Homebrew formula without
 creating or importing keys or changing credential storage. Apply it after merge
 with `just rebuild personal`.
 
+### Memtrace opt-in
+
+Memtrace stays installed, and its Pi package, skills, indexes, and credentials
+are untouched. The shared OpenCode MCP catalog is disabled by default so
+Firstmate and routine workers do not load Memtrace tools. For a graph-heavy
+refactor, dependency trace, or incident investigation, temporarily set
+`mcp.memtrace.enabled` to `true` in `opencode/opencode.json` and start or reload
+OpenCode; set it back to `false` for ordinary sessions. This explicit switch is
+the opt-in path and does not change the installed state.
+
 ### Signed Pi Launcher
 
 Both macOS profiles declaratively install `kunchenguid/tap/pi-launcher` and the
