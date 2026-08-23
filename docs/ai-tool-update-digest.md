@@ -14,10 +14,8 @@ listed there:
 - global npm packages: `npm list -g --depth=0 --json` and the public npm registry;
 - Homebrew: `HOMEBREW_NO_AUTO_UPDATE=1 brew outdated --json=v2`;
 - allowlisted GitHub latest releases;
-- the four supported native AXI checks: `update --check` for `gh-axi`,
-  `lavish-axi`, `quota-axi`, and `chrome-devtools-axi`.
+- supported native AXI checks declared by each applicable inventory entry.
 
-`tasks-axi` has no supported native check and is compared through npm metadata.
 Absent or unverified sources remain visible under `Unknown source`.
 
 Release bodies are fetched only after a candidate version is detected. They are
@@ -44,9 +42,10 @@ The scheduled output is:
 ~/.local/state/ai-tool-update-digest/digest.md
 ```
 
-The launch agent runs daily at 09:00. Detection is daily, but pending changes
-are grouped on Monday. A release whose notes contain security or compatibility
-terms produces an immediate alert line. Every digest has these sections:
+The launch agent runs daily at the time declared by `StartCalendarInterval` in
+`configuration.nix`. Pending changes are grouped on Monday. A release whose
+notes contain security or compatibility terms produces an immediate alert
+line. Every digest has these sections:
 
 - `Action required` - security, compatibility, ownership, or runtime-boundary risk;
 - `Review` - a candidate needing human inspection;
