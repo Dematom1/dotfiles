@@ -35,6 +35,31 @@ backpass_package=$(nix build --no-link --print-out-paths "$repo#backpass")
 acpx_package=$(nix build --no-link --print-out-paths "$repo#acpx")
 opencode_sandbox=$(mktemp -d "$repo/.agent-tools-opencode.XXXXXX")
 trap 'rm -rf "$opencode_sandbox"' EXIT
+opencode_env=(
+  HOME="$opencode_sandbox/home"
+  XDG_CONFIG_HOME="$opencode_sandbox/config"
+  XDG_DATA_HOME="$opencode_sandbox/data"
+  XDG_CACHE_HOME="$opencode_sandbox/cache"
+  XDG_STATE_HOME="$opencode_sandbox/state"
+  OPENCODE_DISABLE_PROJECT_CONFIG=true
+)
+default_config=$(jq -c '.' "$repo/opencode/opencode.json")
+default_memtrace=$(env "${opencode_env[@]}" OPENCODE_CONFIG_CONTENT="$default_config" \
+  "$opencode_bin" debug config | jq -c '.mcp.memtrace')
+jq -e '.enabled == false and .command == ["memtrace", "mcp"]' \
+  <<<"$default_memtrace" >/dev/null \
+  || fail "OpenCode does not preserve the disabled default Memtrace catalog"
+default_discovery=$(env "${opencode_env[@]}" NO_COLOR=1 \
+  OPENCODE_CONFIG_CONTENT="$default_config" "$opencode_bin" mcp list)
+[[ "$default_discovery" == *memtrace*disabled* ]] \
+  || fail "ordinary OpenCode discovery does not report Memtrace as disabled"
+opt_in_config=$(jq -cs '.[0] * .[1]' \
+  "$repo/opencode/opencode.json" "$repo/docs/opencode-memtrace-opt-in.json")
+opt_in_memtrace=$(env "${opencode_env[@]}" OPENCODE_CONFIG_CONTENT="$opt_in_config" \
+  "$opencode_bin" debug config | jq -c '.mcp.memtrace')
+jq -e '.enabled == true and .command == ["memtrace", "mcp"]' \
+  <<<"$opt_in_memtrace" >/dev/null \
+  || fail "documented OpenCode override does not enable Memtrace"
 node -e 'const p = require(process.argv[1]); if (p.name !== "@kunchenguid/m87" || p.version !== "0.1.10" || p.repository.url !== "git+https://github.com/kunchenguid/m87.git") process.exit(1)' \
   "$m87_package/libexec/m87/node_modules/@kunchenguid/m87/package.json" \
   || fail "M87 package identity does not match the authoritative upstream"
@@ -55,19 +80,6 @@ for target in "${targets[@]}"; do
   [[ ",$packages," == *,acpx,* ]] || fail "$profile profile does not install acpx"
 
   home_path=$(nix build --no-link --print-out-paths "$repo#$prefix.home.path")
-  opt_in_config=$(jq -c '.mcp.memtrace.enabled = true' "$repo/opencode/opencode.json")
-  resolved_memtrace=$(env \
-    HOME="$opencode_sandbox/home" \
-    XDG_CONFIG_HOME="$opencode_sandbox/config" \
-    XDG_DATA_HOME="$opencode_sandbox/data" \
-    XDG_CACHE_HOME="$opencode_sandbox/cache" \
-    XDG_STATE_HOME="$opencode_sandbox/state" \
-    OPENCODE_DISABLE_PROJECT_CONFIG=true \
-    OPENCODE_CONFIG_CONTENT="$opt_in_config" \
-    "$opencode_bin" debug config | jq -c '.mcp.memtrace')
-  jq -e '.enabled == true and .command == ["memtrace", "mcp"]' \
-    <<<"$resolved_memtrace" >/dev/null \
-    || fail "$profile OpenCode catalog does not support explicit Memtrace opt-in"
   [[ -x "$home_path/bin/m87" ]] || fail "$profile Home Manager path has no M87 executable"
   [[ $("$home_path/bin/m87" --version) == 0.1.10 ]] \
     || fail "$profile M87 executable has the wrong version"

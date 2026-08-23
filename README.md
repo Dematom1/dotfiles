@@ -238,7 +238,9 @@ Firstmate and routine workers do not load Memtrace tools. For a graph-heavy
 refactor, dependency trace, or incident investigation, temporarily set
 `mcp.memtrace.enabled` to `true` in `opencode/opencode.json` and start or reload
 OpenCode; set it back to `false` for ordinary sessions. This explicit switch is
-the opt-in path and does not change the installed state.
+the opt-in path and does not change the installed state. The machine-readable
+example in `docs/opencode-memtrace-opt-in.json` records the same temporary
+override for automated validation.
 
 ### Signed Pi Launcher
 
