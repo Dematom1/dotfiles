@@ -7,6 +7,7 @@ PYTHONPATH="$repo" python3 - <<'PY'
 from contextlib import redirect_stderr, redirect_stdout
 from io import BytesIO, StringIO
 from pathlib import Path
+import json
 import os
 import stat
 import tempfile
@@ -153,6 +154,43 @@ except pilot.PilotError:
     pass
 else:
     raise AssertionError("oversized authenticated Miniflux response was accepted")
+
+class StaticMinifluxResponse:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return None
+
+    def read(self, size):
+        return self.payload
+
+
+try:
+    pilot.MinifluxClient(
+        "https://miniflux.invalid",
+        "runtime-sentinel",
+        opener=lambda *args, **kwargs: StaticMinifluxResponse(b"[]"),
+    ).list_starred()
+except pilot.PilotError:
+    pass
+else:
+    raise AssertionError("non-object Miniflux JSON was accepted")
+
+full_page = json.dumps({"entries": [{"id": index} for index in range(100)]}).encode()
+try:
+    pilot.MinifluxClient(
+        "https://miniflux.invalid",
+        "runtime-sentinel",
+        opener=lambda *args, **kwargs: StaticMinifluxResponse(full_page),
+    ).list_starred()
+except pilot.PilotError:
+    pass
+else:
+    raise AssertionError("unbounded Miniflux pagination was accepted")
 
 # Atomic ledger saves make both file contents and the containing directory durable.
 with tempfile.TemporaryDirectory() as directory:

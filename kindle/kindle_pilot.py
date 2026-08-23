@@ -42,6 +42,8 @@ ALLOWED_MEDIA_TYPES = {"application/epub+zip", "application/pdf"}
 MACOS_F_FULLFSYNC = 51
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 MINIFLUX_MAX_RESPONSE_BYTES = 32 * 1024 * 1024
+MINIFLUX_MAX_ENTRIES = 1000
+MINIFLUX_MAX_PAGES = 11
 
 
 class PilotError(Exception):
@@ -231,7 +233,11 @@ class MinifluxClient:
         entries: list[dict[str, object]] = []
         offset = 0
         limit = 100
+        page_count = 0
         while True:
+            page_count += 1
+            if page_count > MINIFLUX_MAX_PAGES:
+                raise PilotError("Miniflux pagination exceeds the page limit")
             query = urllib.parse.urlencode({"starred": "true", "limit": limit, "offset": offset})
             request = urllib.request.Request(
                 f"{self.base_url}/v1/entries?{query}",
@@ -245,9 +251,15 @@ class MinifluxClient:
                     body = json.loads(payload)
             except (OSError, ValueError, urllib.error.URLError) as exc:
                 raise PilotError("Miniflux request failed; no delivery attempted") from exc
+            if not isinstance(body, dict):
+                raise PilotError("Miniflux returned an invalid response object")
             page = body.get("entries", [])
             if not isinstance(page, list):
                 raise PilotError("Miniflux returned an invalid entries response")
+            if len(page) > limit:
+                raise PilotError("Miniflux returned more entries than requested")
+            if len(entries) + len(page) > MINIFLUX_MAX_ENTRIES:
+                raise PilotError("Miniflux response exceeds the entry limit")
             entries.extend(item for item in page if isinstance(item, dict))
             if len(page) < limit:
                 return entries
