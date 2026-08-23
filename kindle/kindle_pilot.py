@@ -7,6 +7,8 @@ sending mail to the approved Send-to-Kindle address.
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
+import fcntl
 import hashlib
 import html
 import json
@@ -201,9 +203,14 @@ def _env(name: str, *, required: bool = True) -> str | None:
 
 
 def runtime_config(*, require_delivery: bool) -> RuntimeConfig:
-    max_message = int(os.environ.get("RESEND_MAX_MESSAGE_BYTES", RESEND_MAX_MESSAGE_BYTES))
+    try:
+        max_message = int(os.environ.get("RESEND_MAX_MESSAGE_BYTES", RESEND_MAX_MESSAGE_BYTES))
+    except ValueError as exc:
+        raise PilotError("RESEND_MAX_MESSAGE_BYTES must be an integer") from exc
     if max_message <= 0:
         raise PilotError("RESEND_MAX_MESSAGE_BYTES must be positive")
+    if max_message > RESEND_MAX_MESSAGE_BYTES:
+        raise PilotError(f"RESEND_MAX_MESSAGE_BYTES must not exceed {RESEND_MAX_MESSAGE_BYTES}")
     config = RuntimeConfig(
         miniflux_url=_env("MINIFLUX_URL") or "",
         miniflux_token=_env("MINIFLUX_API_TOKEN") or "",
@@ -534,33 +541,48 @@ class SMTPBatchSender:
         self.transport.send(message)
 
 
+@contextmanager
+def ledger_lock(state_path: Path):
+    lock_path = state_path.with_name(f"{state_path.name}.lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("a+") as stream:
+        os.chmod(lock_path, 0o600)
+        fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
+
+
 def run(*, live_send: bool, confirmation: str | None, max_batches: int = DEFAULT_MAX_ATTENDED_BATCHES, is_tty: bool | None = None) -> int:
     require_attended_confirmation(live_send, confirmation, is_tty=is_tty)
     if max_batches < 1 or max_batches > MAX_ATTENDED_BATCHES:
         raise PilotError(f"max attended batches must be between 1 and {MAX_ATTENDED_BATCHES}")
     config = runtime_config(require_delivery=live_send)
-    ledger = Ledger.load(config.state_path)
-    if ledger.pending is not None:
-        raise PendingDelivery("a previous batch needs attended reconciliation")
-    entries = MinifluxClient(config.miniflux_url, config.miniflux_token).list_starred()
-    documents = ledger.new_documents([article_to_document(entry) for entry in entries])
-    if not documents:
-        print("kindle-pilot: no new starred items")
-        return 0
-    sender_name = config.kindle_from or "dry-run sender"
-    recipient = config.kindle_to or "dry-run recipient"
-    batches = split_batches(documents, config.max_message_bytes, sender_name, recipient)
-    if not live_send:
-        print(f"kindle-pilot: prepared {len(documents)} item(s) in {len(batches)} batch(es); no send performed")
-        return 0
-    sender = SMTPBatchSender(config.resend_api_key or "", config.kindle_from or "", config.kindle_to or "")
-    batches_to_send = batches[:max_batches]
-    deliver_batches(ledger, batches_to_send, sender)
-    delivered_documents = sum(len(batch) for batch in batches_to_send)
-    deferred_documents = len(documents) - delivered_documents
-    print(f"kindle-pilot: delivered {delivered_documents} item(s) in {len(batches_to_send)} batch(es)")
-    if deferred_documents:
-        print(f"kindle-pilot: deferred {deferred_documents} item(s); run another attended confirmation")
+    with ledger_lock(config.state_path):
+        ledger = Ledger.load(config.state_path)
+        if ledger.pending is not None:
+            raise PendingDelivery("a previous batch needs attended reconciliation")
+        entries = MinifluxClient(config.miniflux_url, config.miniflux_token).list_starred()
+        new_entries = [entry for entry in entries if str(entry.get("id", "")) not in ledger.delivered]
+        documents = [article_to_document(entry) for entry in new_entries]
+        if not documents:
+            print("kindle-pilot: no new starred items")
+            return 0
+        sender_name = config.kindle_from or "dry-run sender"
+        recipient = config.kindle_to or "dry-run recipient"
+        batches = split_batches(documents, config.max_message_bytes, sender_name, recipient)
+        if not live_send:
+            print(f"kindle-pilot: prepared {len(documents)} item(s) in {len(batches)} batch(es); no send performed")
+            return 0
+        sender = SMTPBatchSender(config.resend_api_key or "", config.kindle_from or "", config.kindle_to or "")
+        batches_to_send = batches[:max_batches]
+        deliver_batches(ledger, batches_to_send, sender)
+        delivered_documents = sum(len(batch) for batch in batches_to_send)
+        deferred_documents = len(documents) - delivered_documents
+        print(f"kindle-pilot: delivered {delivered_documents} item(s) in {len(batches_to_send)} batch(es)")
+        if deferred_documents:
+            print(f"kindle-pilot: deferred {deferred_documents} item(s); run another attended confirmation")
     return 0
 
 

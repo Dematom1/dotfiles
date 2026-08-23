@@ -127,18 +127,74 @@ with tempfile.TemporaryDirectory() as directory:
         raise AssertionError("pending delivery was retried automatically")
     expect(uncertain.calls == 1, "uncertain delivery duplicated")
 
-# Runtime secret/address values are never part of source or attended-guard output.
-source = Path("kindle/kindle_pilot.py").read_text()
+# Runtime secret/address values do not leak through the public dry-run command.
 secret = "re_" + "runtime-only"
 address = "kindle" + "@" + "example.invalid"
-expect(secret not in source and address not in source, "runtime values leaked into source")
-output = StringIO()
-with redirect_stdout(output), redirect_stderr(output):
+with tempfile.TemporaryDirectory() as directory:
+    original_environment = os.environ.copy()
+    original_list_starred = pilot.MinifluxClient.list_starred
+    os.environ.update({
+        "MINIFLUX_URL": "https://miniflux.invalid/" + secret,
+        "MINIFLUX_API_TOKEN": secret,
+        "RESEND_API_KEY": secret,
+        "KINDLE_TO_ADDRESS": address,
+        "KINDLE_FROM_ADDRESS": "sender@example.invalid",
+        "KINDLE_PILOT_STATE": str(Path(directory) / "state.json"),
+    })
+    pilot.MinifluxClient.list_starred = lambda self: []
+    output = StringIO()
     try:
-        pilot.require_attended_confirmation(True, "wrong", is_tty=False)
-    except pilot.PilotError:
-        pass
-expect(secret not in output.getvalue() and address not in output.getvalue(), "guard output leaked runtime values")
+        with redirect_stdout(output), redirect_stderr(output):
+            exit_code = pilot.main(["--dry-run"])
+    finally:
+        pilot.MinifluxClient.list_starred = original_list_starred
+        os.environ.clear()
+        os.environ.update(original_environment)
+    expect(exit_code == 0 and "no new starred items" in output.getvalue(), "public dry-run failed")
+    expect(secret not in output.getvalue() and address not in output.getvalue(), "dry-run output leaked runtime values")
+    expect(not (Path(directory) / "state.json").exists(), "dry-run persisted delivery state")
+
+# Delivered entries are filtered before conversion or remote asset fetching.
+with tempfile.TemporaryDirectory() as directory:
+    state_path = Path(directory) / "state.json"
+    ledger = pilot.Ledger(state_path)
+    ledger.delivered["old"] = "1"
+    ledger.save()
+    original_environment = os.environ.copy()
+    original_list_starred = pilot.MinifluxClient.list_starred
+    os.environ.update({
+        "MINIFLUX_URL": "https://miniflux.invalid",
+        "MINIFLUX_API_TOKEN": "token",
+        "KINDLE_PILOT_STATE": str(state_path),
+    })
+    pilot.MinifluxClient.list_starred = lambda self: [
+        {"id": "old", "title": "Unavailable PDF", "url": "https://feed.invalid/gone.pdf"},
+        {"id": "new", "title": "New article", "content": "available"},
+    ]
+    output = StringIO()
+    try:
+        with redirect_stdout(output), redirect_stderr(output):
+            exit_code = pilot.main(["--dry-run"])
+    finally:
+        pilot.MinifluxClient.list_starred = original_list_starred
+        os.environ.clear()
+        os.environ.update(original_environment)
+    expect(exit_code == 0 and "prepared 1 item(s)" in output.getvalue(), "delivered entry was converted again")
+
+# Invalid overrides cannot raise Resend's fixed request ceiling.
+original_limit = os.environ.get("RESEND_MAX_MESSAGE_BYTES")
+os.environ.update({"MINIFLUX_URL": "https://miniflux.invalid", "MINIFLUX_API_TOKEN": "token"})
+os.environ["RESEND_MAX_MESSAGE_BYTES"] = str(pilot.RESEND_MAX_MESSAGE_BYTES + 1)
+try:
+    pilot.runtime_config(require_delivery=False)
+except pilot.PilotError:
+    pass
+else:
+    raise AssertionError("Resend request ceiling was overridden")
+if original_limit is None:
+    os.environ.pop("RESEND_MAX_MESSAGE_BYTES", None)
+else:
+    os.environ["RESEND_MAX_MESSAGE_BYTES"] = original_limit
 
 # The live-send guard requires both an attended terminal and the exact phrase.
 pilot.require_attended_confirmation(True, pilot.CONFIRMATION_PHRASE, is_tty=True)
