@@ -12,12 +12,10 @@ fail() {
   || fail "default OpenCode catalog still enables Memtrace"
 jq -e '.mcp.memtrace.command == ["memtrace", "mcp"]' "$repo/opencode/opencode.json" >/dev/null \
   || fail "default OpenCode catalog lost the explicit Memtrace opt-in command"
-jq -e '.mcp.memtrace.enabled = true | .mcp.memtrace.enabled == true' \
-  "$repo/opencode/opencode.json" >/dev/null \
-  || fail "OpenCode catalog does not support explicit Memtrace opt-in"
 
 system=$(nix eval --impure --raw --expr 'builtins.currentSystem')
 bash_bin=$(command -v bash)
+opencode_bin=$(command -v opencode) || fail "OpenCode executable is unavailable"
 case "$system" in
   aarch64-darwin)
     targets=(
@@ -35,6 +33,8 @@ nix build --no-link "$repo#checks.$system.agent-tools-layout"
 m87_package=$(nix build --no-link --print-out-paths "$repo#m87")
 backpass_package=$(nix build --no-link --print-out-paths "$repo#backpass")
 acpx_package=$(nix build --no-link --print-out-paths "$repo#acpx")
+opencode_sandbox=$(mktemp -d "$repo/.agent-tools-opencode.XXXXXX")
+trap 'rm -rf "$opencode_sandbox"' EXIT
 node -e 'const p = require(process.argv[1]); if (p.name !== "@kunchenguid/m87" || p.version !== "0.1.10" || p.repository.url !== "git+https://github.com/kunchenguid/m87.git") process.exit(1)' \
   "$m87_package/libexec/m87/node_modules/@kunchenguid/m87/package.json" \
   || fail "M87 package identity does not match the authoritative upstream"
@@ -55,6 +55,19 @@ for target in "${targets[@]}"; do
   [[ ",$packages," == *,acpx,* ]] || fail "$profile profile does not install acpx"
 
   home_path=$(nix build --no-link --print-out-paths "$repo#$prefix.home.path")
+  opt_in_config=$(jq -c '.mcp.memtrace.enabled = true' "$repo/opencode/opencode.json")
+  resolved_memtrace=$(env \
+    HOME="$opencode_sandbox/home" \
+    XDG_CONFIG_HOME="$opencode_sandbox/config" \
+    XDG_DATA_HOME="$opencode_sandbox/data" \
+    XDG_CACHE_HOME="$opencode_sandbox/cache" \
+    XDG_STATE_HOME="$opencode_sandbox/state" \
+    OPENCODE_DISABLE_PROJECT_CONFIG=true \
+    OPENCODE_CONFIG_CONTENT="$opt_in_config" \
+    "$opencode_bin" debug config | jq -c '.mcp.memtrace')
+  jq -e '.enabled == true and .command == ["memtrace", "mcp"]' \
+    <<<"$resolved_memtrace" >/dev/null \
+    || fail "$profile OpenCode catalog does not support explicit Memtrace opt-in"
   [[ -x "$home_path/bin/m87" ]] || fail "$profile Home Manager path has no M87 executable"
   [[ $("$home_path/bin/m87" --version) == 0.1.10 ]] \
     || fail "$profile M87 executable has the wrong version"
@@ -101,7 +114,7 @@ m87_sandbox=$(mktemp -d "$repo/.agent-tools-m87.XXXXXX")
 awkless_sandbox=$(mktemp -d "$repo/.agent-tools-m87-awkless.XXXXXX")
 pi_sandbox=$(mktemp -d "$repo/.agent-tools-pi.XXXXXX")
 skills_sandbox=$(mktemp -d "$repo/.agent-tools-skills.XXXXXX")
-trap 'rm -rf "$m87_sandbox" "$awkless_sandbox" "$pi_sandbox" "$skills_sandbox"' EXIT
+trap 'rm -rf "$opencode_sandbox" "$m87_sandbox" "$awkless_sandbox" "$pi_sandbox" "$skills_sandbox"' EXIT
 M87_STATE_DIR="$m87_sandbox/state" "$m87_package/bin/m87" \
   init --yes --plugin skip --no-install-service >/dev/null
 DRY_RUN_CMD='' M87_STATE_DIR="$m87_sandbox/state" HOME="$m87_sandbox/home" \
