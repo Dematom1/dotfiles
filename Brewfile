@@ -116,7 +116,6 @@ brew "shellcheck"         # Shell script linter
 # -----------------------------------------------------------------------------
 cask "1password-cli"
 cask "nikitabobko/tap/aerospace"  # Tiling window manager
-cask "gcloud-cli"                 # Google Cloud
 cask "ghostty"                    # Terminal
 cask "wezterm"                    # Terminal (backup)
 cask "hashicorp/tap/hashicorp-vagrant"

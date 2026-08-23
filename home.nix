@@ -63,6 +63,8 @@ in
   # macOS-only: GUI/desktop tooling that either won't build on Linux (aerospace)
   # or is pointless on a headless server (wezterm, the browser MCP, desktop fonts).
   ++ lib.optionals pkgs.stdenv.isDarwin [
+    # Nix owns the gcloud binary; gcloud owns ~/.config/gcloud.
+    google-cloud-sdk
     # window manager (was a homebrew cask from nikitabobko/tap - native in nixpkgs)
     aerospace
     wezterm
