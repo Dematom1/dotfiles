@@ -53,6 +53,8 @@
       };
       m87 = final.callPackage ./packages/m87.nix { };
       pi-fff = final.callPackage ./packages/pi-fff.nix { };
+      backpass = final.callPackage ./packages/backpass.nix { };
+      acpx = final.callPackage ./packages/acpx.nix { };
     };
 
     # Swaps in terraform from nixpkgs-unstable, currently pinning it to
@@ -149,7 +151,7 @@
       let
         pkgs = pkgsFor system;
       in {
-        inherit (pkgs) kubernetes-axi m87 pi-fff;
+        inherit (pkgs) kubernetes-axi m87 pi-fff backpass acpx;
         default = pkgs.kubernetes-axi;
       });
 
@@ -171,9 +173,11 @@
         '';
 
         agent-tools-layout = pkgs.runCommand "agent-tools-layout" {
-          nativeBuildInputs = [ pkgs.m87 pkgs.nodejs_24 ];
+          nativeBuildInputs = [ pkgs.m87 pkgs.backpass pkgs.acpx pkgs.nodejs_24 ];
         } ''
           test "$(m87 --version)" = 0.1.10
+          test "$(command -v backpass)" = ${pkgs.backpass}/bin/backpass
+          test "$(command -v acpx)" = ${pkgs.acpx}/bin/acpx
           test -f ${pkgs.pi-fff}/${pkgs.pi-fff.extensionPath}/index.ts
           mkdir "$out"
         '';

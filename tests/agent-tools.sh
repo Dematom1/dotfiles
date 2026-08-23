@@ -25,9 +25,17 @@ esac
 
 nix build --no-link "$repo#checks.$system.agent-tools-layout"
 m87_package=$(nix build --no-link --print-out-paths "$repo#m87")
+backpass_package=$(nix build --no-link --print-out-paths "$repo#backpass")
+acpx_package=$(nix build --no-link --print-out-paths "$repo#acpx")
 node -e 'const p = require(process.argv[1]); if (p.name !== "@kunchenguid/m87" || p.version !== "0.1.10" || p.repository.url !== "git+https://github.com/kunchenguid/m87.git") process.exit(1)' \
   "$m87_package/libexec/m87/node_modules/@kunchenguid/m87/package.json" \
   || fail "M87 package identity does not match the authoritative upstream"
+node -e 'const p = require(process.argv[1]); if (p.name !== "backpass" || p.version !== "0.1.1" || p.bin.backpass !== "./bin/backpass.js") process.exit(1)' \
+  "$backpass_package/libexec/backpass/node_modules/backpass/package.json" \
+  || fail "backpass package identity does not match the authoritative upstream"
+node -e 'const p = require(process.argv[1]); if (p.name !== "acpx" || p.version !== "0.13.1" || p.bin.acpx !== "dist/cli.js") process.exit(1)' \
+  "$acpx_package/libexec/acpx/node_modules/acpx/package.json" \
+  || fail "acpx package identity does not match the authoritative upstream"
 
 for target in "${targets[@]}"; do
   IFS=: read -r profile prefix <<<"$target"
@@ -35,11 +43,18 @@ for target in "${targets[@]}"; do
   packages=$(nix eval --raw "$repo#$prefix.home.packages" \
     --apply 'pkgs: builtins.concatStringsSep "," (map (pkg: pkg.pname or "") pkgs)')
   [[ ",$packages," == *,m87,* ]] || fail "$profile profile does not install M87"
+  [[ ",$packages," == *,backpass,* ]] || fail "$profile profile does not install backpass"
+  [[ ",$packages," == *,acpx,* ]] || fail "$profile profile does not install acpx"
 
   home_path=$(nix build --no-link --print-out-paths "$repo#$prefix.home.path")
   [[ -x "$home_path/bin/m87" ]] || fail "$profile Home Manager path has no M87 executable"
   [[ $("$home_path/bin/m87" --version) == 0.1.10 ]] \
     || fail "$profile M87 executable has the wrong version"
+  for command in backpass acpx; do
+    [[ -x "$home_path/bin/$command" ]] || fail "$profile Home Manager path has no $command executable"
+    [[ $(PATH="$home_path/bin" command -v "$command") == "$home_path/bin/$command" ]] \
+      || fail "$profile Home Manager path does not resolve $command"
+  done
 
   pi_fff=$(nix eval --raw "$repo#$prefix.home.file.\".pi/agent/extensions/pi-fff\".source")
   [[ -f "$pi_fff/index.ts" ]] || fail "$profile Pi extension path has no pi-fff entrypoint"
