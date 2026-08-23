@@ -127,6 +127,27 @@ with tempfile.TemporaryDirectory() as directory:
         raise AssertionError("pending delivery was retried automatically")
     expect(uncertain.calls == 1, "uncertain delivery duplicated")
 
+    pending_id = str(ledger.pending["batch_id"])
+    original_state_path = os.environ.get("KINDLE_PILOT_STATE")
+    os.environ["KINDLE_PILOT_STATE"] = str(ledger.path)
+    output = StringIO()
+    try:
+        with redirect_stdout(output), redirect_stderr(output):
+            wrong_id_exit = pilot.main(["--clear-pending-for-retry", "wrong-id"], is_tty=True)
+        expect(wrong_id_exit == 1 and pilot.Ledger.load(ledger.path).pending is not None, "wrong batch ID cleared pending state")
+        with redirect_stdout(output), redirect_stderr(output):
+            unattended_exit = pilot.main(["--clear-pending-for-retry", pending_id], is_tty=False)
+        expect(unattended_exit == 1 and pilot.Ledger.load(ledger.path).pending is not None, "unattended reconciliation cleared pending state")
+        with redirect_stdout(output), redirect_stderr(output):
+            reconciled_exit = pilot.main(["--clear-pending-for-retry", pending_id], is_tty=True)
+    finally:
+        if original_state_path is None:
+            os.environ.pop("KINDLE_PILOT_STATE", None)
+        else:
+            os.environ["KINDLE_PILOT_STATE"] = original_state_path
+    expect(reconciled_exit == 0 and pilot.Ledger.load(ledger.path).pending is None, "exact pending batch was not cleared")
+    expect(uncertain.calls == 1, "pending reconciliation attempted delivery")
+
 # Runtime secret/address values do not leak through the public dry-run command.
 secret = "re_" + "runtime-only"
 address = "kindle" + "@" + "example.invalid"

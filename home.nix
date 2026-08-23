@@ -155,6 +155,7 @@ in
         "+MINIFLUX_URL"
         "+MINIFLUX_API_TOKEN"
         "--"
+        "${pkgs.python311}/bin/python3"
         "${config.home.homeDirectory}/.local/bin/kindle-pilot"
         "--dry-run"
       ];

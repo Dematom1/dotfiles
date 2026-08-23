@@ -98,6 +98,18 @@ pending batch in the ledger and stops future delivery until it is checked by an
 attendee; it is never automatically resent and therefore cannot silently
 create duplicate deliveries.
 
+After confirming that Amazon did not receive the pending batch, copy its exact
+`batch_id` from the local state file and clear it from an attended terminal:
+
+```sh
+KINDLE_PILOT_STATE="$HOME/.local/state/kindle-pilot/state.json" \
+  "$HOME/.local/bin/kindle-pilot" --clear-pending-for-retry EXACT_BATCH_ID
+```
+
+This only clears the matching local pending marker. Run the normal dry-run next.
+Any later live retry still requires a separate attended `--live-send` invocation
+with the exact `SEND TO KINDLE` confirmation.
+
 ## Disable and rollback
 
 - To disable scheduled preparation, remove the `launchd.agents.kindlePilot`

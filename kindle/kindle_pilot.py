@@ -554,6 +554,24 @@ def ledger_lock(state_path: Path):
             fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
 
 
+def clear_pending_for_retry(batch_id_value: str, *, is_tty: bool | None = None) -> int:
+    if is_tty is None:
+        is_tty = sys.stdin.isatty() and sys.stdout.isatty()
+    if not is_tty:
+        raise PilotError("pending reconciliation requires an attended terminal")
+    state_path = Path(os.environ.get("KINDLE_PILOT_STATE", DEFAULT_STATE_PATH))
+    with ledger_lock(state_path):
+        ledger = Ledger.load(state_path)
+        if ledger.pending is None:
+            raise PilotError("there is no pending batch to reconcile")
+        pending_batch_id = ledger.pending.get("batch_id")
+        if not isinstance(pending_batch_id, str) or batch_id_value != pending_batch_id:
+            raise PilotError("pending batch ID does not match")
+        ledger.clear_pending()
+    print("kindle-pilot: pending batch cleared for retry; run a dry-run next")
+    return 0
+
+
 def run(*, live_send: bool, confirmation: str | None, max_batches: int = DEFAULT_MAX_ATTENDED_BATCHES, is_tty: bool | None = None) -> int:
     require_attended_confirmation(live_send, confirmation, is_tty=is_tty)
     if max_batches < 1 or max_batches > MAX_ATTENDED_BATCHES:
@@ -586,19 +604,23 @@ def run(*, live_send: bool, confirmation: str | None, max_batches: int = DEFAULT
     return 0
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: Sequence[str] | None = None, *, is_tty: bool | None = None) -> int:
     parser = argparse.ArgumentParser(description="Prepare starred Miniflux items for the approved Kindle address")
     parser.add_argument("--dry-run", action="store_true", help="prepare only; this is the default")
     parser.add_argument("--live-send", action="store_true", help="send one attended, explicitly confirmed pilot run")
     parser.add_argument("--confirm-send", help=f"must equal {CONFIRMATION_PHRASE!r} for live delivery")
+    parser.add_argument("--clear-pending-for-retry", metavar="BATCH_ID", help="attended local-ledger reconciliation for an exact pending batch")
     parser.add_argument("--max-batches", type=int, default=DEFAULT_MAX_ATTENDED_BATCHES, help="live-send batch bound (1 by default, at most 4)")
     args = parser.parse_args(argv)
-    if args.dry_run and args.live_send:
-        parser.error("--dry-run and --live-send cannot be combined")
+    selected_actions = sum((args.dry_run, args.live_send, args.clear_pending_for_retry is not None))
+    if selected_actions > 1:
+        parser.error("--dry-run, --live-send, and --clear-pending-for-retry cannot be combined")
     if args.max_batches < 1 or args.max_batches > MAX_ATTENDED_BATCHES:
         parser.error(f"--max-batches must be between 1 and {MAX_ATTENDED_BATCHES}")
     try:
-        return run(live_send=args.live_send, confirmation=args.confirm_send, max_batches=args.max_batches)
+        if args.clear_pending_for_retry is not None:
+            return clear_pending_for_retry(args.clear_pending_for_retry, is_tty=is_tty)
+        return run(live_send=args.live_send, confirmation=args.confirm_send, max_batches=args.max_batches, is_tty=is_tty)
     except PendingDelivery as exc:
         print(f"kindle-pilot: {exc}", file=sys.stderr)
         return 2
