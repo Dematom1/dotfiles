@@ -39,6 +39,7 @@ MAX_ATTENDED_BATCHES = 4
 DEFAULT_STATE_PATH = Path.home() / ".local" / "state" / "kindle-pilot" / "state.json"
 CONFIRMATION_PHRASE = "SEND TO KINDLE"
 ALLOWED_MEDIA_TYPES = {"application/epub+zip", "application/pdf"}
+MACOS_F_FULLFSYNC = 51
 
 
 class PilotError(Exception):
@@ -98,6 +99,12 @@ def _fsync_directory(path: Path) -> None:
         os.close(directory_fd)
 
 
+def _fsync_file(fd: int) -> None:
+    os.fsync(fd)
+    if sys.platform == "darwin":
+        fcntl.fcntl(fd, MACOS_F_FULLFSYNC)
+
+
 def _ensure_durable_directory(path: Path) -> None:
     missing: list[Path] = []
     current = path
@@ -153,7 +160,7 @@ class Ledger:
                 json.dump(payload, stream, sort_keys=True)
                 stream.write("\n")
                 stream.flush()
-                os.fsync(stream.fileno())
+                _fsync_file(stream.fileno())
             os.replace(temporary, self.path)
             _fsync_directory(self.path.parent)
         except OSError:

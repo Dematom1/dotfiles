@@ -43,18 +43,29 @@ with zipfile.ZipFile(BytesIO(document.payload)) as archive:
 # Atomic ledger saves make both file contents and the containing directory durable.
 with tempfile.TemporaryDirectory() as directory:
     fsync_targets = []
+    full_fsync_targets = []
     original_fsync = pilot.os.fsync
+    original_fcntl = pilot.fcntl.fcntl
+    original_platform = pilot.sys.platform
 
     def recording_fsync(fd):
         fsync_targets.append(stat.S_ISDIR(os.fstat(fd).st_mode))
         original_fsync(fd)
 
+    def recording_fcntl(fd, operation):
+        full_fsync_targets.append((stat.S_ISDIR(os.fstat(fd).st_mode), operation))
+
     pilot.os.fsync = recording_fsync
+    pilot.fcntl.fcntl = recording_fcntl
+    pilot.sys.platform = "darwin"
     try:
         pilot.Ledger(Path(directory) / "first" / "second" / "state.json").save()
     finally:
         pilot.os.fsync = original_fsync
+        pilot.fcntl.fcntl = original_fcntl
+        pilot.sys.platform = original_platform
     expect(fsync_targets == [True, True, False, True], "ledger save omitted a durability barrier")
+    expect(full_fsync_targets == [(False, pilot.MACOS_F_FULLFSYNC)], "macOS ledger save omitted full flush")
 
 # PDFs pass through unchanged; DOCX is deliberately outside the pilot boundary.
 pdf = b"%PDF-1.7\ncontent"
