@@ -52,7 +52,6 @@
       "claude-code"
       "ghostty"
       "1password-cli"
-      "gcloud-cli"
       "ngrok"
       "postico"
       "opensuperwhisper"

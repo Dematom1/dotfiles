@@ -50,6 +50,8 @@ in
     git git-crypt lazygit lazydocker
     # kubernetes / infra
     argocd kubectl kubernetes-helm kustomize k9s kubectx kubernetes-axi terraform tailscale
+    # Nix owns the gcloud binary; gcloud owns ~/.config/gcloud.
+    google-cloud-sdk
     # agent review queue (npm identity/integrity are pinned in packages/m87-npm)
     m87
     # dev / build
