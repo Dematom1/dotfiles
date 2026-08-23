@@ -8,8 +8,10 @@ from contextlib import redirect_stderr, redirect_stdout
 from io import BytesIO, StringIO
 from pathlib import Path
 import os
+import stat
 import tempfile
 import zipfile
+import xml.etree.ElementTree as ElementTree
 
 from kindle import kindle_pilot as pilot
 
@@ -26,7 +28,7 @@ entry = {
     "title": "An Article",
     "author": "An Author",
     "url": "https://feed.invalid/article",
-    "content": '<p>Useful text</p><img src="/cover.png" alt="Cover">',
+    "content": '<p>Useful<br>text<br/></p><img src="/cover.png" alt="Cover">',
 }
 document = pilot.article_to_document(entry, lambda url: image)
 expect(document.media_type == "application/epub+zip", "HTML was not converted to EPUB")
@@ -36,6 +38,23 @@ with zipfile.ZipFile(BytesIO(document.payload)) as archive:
     expect("images/image-1.png" in names, "available image was not included")
     body = archive.read("OEBPS/content.xhtml")
     expect(b"An Article" in body and b"An Author" in body, "EPUB metadata was not preserved")
+    ElementTree.fromstring(body)
+
+# Atomic ledger saves make both file contents and the containing directory durable.
+with tempfile.TemporaryDirectory() as directory:
+    fsync_targets = []
+    original_fsync = pilot.os.fsync
+
+    def recording_fsync(fd):
+        fsync_targets.append(stat.S_ISDIR(os.fstat(fd).st_mode))
+        original_fsync(fd)
+
+    pilot.os.fsync = recording_fsync
+    try:
+        pilot.Ledger(Path(directory) / "state.json").save()
+    finally:
+        pilot.os.fsync = original_fsync
+    expect(fsync_targets == [False, True], "ledger save omitted a durability barrier")
 
 # PDFs pass through unchanged; DOCX is deliberately outside the pilot boundary.
 pdf = b"%PDF-1.7\ncontent"

@@ -132,6 +132,11 @@ class Ledger:
                 stream.flush()
                 os.fsync(stream.fileno())
             os.replace(temporary, self.path)
+            directory_fd = os.open(self.path.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
         except OSError:
             try:
                 os.unlink(temporary)
@@ -280,6 +285,8 @@ class _ArticleParser(HTMLParser):
             marker = f"__KINDLE_IMAGE_{len(self.images)}__"
             self.images.append((marker, source))
             self.parts.append(f'<img src="{marker}" alt="{html.escape(attributes.get("alt") or "image", quote=True)}" />')
+        elif tag == "br":
+            self.parts.append("<br />")
         elif tag == "a" and attributes.get("href"):
             href = html.escape(urllib.parse.urljoin(self.base_url, attributes["href"] or ""), quote=True)
             self.parts.append(f'<a href="{href}">')
@@ -295,7 +302,7 @@ class _ArticleParser(HTMLParser):
             return
         if self.skip_depth:
             return
-        if tag in self.allowed:
+        if tag in self.allowed and tag != "br":
             self.parts.append(f"</{tag}>")
         if tag in self.block:
             self.parts.append("\n")
