@@ -90,6 +90,29 @@ class RuntimeConfig:
     max_message_bytes: int = RESEND_MAX_MESSAGE_BYTES
 
 
+def _fsync_directory(path: Path) -> None:
+    directory_fd = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(directory_fd)
+    finally:
+        os.close(directory_fd)
+
+
+def _ensure_durable_directory(path: Path) -> None:
+    missing: list[Path] = []
+    current = path
+    while not current.exists():
+        missing.append(current)
+        current = current.parent
+    for directory in reversed(missing):
+        try:
+            directory.mkdir()
+        except FileExistsError:
+            if not directory.is_dir():
+                raise
+        _fsync_directory(directory.parent)
+
+
 class Ledger:
     """Atomic JSON ledger. Delivered IDs are the idempotency boundary."""
 
@@ -116,7 +139,7 @@ class Ledger:
         return ledger
 
     def save(self) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+        _ensure_durable_directory(self.path.parent)
         payload = {
             "version": 1,
             "delivered": self.delivered,
@@ -132,11 +155,7 @@ class Ledger:
                 stream.flush()
                 os.fsync(stream.fileno())
             os.replace(temporary, self.path)
-            directory_fd = os.open(self.path.parent, os.O_RDONLY)
-            try:
-                os.fsync(directory_fd)
-            finally:
-                os.close(directory_fd)
+            _fsync_directory(self.path.parent)
         except OSError:
             try:
                 os.unlink(temporary)
@@ -270,7 +289,19 @@ class _ArticleParser(HTMLParser):
         self.base_url = base_url
         self.parts: list[str] = []
         self.images: list[tuple[str, str]] = []
+        self.open_tags: list[str] = []
         self.skip_depth = 0
+
+    def _close_through(self, tag: str) -> None:
+        if tag not in self.open_tags:
+            return
+        while self.open_tags:
+            closing = self.open_tags.pop()
+            self.parts.append(f"</{closing}>")
+            if closing in self.block:
+                self.parts.append("\n")
+            if closing == tag:
+                return
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         tag = tag.lower()
@@ -279,6 +310,15 @@ class _ArticleParser(HTMLParser):
             return
         if self.skip_depth:
             return
+        if tag in self.block and "p" in self.open_tags:
+            self._close_through("p")
+        if tag == "li" and "li" in self.open_tags:
+            self._close_through("li")
+        if tag in {"h1", "h2", "h3", "h4"}:
+            for open_tag in reversed(self.open_tags):
+                if open_tag in {"h1", "h2", "h3", "h4"}:
+                    self._close_through(open_tag)
+                    break
         attributes = dict(attrs)
         if tag == "img" and attributes.get("src"):
             source = urllib.parse.urljoin(self.base_url, attributes["src"] or "")
@@ -292,6 +332,8 @@ class _ArticleParser(HTMLParser):
             self.parts.append(f'<a href="{href}">')
         elif tag in self.allowed:
             self.parts.append(f"<{tag}>")
+        if tag in self.allowed and tag != "br":
+            self.open_tags.append(tag)
         if tag in self.block:
             self.parts.append("\n")
 
@@ -303,9 +345,7 @@ class _ArticleParser(HTMLParser):
         if self.skip_depth:
             return
         if tag in self.allowed and tag != "br":
-            self.parts.append(f"</{tag}>")
-        if tag in self.block:
-            self.parts.append("\n")
+            self._close_through(tag)
 
     def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         self.handle_starttag(tag, attrs)
@@ -317,7 +357,8 @@ class _ArticleParser(HTMLParser):
 
     @property
     def body(self) -> str:
-        return "".join(self.parts).strip()
+        closing = [f"</{tag}>" for tag in reversed(self.open_tags)]
+        return "".join(self.parts + closing).strip()
 
 
 def _image_type(url: str, payload: bytes) -> tuple[str, str] | None:
@@ -551,7 +592,7 @@ class SMTPBatchSender:
 @contextmanager
 def ledger_lock(state_path: Path):
     lock_path = state_path.with_name(f"{state_path.name}.lock")
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    _ensure_durable_directory(lock_path.parent)
     with lock_path.open("a+") as stream:
         os.chmod(lock_path, 0o600)
         fcntl.flock(stream.fileno(), fcntl.LOCK_EX)

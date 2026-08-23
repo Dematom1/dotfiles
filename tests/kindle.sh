@@ -28,7 +28,7 @@ entry = {
     "title": "An Article",
     "author": "An Author",
     "url": "https://feed.invalid/article",
-    "content": '<p>Useful<br>text<br/></p><img src="/cover.png" alt="Cover">',
+    "content": '<p>Useful<br>text<p>More<br/></p><img src="/cover.png" alt="Cover">',
 }
 document = pilot.article_to_document(entry, lambda url: image)
 expect(document.media_type == "application/epub+zip", "HTML was not converted to EPUB")
@@ -51,10 +51,10 @@ with tempfile.TemporaryDirectory() as directory:
 
     pilot.os.fsync = recording_fsync
     try:
-        pilot.Ledger(Path(directory) / "state.json").save()
+        pilot.Ledger(Path(directory) / "first" / "second" / "state.json").save()
     finally:
         pilot.os.fsync = original_fsync
-    expect(fsync_targets == [False, True], "ledger save omitted a durability barrier")
+    expect(fsync_targets == [True, True, False, True], "ledger save omitted a durability barrier")
 
 # PDFs pass through unchanged; DOCX is deliberately outside the pilot boundary.
 pdf = b"%PDF-1.7\ncontent"
