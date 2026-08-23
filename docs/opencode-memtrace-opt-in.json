@@ -1,0 +1,7 @@
+{
+  "mcp": {
+    "memtrace": {
+      "enabled": true
+    }
+  }
+}
