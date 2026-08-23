@@ -140,11 +140,18 @@ class Ledger:
             return ledger
         try:
             data = json.loads(path.read_text())
-            ledger.delivered = {str(k): str(v) for k, v in data.get("delivered", {}).items()}
+            if not isinstance(data, dict):
+                raise ValueError("ledger root is not an object")
+            delivered = data.get("delivered", {})
+            pending = data.get("pending")
+            if not isinstance(delivered, dict):
+                raise ValueError("ledger delivered field is not an object")
+            if pending is not None and not isinstance(pending, dict):
+                raise ValueError("ledger pending field is not an object or null")
+            ledger.delivered = {str(k): str(v) for k, v in delivered.items()}
             value = data.get("last_successful_id")
             ledger.last_successful_id = None if value is None else str(value)
-            pending = data.get("pending")
-            ledger.pending = pending if isinstance(pending, dict) else None
+            ledger.pending = pending
         except (OSError, ValueError, TypeError) as exc:
             raise PilotError("ledger is unreadable; no delivery attempted") from exc
         return ledger

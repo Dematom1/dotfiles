@@ -219,6 +219,18 @@ with tempfile.TemporaryDirectory() as directory:
     expect(fsync_targets == [True, True, False, True], "ledger save omitted a durability barrier")
     expect(full_fsync_targets == [(False, pilot.MACOS_F_FULLFSYNC)], "macOS ledger save omitted full flush")
 
+# Valid JSON with an invalid ledger shape fails through the no-delivery boundary.
+with tempfile.TemporaryDirectory() as directory:
+    path = Path(directory) / "state.json"
+    for corrupt in ([], {"delivered": []}, {"delivered": {}, "pending": []}):
+        path.write_text(json.dumps(corrupt))
+        try:
+            pilot.Ledger.load(path)
+        except pilot.PilotError as error:
+            expect(str(error) == "ledger is unreadable; no delivery attempted", "ledger corruption returned the wrong failure")
+        else:
+            raise AssertionError("invalid ledger JSON shape was accepted")
+
 # PDFs pass through unchanged; DOCX is deliberately outside the pilot boundary.
 pdf = b"%PDF-1.7\ncontent"
 pdf_document = pilot.article_to_document(
