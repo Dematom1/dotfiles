@@ -185,6 +185,7 @@ check-regressions:
     ./tests/agent-tools.sh
     ./tests/pi-signed.sh
     ./tests/ponytail.sh
+    ./tests/kindle.sh
     ./tests/regressions.sh
 
 # Install Ponytail through each agent's native user-scoped package manager.

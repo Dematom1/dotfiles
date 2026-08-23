@@ -20,6 +20,7 @@ let
   piAutoresearchPackage = "npm:pi-autoresearch";
   nixManagedPiPackage = "npm:@ff-labs/pi-fff";
   piSignedExecutable = "/Applications/Pi Launcher.app/Contents/MacOS/pi-launcher";
+  kindlePilot = "${dotfiles}/kindle/kindle_pilot.py";
   piSignedEntrypoint = pkgs.writeShellScript "pi-signed" ''
     set -eu
     if [ "''${1-}" = update ] && [ "''${2-}" = --self ]; then
@@ -139,6 +140,32 @@ in
     ".wezterm.lua".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/.wezterm.lua";
     # One credentialed signed-Pi entrypoint; regular `pi` remains unchanged.
     ".local/bin/pi-signed".source = piSignedEntrypoint;
+    # The pilot script stays in the checkout and receives credentials only at runtime.
+    ".local/bin/kindle-pilot".source = config.lib.file.mkOutOfStoreSymlink kindlePilot;
+  };
+
+  # Home Manager owns the scheduled job. It is intentionally dry-run only:
+  # omitting --live-send is the safety boundary for unattended execution.
+  launchd.agents.kindlePilot = lib.mkIf pkgs.stdenv.isDarwin {
+    enable = true;
+    config = {
+      ProgramArguments = [
+        "/usr/local/bin/av"
+        "inject"
+        "+MINIFLUX_URL"
+        "+MINIFLUX_API_TOKEN"
+        "--"
+        "${config.home.homeDirectory}/.local/bin/kindle-pilot"
+        "--dry-run"
+      ];
+      RunAtLoad = false;
+      StartInterval = 3600;
+      ThrottleInterval = 300;
+      ProcessType = "Background";
+      LowPriorityIO = true;
+      StandardOutPath = "${config.home.homeDirectory}/Library/Logs/kindle-pilot.log";
+      StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/kindle-pilot.error.log";
+    };
   };
 
   # Reconcile only the declarative Pi package entries. Preserve the mutable
