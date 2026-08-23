@@ -40,6 +40,10 @@ git count-objects -vH
 git for-each-ref --format='%(refname) %(objectname)' 'refs/entire' 'refs/heads/entire'
 ```
 
+The completed pilot was measured from clean baseline commit `62909dfb96c75599650e34da3e1afd46898815e2` to pilot commit `814b52bc487d81361644eb5ccb8214392705ba36`. The deterministic reachable-object comparison reported 0 pilot-only objects at baseline and 10 at the pilot commit: 1 commit, 6 trees, and 3 blobs, totaling 9,018 logical bytes and 5,992 loose-object bytes on disk. The latter is Git's local object encoding, so it can change after repacking even though the logical total does not.
+
+Checkpoint discovery reported 0 checkpoints at both commits and therefore 0 bytes of retained checkpoint growth. The pilot commit retains the verified `Entire-Checkpoint: 01M0R8220JGCDCFHZHCMFE22J2` linkage, but after the required non-destructive disable the local CLI reports that Entire is not set up and no checkpoint ref is discoverable. The measurement therefore covers retained Git data only; it does not reconstruct or estimate transient session data. The redaction verification used synthetic credential-like values only.
+
 ## Disable and rollback
 
 Normal disable stops new capture and preserves existing session data:
