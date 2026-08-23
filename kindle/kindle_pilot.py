@@ -268,11 +268,20 @@ def _validate_fetch_url(url: str) -> None:
         raise PilotError("remote document and image URLs must use HTTPS")
 
 
+class _HTTPSOnlyRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, request, file_pointer, code, message, headers, new_url):
+        _validate_fetch_url(new_url)
+        return super().redirect_request(request, file_pointer, code, message, headers, new_url)
+
+
+_HTTPS_OPENER = urllib.request.build_opener(_HTTPSOnlyRedirectHandler())
+
+
 def _fetch_bytes(url: str, max_bytes: int = RESEND_MAX_MESSAGE_BYTES) -> bytes:
     _validate_fetch_url(url)
     request = urllib.request.Request(url, headers={"User-Agent": "kindle-pilot/1"})
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:
+        with _HTTPS_OPENER.open(request, timeout=30) as response:
             _validate_fetch_url(response.geturl())
             payload = response.read(max_bytes + 1)
     except (OSError, urllib.error.URLError) as exc:

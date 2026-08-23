@@ -57,9 +57,9 @@ with zipfile.ZipFile(BytesIO(without_image.payload)) as archive:
     expect(b"__KINDLE_IMAGE_" not in body and b"<img" not in body, "unavailable image remained in EPUB")
 
 # Remote fetches accept HTTPS only and stop reading at their explicit bound.
-original_urlopen = pilot.urllib.request.urlopen
+original_open = pilot._HTTPS_OPENER.open
 calls = []
-pilot.urllib.request.urlopen = lambda *args, **kwargs: calls.append(args) or None
+pilot._HTTPS_OPENER.open = lambda *args, **kwargs: calls.append(args) or None
 try:
     pilot._fetch_bytes("file:///etc/passwd", 8)
 except pilot.PilotError:
@@ -67,8 +67,23 @@ except pilot.PilotError:
 else:
     raise AssertionError("local file URL reached the remote fetch boundary")
 finally:
-    pilot.urllib.request.urlopen = original_urlopen
+    pilot._HTTPS_OPENER.open = original_open
 expect(calls == [], "rejected URL invoked the network opener")
+
+redirect_handler = pilot._HTTPSOnlyRedirectHandler()
+try:
+    redirect_handler.redirect_request(
+        pilot.urllib.request.Request("https://feed.invalid/start"),
+        None,
+        302,
+        "Found",
+        {},
+        "http://feed.invalid/insecure",
+    )
+except pilot.PilotError:
+    pass
+else:
+    raise AssertionError("insecure redirect target was accepted")
 
 class OversizedResponse:
     def __enter__(self):
@@ -84,7 +99,7 @@ class OversizedResponse:
         return b"x" * size
 
 
-pilot.urllib.request.urlopen = lambda *args, **kwargs: OversizedResponse()
+pilot._HTTPS_OPENER.open = lambda *args, **kwargs: OversizedResponse()
 try:
     pilot._fetch_bytes("https://feed.invalid/file", 8)
 except pilot.PilotError:
@@ -92,7 +107,7 @@ except pilot.PilotError:
 else:
     raise AssertionError("oversized remote response was accepted")
 finally:
-    pilot.urllib.request.urlopen = original_urlopen
+    pilot._HTTPS_OPENER.open = original_open
 
 # Atomic ledger saves make both file contents and the containing directory durable.
 with tempfile.TemporaryDirectory() as directory:
