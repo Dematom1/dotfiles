@@ -1,5 +1,8 @@
 { pkgs, username, ... }:
 
+let
+  digestHome = "/Users/${username}/Code/dotfiles";
+in
 {
   # Determinate already manages the Nix daemon, so nix-darwin shouldn't.
   nix.enable = false;
@@ -31,6 +34,30 @@
     finder.CreateDesktop = false;          # clean desktop
     trackpad.Clicking = true;              # tap to click
   };
+  launchd.user.agents.ai-tool-update-digest = {
+    serviceConfig = {
+      ProgramArguments = [
+        "${pkgs.python3}/bin/python3"
+        "${digestHome}/scripts/ai-tool-update-digest.py"
+        "--inventory"
+        "${digestHome}/ai-tool-update-inventory.json"
+      ];
+      EnvironmentVariables = {
+        HOMEBREW_NO_AUTO_UPDATE = "1";
+        HOMEBREW_NO_ENV_HINTS = "1";
+        PATH = "/opt/homebrew/bin:/usr/local/bin:/etc/profiles/per-user/${username}/bin:/run/current-system/sw/bin:/Users/${username}/.nix-profile/bin:/Users/${username}/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
+      };
+      StartCalendarInterval = {
+        Hour = 9;
+        Minute = 0;
+      };
+      ProcessType = "Background";
+      LowPriorityIO = true;
+      StandardOutPath = "/Users/${username}/Library/Logs/ai-tool-update-digest.log";
+      StandardErrorPath = "/Users/${username}/Library/Logs/ai-tool-update-digest.log";
+    };
+  };
+
   homebrew = {
     # nix-homebrew is imported but intentionally not enabled, so this drives an
     # EXISTING Homebrew install (a prerequisite on a fresh Mac) via `brew bundle`.
