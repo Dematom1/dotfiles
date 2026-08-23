@@ -109,6 +109,51 @@ else:
 finally:
     pilot._HTTPS_OPENER.open = original_open
 
+# Authenticated Miniflux requests require HTTPS, retain their origin, and bound reads.
+try:
+    pilot.MinifluxClient("http://miniflux.invalid", "runtime-sentinel")
+except pilot.PilotError:
+    pass
+else:
+    raise AssertionError("insecure Miniflux origin was accepted")
+
+miniflux_redirect = pilot._SameOriginHTTPSRedirectHandler(("https", "miniflux.invalid", 443))
+try:
+    miniflux_redirect.redirect_request(
+        pilot.urllib.request.Request("https://miniflux.invalid/v1/entries"),
+        None,
+        302,
+        "Found",
+        {},
+        "https://other.invalid/v1/entries",
+    )
+except pilot.PilotError:
+    pass
+else:
+    raise AssertionError("cross-origin Miniflux redirect was accepted")
+
+class OversizedMinifluxResponse:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return None
+
+    def read(self, size):
+        return b"x" * size
+
+
+try:
+    pilot.MinifluxClient(
+        "https://miniflux.invalid",
+        "runtime-sentinel",
+        opener=lambda *args, **kwargs: OversizedMinifluxResponse(),
+    ).list_starred()
+except pilot.PilotError:
+    pass
+else:
+    raise AssertionError("oversized authenticated Miniflux response was accepted")
+
 # Atomic ledger saves make both file contents and the containing directory durable.
 with tempfile.TemporaryDirectory() as directory:
     fsync_targets = []

@@ -41,6 +41,7 @@ CONFIRMATION_PHRASE = "SEND TO KINDLE"
 ALLOWED_MEDIA_TYPES = {"application/epub+zip", "application/pdf"}
 MACOS_F_FULLFSYNC = 51
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
+MINIFLUX_MAX_RESPONSE_BYTES = 32 * 1024 * 1024
 
 
 class PilotError(Exception):
@@ -197,11 +198,34 @@ class Ledger:
         self.save()
 
 
+def _https_origin(url: str) -> tuple[str, str, int]:
+    parsed = urllib.parse.urlsplit(url)
+    if parsed.scheme.lower() != "https" or not parsed.hostname:
+        raise PilotError("MINIFLUX_URL must use HTTPS")
+    try:
+        port = parsed.port or 443
+    except ValueError as exc:
+        raise PilotError("MINIFLUX_URL has an invalid port") from exc
+    return "https", parsed.hostname.lower(), port
+
+
+class _SameOriginHTTPSRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def __init__(self, origin: tuple[str, str, int]):
+        super().__init__()
+        self.origin = origin
+
+    def redirect_request(self, request, file_pointer, code, message, headers, new_url):
+        if _https_origin(new_url) != self.origin:
+            raise PilotError("Miniflux redirects must remain on the configured HTTPS origin")
+        return super().redirect_request(request, file_pointer, code, message, headers, new_url)
+
+
 class MinifluxClient:
     def __init__(self, base_url: str, token: str, opener: Callable[..., object] | None = None):
+        origin = _https_origin(base_url)
         self.base_url = base_url.rstrip("/")
         self.token = token
-        self.opener = opener or urllib.request.urlopen
+        self.opener = opener or urllib.request.build_opener(_SameOriginHTTPSRedirectHandler(origin)).open
 
     def list_starred(self) -> list[dict[str, object]]:
         entries: list[dict[str, object]] = []
@@ -215,7 +239,10 @@ class MinifluxClient:
             )
             try:
                 with self.opener(request, timeout=30) as response:
-                    body = json.loads(response.read())
+                    payload = response.read(MINIFLUX_MAX_RESPONSE_BYTES + 1)
+                    if len(payload) > MINIFLUX_MAX_RESPONSE_BYTES:
+                        raise PilotError("Miniflux response exceeds the download limit")
+                    body = json.loads(payload)
             except (OSError, ValueError, urllib.error.URLError) as exc:
                 raise PilotError("Miniflux request failed; no delivery attempted") from exc
             page = body.get("entries", [])
