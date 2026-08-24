@@ -17,8 +17,7 @@ The skill *content* is gitignored (`.agents/skills/*`, `opencode/skills/*`); onl
 the recipe, wiring, and this doc are committed - like committing `package.json`,
 not `node_modules`. This keeps authenticated or licensed skills (ui.sh) out
 of this public repo. The update recipe is reproducible, while ui.sh
-authentication stays
-a manual entry in the installer's masked prompt.
+authentication stays a manual entry in the installer's masked prompt.
 
 Reproduce on a fresh machine:
 
