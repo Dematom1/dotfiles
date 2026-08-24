@@ -6,11 +6,9 @@
 !/opencode/skills/.gitkeep
 
 # Tool-local state, caches, and tool-installed plugins - all regenerated
-# (tokensave index DB, Claude project state, opencode plugins from AXI/memtrace,
-# via `just setup-firstmate` / `just update-skills`).
+# (tokensave index DB, Claude project state, and opencode plugins via
+# `just setup-firstmate` / `just update-skills`).
 /.tokensave/
-/.memdb/
-/.memtrace/
 /.claude/
 /herdr/release-notes.json
 /profile.json.gz

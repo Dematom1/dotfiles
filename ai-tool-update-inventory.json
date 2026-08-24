@@ -194,19 +194,6 @@
       "rollback_note": "Restore the previous cask/app and signed CLI stub as a pair."
     },
     {
-      "id": "memtrace",
-      "name": "Memtrace",
-      "owner": "npm global",
-      "version_command": ["memtrace", "--version"],
-      "release_adapter": "npm",
-      "package_name": "memtrace",
-      "github_repo": "syncable-dev/memtrace-public",
-      "release_source": "https://github.com/syncable-dev/memtrace-public/releases",
-      "risk": "R2",
-      "risk_reason": "Repair/update commands can reset runtime state.",
-      "rollback_note": "Reinstall the recorded exact npm version and restore the Pi package path."
-    },
-    {
       "id": "m87",
       "name": "m87",
       "owner": "Nix/Home Manager and npm global collision",

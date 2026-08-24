@@ -15,10 +15,9 @@ to themselves; physical generated copies avoid that self-loop.
 
 The skill *content* is gitignored (`.agents/skills/*`, `opencode/skills/*`); only
 the recipe, wiring, and this doc are committed - like committing `package.json`,
-not `node_modules`. This keeps authenticated or licensed skills (ui.sh and
-memtrace) out of this public repo. The update recipe is reproducible, while ui.sh
-authentication stays
-a manual entry in the installer's masked prompt.
+not `node_modules`. This keeps authenticated or licensed skills (ui.sh) out
+of this public repo. The update recipe is reproducible, while ui.sh
+authentication stays a manual entry in the installer's masked prompt.
 
 Reproduce on a fresh machine:
 
@@ -45,11 +44,6 @@ Enter the ui.sh token manually when its masked prompt appears.
 | show-me | git repo (skills CLI) | `humanlayer/skills:show-me` via `npx -y skills add humanlayer/skills --skill show-me -g -y --agent '*' --copy` | none |
 | whathappened | git repo (skills CLI) | `npx -y skills add kunchenguid/whathappened -g -y --agent '*' --copy` | none |
 | vercel-labs skills | skills CLI | `npx -y skills add <source> -g -y --agent '*' --copy` for `vercel-labs/agent-skills` and `vercel-labs/skills` | none |
-| memtrace-* (opencode) | tool-generated | `memtrace doctor --fix --repair-install` | memtrace license |
-
-The memtrace-* skills declare `compatibility: opencode` and stay in
-`opencode/skills/`; memtrace owns them, so they are not shared into Claude.
-
 ## Adding a new skill
 
 Add its refresh step to `just update-skills` so one command keeps everything

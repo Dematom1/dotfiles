@@ -64,11 +64,6 @@ update-skills:
     [[ -n "$skillmd" ]] || { echo "ERROR: no SKILL.md found in the repo"; exit 1; }
     rsync -a --delete --exclude '.git' "$(dirname "$skillmd")/" {{ skills-dir }}/learning-opportunities/
 
-    echo "==> memtrace-* skills  (opencode; memtrace owns these)"
-    # memtrace's documented reinstall path. NOTE: also resets its runtime state,
-    # so you may need `memtrace start` afterwards. Adjust if you have a lighter cmd.
-    memtrace doctor --fix --repair-install
-
     echo "==> ui.sh skill  (paste the token into the installer's masked prompt)"
     env -u UIDOTSH_TOKEN npx -y @uidotsh/install
 
