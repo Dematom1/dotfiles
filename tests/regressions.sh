@@ -231,6 +231,7 @@ while IFS= read -r -d '' surface; do
   case "$surface" in
     tests/*|examples/*|*.md|*.lock) continue ;;
     Brewfile|justfile|package.json|*.nix|*.sh|*.bash|*.zsh|*.plist|*.json|*.toml|*.yaml|*.yml|*.conf|*.config|*rc|scripts/*|zsh/*|hosts/*|.github/workflows/*)
+      [[ -f "$repo/$surface" ]] || continue
       policy_surfaces+=("$repo/$surface")
       ;;
   esac
@@ -316,10 +317,6 @@ cat > "$skills_sandbox/bin/rsync" <<'EOF'
 destination=${@: -1}
 mkdir -p "$destination"
 printf '%s\n' 'name: learning-opportunities' 'description: test' > "$destination/SKILL.md"
-EOF
-cat > "$skills_sandbox/bin/memtrace" <<'EOF'
-#!/usr/bin/env bash
-exit 0
 EOF
 cat > "$skills_sandbox/bin/npx" <<EOF
 #!/usr/bin/env bash

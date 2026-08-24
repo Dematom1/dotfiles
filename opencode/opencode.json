@@ -11,17 +11,6 @@
       }
     }
   },
-  "mcp": {
-    "memtrace": {
-      "type": "local",
-      "command": [
-        "memtrace",
-        "mcp"
-      ],
-      "enabled": false,
-      "environment": {}
-    }
-  },
   "plugin": [
     "specops",
     "atomize-agent-swarm"

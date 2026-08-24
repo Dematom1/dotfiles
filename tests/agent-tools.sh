@@ -8,14 +8,18 @@ fail() {
   exit 1
 }
 
-[[ $(jq -r '.mcp.memtrace.enabled' "$repo/opencode/opencode.json") == false ]] \
-  || fail "default OpenCode catalog still enables Memtrace"
-jq -e '.mcp.memtrace.command == ["memtrace", "mcp"]' "$repo/opencode/opencode.json" >/dev/null \
-  || fail "default OpenCode catalog lost the explicit Memtrace opt-in command"
+for token in "$(printf 'mem%s' trace)" "$(printf 'mem%s' db)"; do
+  if git -C "$repo" grep -n -i -- "$token" -- . >/dev/null 2>&1; then
+    fail "tracked configuration still contains a removed agent integration"
+  fi
+done
+forbidden_key=$(printf 'mem%s' trace)
+jq --arg key "$forbidden_key" -e '((.mcp // {}) | has($key) | not)' \
+  "$repo/opencode/opencode.json" >/dev/null \
+  || fail "OpenCode configuration still registers a removed agent integration"
 
 system=$(nix eval --impure --raw --expr 'builtins.currentSystem')
 bash_bin=$(command -v bash)
-opencode_bin=$(command -v opencode) || fail "OpenCode executable is unavailable"
 case "$system" in
   aarch64-darwin)
     targets=(
@@ -33,33 +37,6 @@ nix build --no-link "$repo#checks.$system.agent-tools-layout"
 m87_package=$(nix build --no-link --print-out-paths "$repo#m87")
 backpass_package=$(nix build --no-link --print-out-paths "$repo#backpass")
 acpx_package=$(nix build --no-link --print-out-paths "$repo#acpx")
-opencode_sandbox=$(mktemp -d "$repo/.agent-tools-opencode.XXXXXX")
-trap 'rm -rf "$opencode_sandbox"' EXIT
-opencode_env=(
-  HOME="$opencode_sandbox/home"
-  XDG_CONFIG_HOME="$opencode_sandbox/config"
-  XDG_DATA_HOME="$opencode_sandbox/data"
-  XDG_CACHE_HOME="$opencode_sandbox/cache"
-  XDG_STATE_HOME="$opencode_sandbox/state"
-  OPENCODE_DISABLE_PROJECT_CONFIG=true
-)
-default_config=$(jq -c '.' "$repo/opencode/opencode.json")
-default_memtrace=$(env "${opencode_env[@]}" OPENCODE_CONFIG_CONTENT="$default_config" \
-  "$opencode_bin" debug config | jq -c '.mcp.memtrace')
-jq -e '.enabled == false and .command == ["memtrace", "mcp"]' \
-  <<<"$default_memtrace" >/dev/null \
-  || fail "OpenCode does not preserve the disabled default Memtrace catalog"
-default_discovery=$(env "${opencode_env[@]}" NO_COLOR=1 \
-  OPENCODE_CONFIG_CONTENT="$default_config" "$opencode_bin" mcp list)
-[[ "$default_discovery" == *memtrace*disabled* ]] \
-  || fail "ordinary OpenCode discovery does not report Memtrace as disabled"
-opt_in_config=$(jq -cs '.[0] * .[1]' \
-  "$repo/opencode/opencode.json" "$repo/docs/opencode-memtrace-opt-in.json")
-opt_in_memtrace=$(env "${opencode_env[@]}" OPENCODE_CONFIG_CONTENT="$opt_in_config" \
-  "$opencode_bin" debug config | jq -c '.mcp.memtrace')
-jq -e '.enabled == true and .command == ["memtrace", "mcp"]' \
-  <<<"$opt_in_memtrace" >/dev/null \
-  || fail "documented OpenCode override does not enable Memtrace"
 node -e 'const p = require(process.argv[1]); if (p.name !== "@kunchenguid/m87" || p.version !== "0.1.10" || p.repository.url !== "git+https://github.com/kunchenguid/m87.git") process.exit(1)' \
   "$m87_package/libexec/m87/node_modules/@kunchenguid/m87/package.json" \
   || fail "M87 package identity does not match the authoritative upstream"
@@ -126,7 +103,7 @@ m87_sandbox=$(mktemp -d "$repo/.agent-tools-m87.XXXXXX")
 awkless_sandbox=$(mktemp -d "$repo/.agent-tools-m87-awkless.XXXXXX")
 pi_sandbox=$(mktemp -d "$repo/.agent-tools-pi.XXXXXX")
 skills_sandbox=$(mktemp -d "$repo/.agent-tools-skills.XXXXXX")
-trap 'rm -rf "$opencode_sandbox" "$m87_sandbox" "$awkless_sandbox" "$pi_sandbox" "$skills_sandbox"' EXIT
+trap 'rm -rf "$m87_sandbox" "$awkless_sandbox" "$pi_sandbox" "$skills_sandbox"' EXIT
 M87_STATE_DIR="$m87_sandbox/state" "$m87_package/bin/m87" \
   init --yes --plugin skip --no-install-service >/dev/null
 DRY_RUN_CMD='' M87_STATE_DIR="$m87_sandbox/state" HOME="$m87_sandbox/home" \
@@ -186,7 +163,7 @@ cat > "$pi_sandbox/.pi/agent/settings.json" <<'EOF'
     "npm:@ff-labs/pi-fff",
     "npm:pi-autoresearch",
     "npm:pi-autoresearch",
-    "/Users/laszlohoranszky/.local/lib/node_modules/memtrace/pi-package"
+    "npm:unrelated-local-extension@1.0.0"
   ]
 }
 EOF
@@ -210,7 +187,7 @@ for package in \
   'npm:pi-web-access@0.14.0' \
   'npm:@ryan_nookpi/pi-extension-codex-fast-mode@0.2.6' \
   'git:github.com/DietrichGebert/ponytail' \
-  '/Users/laszlohoranszky/.local/lib/node_modules/memtrace/pi-package'; do
+  'npm:unrelated-local-extension@1.0.0'; do
   jq -e --arg package "$package" '.packages | index($package) != null' "$settings" >/dev/null \
     || fail "Pi package reconciliation dropped $package"
 done
