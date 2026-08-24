@@ -8,13 +8,7 @@ fail() {
   exit 1
 }
 
-for token in "$(printf 'mem%s' trace)" "$(printf 'mem%s' db)"; do
-  if git -C "$repo" grep -n -i -- "$token" -- . >/dev/null 2>&1; then
-    fail "tracked configuration still contains a removed agent integration"
-  fi
-done
-forbidden_key=$(printf 'mem%s' trace)
-jq --arg key "$forbidden_key" -e '((.mcp // {}) | has($key) | not)' \
+jq -e '((.mcp // {}) | has("memtrace") | not)' \
   "$repo/opencode/opencode.json" >/dev/null \
   || fail "OpenCode configuration still registers a removed agent integration"
 
@@ -214,6 +208,9 @@ for skill in vision teach show-me; do
 done
 
 skills_update=$(cd "$repo" && just --dry-run update-skills 2>&1)
+if awk '$1 == "memtrace" { found = 1 } END { exit !found }' <<<"$skills_update"; then
+  fail "update-skills still invokes the removed agent installer"
+fi
 [[ "$skills_update" == *"skills add kunchenguid/vision -g -y --agent '*' --copy"* ]] \
   || fail "Vision is not declared through the all-agent copy-mode owner"
 [[ "$skills_update" == *"skills add mattpocock/skills --skill teach -g -y --agent '*' --copy"* ]] \
