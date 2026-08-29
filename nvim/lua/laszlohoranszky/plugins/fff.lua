@@ -29,21 +29,21 @@ return {
 	lazy = false,
 	keys = {
 		{
-			"ff", -- try it if you didn't it is a banger keybinding for a picker
+			"<leader>ff", -- try it if you didn't it is a banger keybinding for a picker
 			function()
 				require("fff").find_files()
 			end,
 			desc = "FFFind files",
 		},
 		{
-			"fs",
+			"<leader>fs",
 			function()
 				require("fff").live_grep()
 			end,
 			desc = "LiFFFe grep",
 		},
 		{
-			"fz",
+			"<leader>fz",
 			function()
 				require("fff").live_grep({
 					grep = {
