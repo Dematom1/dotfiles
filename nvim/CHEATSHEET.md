@@ -137,6 +137,14 @@
 
 ## Search & Replace
 
+### FFF (Files and Text)
+
+| Keys | Action |
+|------|--------|
+| `<leader>ff` | Find files |
+| `<leader>fs` | Search text |
+| `<leader>fz` | Fuzzy text search |
+
 ### Spectre (Project-wide Replace)
 | Keys | Action |
 |------|--------|

@@ -173,8 +173,9 @@ refresh-secrets:
 bootstrap: refresh-secrets setup-firstmate update-skills
     @echo "Bootstrap done. If GitHub isn't authed yet: gh auth login"
 
-# Focused regression checks for account selection, agent setup, and shell safety.
+# Focused regression checks for Neovim, account selection, agent setup, and shell safety.
 check-regressions:
+    ./tests/nvim-fff.sh
     ./tests/usernames.sh
     ./tests/terraform.sh
     ./tests/agent-tools.sh

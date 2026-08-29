@@ -520,9 +520,10 @@ The runtime uses a selective diagnostics policy:
   or launch service in this repository and must not be added back without an
   explicit decision.
 
-`just check-regressions` verifies the browser opt-out for both host profiles,
-keeps Claude and Determinate Nix diagnostics opt-outs absent, and rejects
-Clawdbot across tracked configuration, script, and launch-service surfaces.
+`just check-regressions` verifies the Neovim fff search mapping and the browser
+opt-out for both host profiles, keeps Claude and Determinate Nix diagnostics
+opt-outs absent, and rejects Clawdbot across tracked configuration, script, and
+launch-service surfaces.
 
 ## Updating and checks
 
@@ -541,7 +542,8 @@ Linux systems, then verifies the selected package sets and the activated
 operator path when safe local evidence is available. It also checks profile
 validation, selective OpenCode links, masked ui.sh installation, SketchyBar
 state-file safety (on macOS; on Linux it instead asserts the hook stays
-undefined), AXI hook failures, and shell regressions.
+undefined), AXI hook failures, the Neovim fff search mapping, and shell
+regressions.
 
 ## Key bindings
 
@@ -575,7 +577,7 @@ dotfiles/
 ├── packages/            # custom Nix package definitions
 ├── rebuild.sh           # validated profile selection and darwin-rebuild
 ├── justfile             # bootstrap, update, skills, and checks
-├── tests/               # account-selection and shell regressions
+├── tests/               # focused configuration regressions
 ├── .agents/             # shared skill source and provenance
 ├── nvim/ zsh/ ghostty/ atuin/ direnv/ git/ yazi/ bat/
 ├── aerospace/ sketchybar/ karabiner/
