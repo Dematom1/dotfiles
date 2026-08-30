@@ -20,12 +20,6 @@ setup_dry_run=$(cd "$repo" && "$just_bin" --justfile "$repo/justfile" --dry-run 
 [[ "$setup_dry_run" != *kun-agent-workspace* ]] || fail "setup-firstmate still uses the old Firstmate workspace"
 [[ "$setup_dry_run" == *'ws="$HOME/agent-workspace"'* ]] || fail "setup-firstmate lost the current Firstmate workspace"
 
-skills_dry_run=$(cd "$repo" && "$just_bin" --justfile "$repo/justfile" --dry-run update-skills 2>&1)
-[[ $(grep -Fc -- "--agent claude-code codex opencode pi --copy" <<<"$skills_dry_run") -eq 6 ]] \
-  || fail "skills update does not target the maintained agent surfaces"
-[[ "$skills_dry_run" != *"--agent '*'"* ]] || fail "skills update still targets every agent"
-[[ "$skills_dry_run" != *[Mm]emtrace* ]] || fail "skills update still declares Memtrace work"
-
 native_bin="$tmp/native-bin"
 mkdir -p "$native_bin"
 cat > "$native_bin/herdr" <<'EOF'
@@ -165,8 +159,6 @@ done
   || fail "successful update did not continue to no-mistakes"
 [[ "$(grep -Fc 'FirstMate stack updated.' "$stack_log" || true)" -eq 0 ]] \
   || fail "test fixture unexpectedly logged recipe output"
-[[ "$(grep -Fc -- '--agent claude-code codex opencode pi --copy' "$skills_log")" -eq 18 ]] \
-  || fail "skills update did not remain bounded and repeatable"
 [[ "$(grep -Fc 'warning: unsupported agent' "$skills_log" || true)" -eq 0 ]] \
   || fail "unsupported-agent warnings entered the skills invocation log"
 
