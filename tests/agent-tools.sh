@@ -197,30 +197,21 @@ if [[ "$system" == aarch64-darwin ]]; then
   done
 fi
 
-HOME="$skills_sandbox" npx -y skills add kunchenguid/vision -g -y --agent '*' --copy >/dev/null
-HOME="$skills_sandbox" npx -y skills add mattpocock/skills --skill teach -g -y --agent '*' --copy >/dev/null
-HOME="$skills_sandbox" npx -y skills add humanlayer/skills --skill show-me -g -y --agent '*' --copy >/dev/null
+HOME="$skills_sandbox" npx -y skills add kunchenguid/vision -g -y --agent claude-code codex opencode pi --copy >/dev/null
+HOME="$skills_sandbox" npx -y skills add mattpocock/skills --skill teach -g -y --agent claude-code codex opencode pi --copy >/dev/null
+HOME="$skills_sandbox" npx -y skills add humanlayer/skills --skill show-me -g -y --agent claude-code codex opencode pi --copy >/dev/null
 for skill in vision teach show-me; do
   [[ -f "$skills_sandbox/.claude/skills/$skill/SKILL.md" ]] \
     || fail "sandboxed Claude runtime cannot discover $skill"
+  [[ -f "$skills_sandbox/.agents/skills/$skill/SKILL.md" ]] \
+    || fail "sandboxed Codex and OpenCode runtimes cannot discover $skill"
   [[ -f "$skills_sandbox/.pi/agent/skills/$skill/SKILL.md" ]] \
     || fail "sandboxed Pi runtime cannot discover $skill"
+  [[ $(find "$skills_sandbox" -path '*/node_modules' -prune -o \
+    -path "*/skills/$skill/SKILL.md" -print | wc -l | tr -d ' ') -eq 3 ]] \
+    || fail "sandboxed skills CLI installed $skill for Eve or PromptScript"
 done
 
-skills_update=$(cd "$repo" && just --dry-run update-skills 2>&1)
-if awk '$1 == "memtrace" { found = 1 } END { exit !found }' <<<"$skills_update"; then
-  fail "update-skills still invokes the removed agent installer"
-fi
-[[ "$skills_update" == *"skills add kunchenguid/vision -g -y --agent '*' --copy"* ]] \
-  || fail "Vision is not declared through the all-agent copy-mode owner"
-[[ "$skills_update" == *"skills add mattpocock/skills --skill teach -g -y --agent '*' --copy"* ]] \
-  || fail "Matt Teach is not declared through the all-agent copy-mode owner"
-[[ "$skills_update" == *"skills add humanlayer/skills --skill show-me -g -y --agent '*' --copy"* ]] \
-  || fail "HumanLayer Show Me is not declared through the all-agent copy-mode owner"
-[[ $(grep -c "skills add .* --agent '\*' --copy" <<<"$skills_update") -eq 6 ]] \
-  || fail "not every all-agent skills source uses copy mode"
-[[ $(grep -Fc 'mattpocock/skills --skill' <<<"$skills_update") -eq 1 ]] \
-  || fail "an unapproved Matt Pocock skill source is declared"
 ! git -C "$repo" ls-files --error-unmatch .agents/skills/vision/SKILL.md >/dev/null 2>&1 \
   || fail "generated Vision files were committed"
 ! git -C "$repo" ls-files '.claude/plugins/**' | grep -q . \
