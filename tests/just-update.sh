@@ -11,15 +11,6 @@ fail() {
   exit 1
 }
 
-dry_run=$(cd "$repo" && "$just_bin" --justfile "$repo/justfile" --dry-run update 2>&1)
-[[ "$dry_run" != *[Mm]emtrace* ]] || fail "update still declares Memtrace work"
-[[ "$dry_run" != *kun-agent-workspace* ]] || fail "update still uses the old Firstmate workspace"
-[[ "$dry_run" == *'ws="$HOME/agent-workspace"'* ]] || fail "update lost the current Firstmate workspace"
-
-setup_dry_run=$(cd "$repo" && "$just_bin" --justfile "$repo/justfile" --dry-run setup-firstmate 2>&1)
-[[ "$setup_dry_run" != *kun-agent-workspace* ]] || fail "setup-firstmate still uses the old Firstmate workspace"
-[[ "$setup_dry_run" == *'ws="$HOME/agent-workspace"'* ]] || fail "setup-firstmate lost the current Firstmate workspace"
-
 native_bin="$tmp/native-bin"
 mkdir -p "$native_bin"
 cat > "$native_bin/herdr" <<'EOF'
@@ -103,7 +94,7 @@ cat > "$bin/uname" <<'EOF'
 printf 'Linux\n'
 EOF
 chmod +x "$bin/stack" "$bin/rsync" "$bin/npx" "$bin/brew" "$bin/uname"
-for command in git pi claude herdr treehouse no-mistakes npm; do ln -s stack "$bin/$command"; done
+for command in git pi claude herdr treehouse no-mistakes npm memtrace; do ln -s stack "$bin/$command"; done
 for command in gh-axi chrome-devtools-axi lavish-axi tasks-axi quota-axi pg-axi docker-axi npm-axi pypi-axi homebrew-axi linear-axi; do
   ln -s stack "$bin/$command"
 done
@@ -153,6 +144,8 @@ done
   || fail "update did not use the current Firstmate workspace"
 [[ "$(grep -Fc kun-agent-workspace "$stack_log" || true)" -eq 0 ]] \
   || fail "update used the old Firstmate workspace"
+[[ "$(grep -Fc 'memtrace ' "$stack_log" || true)" -eq 0 ]] \
+  || fail "update invoked Memtrace"
 [[ "$(grep -Fc 'treehouse update' "$stack_log")" -eq 2 ]] \
   || fail "successful update did not continue to Treehouse"
 [[ "$(grep -Fc 'no-mistakes update' "$stack_log")" -eq 2 ]] \

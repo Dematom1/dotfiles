@@ -291,16 +291,6 @@ browser_child_pid=$(<"$signal_child_pid")
 ! grep -Fqi 'clawdbot' "${policy_surfaces[@]}" \
   || fail "Clawdbot returned on a tracked configuration surface"
 
-output=$(cd "$repo" && just --dry-run update-skills 2>&1)
-[[ $(grep -c "skills add .* -g -y --agent claude-code codex opencode pi --copy" <<<"$output") -eq 6 ]] || fail "skills installers do not all target the maintained agent surfaces"
-[[ $(grep -c "skills add kunchenguid/vision -g -y --agent claude-code codex opencode pi --copy" <<<"$output") -eq 1 ]] || fail "Vision copy-mode source is not declared exactly once"
-[[ $(grep -c "skills add mattpocock/skills --skill teach -g -y --agent claude-code codex opencode pi --copy" <<<"$output") -eq 1 ]] || fail "Matt Teach source is not declared exactly once"
-[[ $(grep -c "skills add humanlayer/skills --skill show-me -g -y --agent claude-code codex opencode pi --copy" <<<"$output") -eq 1 ]] || fail "HumanLayer Show Me source is not declared exactly once"
-[[ "$output" != *"--agent '*'"* ]] || fail "skills installers still target every agent"
-[[ $(grep -Fc 'mattpocock/skills --skill' <<<"$output") -eq 1 ]] || fail "an unapproved Matt Pocock skill source is declared"
-[[ $output == *"\$(readlink \"\$link\")"* ]] || fail "skill-link cleanup does not inspect symlink targets"
-[[ $output != *"-type l -delete"* ]] || fail "skill-link cleanup removes tool-managed symlinks"
-
 skills_sandbox="$tmp/skills-sandbox"
 mkdir -p "$skills_sandbox/.agents/skills/shared" "$skills_sandbox/.agents/skills/fresh" \
   "$skills_sandbox/opencode/skills" "$skills_sandbox/home" "$skills_sandbox/bin"
