@@ -1,6 +1,7 @@
 # Dotfiles maintenance tasks - run `just` (or `just --list`).
 
 skills-dir := ".agents/skills"
+skill-agents := "claude-code codex opencode pi"
 
 # AXI agent tools installed as npm globals (https://axi.md).
 # kubernetes-axi is intentionally absent: flake.nix pins and packages it through
@@ -68,14 +69,14 @@ update-skills:
     env -u UIDOTSH_TOKEN npx -y @uidotsh/install
 
     echo "==> npx skills CLI (Vision + Teach + Show Me + whathappened + vercel-labs)"
-    npx -y skills add kunchenguid/vision -g -y --agent '*' --copy
-    npx -y skills add mattpocock/skills --skill teach -g -y --agent '*' --copy
-    npx -y skills add humanlayer/skills --skill show-me -g -y --agent '*' --copy
+    npx -y skills add kunchenguid/vision -g -y --agent {{ skill-agents }} --copy
+    npx -y skills add mattpocock/skills --skill teach -g -y --agent {{ skill-agents }} --copy
+    npx -y skills add humanlayer/skills --skill show-me -g -y --agent {{ skill-agents }} --copy
     # Copy mode is required because Claude's Home Manager-owned skill root is
     # itself a symlink; relative compatibility links there can become self-loops.
-    npx -y skills add kunchenguid/whathappened -g -y --agent '*' --copy
-    npx -y skills add vercel-labs/agent-skills -g -y --agent '*' --copy
-    npx -y skills add vercel-labs/skills -g -y --agent '*' --copy
+    npx -y skills add kunchenguid/whathappened -g -y --agent {{ skill-agents }} --copy
+    npx -y skills add vercel-labs/agent-skills -g -y --agent {{ skill-agents }} --copy
+    npx -y skills add vercel-labs/skills -g -y --agent {{ skill-agents }} --copy
 
     echo "==> wire shared skills into opencode (regenerated, not committed)"
     mkdir -p opencode/skills
@@ -181,6 +182,7 @@ check-regressions:
     ./tests/agent-tools.sh
     ./tests/pi-signed.sh
     ./tests/ponytail.sh
+    ./tests/just-update.sh
     ./tests/regressions.sh
 
 # Install Ponytail through each agent's native user-scoped package manager.
@@ -306,7 +308,7 @@ setup-firstmate:
     echo "==> extra global npm tools"
     npm install -g gnhf
 
-    ws="$HOME/kun-agent-workspace"
+    ws="$HOME/agent-workspace"
     echo "==> workspace: $ws"
     if [[ ! -d "$ws/.git" ]]; then
       git clone https://github.com/kunchenguid/firstmate.git "$ws"
@@ -329,15 +331,24 @@ report-pi-signed-drift:
     fi
 
 # Update the FirstMate stack via each tool's native updater (guide's order).
+_update-herdr:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if command -v brew >/dev/null 2>&1 && brew list --formula herdr >/dev/null 2>&1; then
+      brew update && brew upgrade herdr
+    else
+      herdr update
+    fi
+
 update-firstmate:
     #!/usr/bin/env bash
     set -euo pipefail
     set +h   # don't cache command locations (updaters may replace binaries)
-    ws="$HOME/kun-agent-workspace"
+    ws="$HOME/agent-workspace"
     if [[ -d "$ws/.git" ]]; then git -C "$ws" pull --ff-only; fi
     pi update --self
     just _update-ponytail
-    herdr update
+    just _update-herdr
     treehouse update
     no-mistakes update
     npm update -g {{ axi-tools }} gnhf

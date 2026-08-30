@@ -197,9 +197,9 @@ if [[ "$system" == aarch64-darwin ]]; then
   done
 fi
 
-HOME="$skills_sandbox" npx -y skills add kunchenguid/vision -g -y --agent '*' --copy >/dev/null
-HOME="$skills_sandbox" npx -y skills add mattpocock/skills --skill teach -g -y --agent '*' --copy >/dev/null
-HOME="$skills_sandbox" npx -y skills add humanlayer/skills --skill show-me -g -y --agent '*' --copy >/dev/null
+HOME="$skills_sandbox" npx -y skills add kunchenguid/vision -g -y --agent claude-code codex opencode pi --copy >/dev/null
+HOME="$skills_sandbox" npx -y skills add mattpocock/skills --skill teach -g -y --agent claude-code codex opencode pi --copy >/dev/null
+HOME="$skills_sandbox" npx -y skills add humanlayer/skills --skill show-me -g -y --agent claude-code codex opencode pi --copy >/dev/null
 for skill in vision teach show-me; do
   [[ -f "$skills_sandbox/.claude/skills/$skill/SKILL.md" ]] \
     || fail "sandboxed Claude runtime cannot discover $skill"
@@ -211,14 +211,16 @@ skills_update=$(cd "$repo" && just --dry-run update-skills 2>&1)
 if awk '$1 == "memtrace" { found = 1 } END { exit !found }' <<<"$skills_update"; then
   fail "update-skills still invokes the removed agent installer"
 fi
-[[ "$skills_update" == *"skills add kunchenguid/vision -g -y --agent '*' --copy"* ]] \
-  || fail "Vision is not declared through the all-agent copy-mode owner"
-[[ "$skills_update" == *"skills add mattpocock/skills --skill teach -g -y --agent '*' --copy"* ]] \
-  || fail "Matt Teach is not declared through the all-agent copy-mode owner"
-[[ "$skills_update" == *"skills add humanlayer/skills --skill show-me -g -y --agent '*' --copy"* ]] \
-  || fail "HumanLayer Show Me is not declared through the all-agent copy-mode owner"
-[[ $(grep -c "skills add .* --agent '\*' --copy" <<<"$skills_update") -eq 6 ]] \
-  || fail "not every all-agent skills source uses copy mode"
+[[ "$skills_update" == *"skills add kunchenguid/vision -g -y --agent claude-code codex opencode pi --copy"* ]] \
+  || fail "Vision is not declared through the maintained agent surfaces"
+[[ "$skills_update" == *"skills add mattpocock/skills --skill teach -g -y --agent claude-code codex opencode pi --copy"* ]] \
+  || fail "Matt Teach is not declared through the maintained agent surfaces"
+[[ "$skills_update" == *"skills add humanlayer/skills --skill show-me -g -y --agent claude-code codex opencode pi --copy"* ]] \
+  || fail "HumanLayer Show Me is not declared through the maintained agent surfaces"
+[[ $(grep -c "skills add .* --agent claude-code codex opencode pi --copy" <<<"$skills_update") -eq 6 ]] \
+  || fail "not every skills source targets the maintained agent surfaces"
+[[ "$skills_update" != *"--agent '*'"* ]] \
+  || fail "skills update still targets every agent"
 [[ $(grep -Fc 'mattpocock/skills --skill' <<<"$skills_update") -eq 1 ]] \
   || fail "an unapproved Matt Pocock skill source is declared"
 ! git -C "$repo" ls-files --error-unmatch .agents/skills/vision/SKILL.md >/dev/null 2>&1 \
