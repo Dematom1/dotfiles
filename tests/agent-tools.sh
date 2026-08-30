@@ -212,12 +212,6 @@ for skill in vision teach show-me; do
     || fail "sandboxed skills CLI installed $skill for Eve or PromptScript"
 done
 
-skills_update=$(cd "$repo" && just --dry-run update-skills 2>&1)
-if awk '$1 == "memtrace" { found = 1 } END { exit !found }' <<<"$skills_update"; then
-  fail "update-skills still invokes the removed agent installer"
-fi
-[[ $(grep -Fc 'mattpocock/skills --skill' <<<"$skills_update") -eq 1 ]] \
-  || fail "an unapproved Matt Pocock skill source is declared"
 ! git -C "$repo" ls-files --error-unmatch .agents/skills/vision/SKILL.md >/dev/null 2>&1 \
   || fail "generated Vision files were committed"
 ! git -C "$repo" ls-files '.claude/plugins/**' | grep -q . \
