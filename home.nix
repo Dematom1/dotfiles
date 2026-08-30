@@ -122,9 +122,9 @@ in
     # Claude gets a composition entrypoint (shared AGENTS.md + Claude-only RTK)
     ".claude/CLAUDE.md".source     = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/claude/CLAUDE.md";
     ".codex/AGENTS.md".source      = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/AGENTS.md";
-    # Agent-agnostic generated skills. `just update-skills` uses the skills
-    # CLI's copy mode because a relative leaf symlink under this linked root can
-    # otherwise point back to itself. See .agents/SKILLS.md.
+    # Generated skills for the maintained agent surfaces. `just update-skills`
+    # uses the skills CLI's copy mode because a relative leaf symlink under this
+    # linked root can otherwise point back to itself. See .agents/SKILLS.md.
     ".claude/skills".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/.agents/skills";
     # pi-fff is a real Pi extension entrypoint, not merely an installed package.
     # The activation reconciliation below removes its duplicate npm registry entry.
