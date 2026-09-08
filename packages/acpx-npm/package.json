@@ -2,6 +2,6 @@
   "name": "dotfiles-acpx-package",
   "private": true,
   "dependencies": {
-    "acpx": "0.13.1"
+    "acpx": "0.13.2"
   }
 }
