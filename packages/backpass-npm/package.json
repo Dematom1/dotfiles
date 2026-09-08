@@ -2,6 +2,6 @@
   "name": "dotfiles-backpass-package",
   "private": true,
   "dependencies": {
-    "backpass": "0.1.1"
+    "backpass": "0.1.15"
   }
 }
