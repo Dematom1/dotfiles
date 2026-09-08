@@ -325,18 +325,6 @@
       "rollback_note": "Rebuild the prior Nix profile."
     },
     {
-      "id": "headroom",
-      "name": "Headroom",
-      "owner": "pipx/direct package",
-      "version_command": ["headroom", "--version"],
-      "release_adapter": "github",
-      "github_repo": "lmnr-ai/headroom",
-      "release_source": "https://github.com/lmnr-ai/headroom/releases",
-      "risk": "R1",
-      "risk_reason": "Output wrapper behavior affects agent sessions.",
-      "rollback_note": "Restore the prior pipx environment."
-    },
-    {
       "id": "rtk",
       "name": "RTK",
       "owner": "Homebrew formula",

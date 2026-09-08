@@ -490,21 +490,6 @@ memory and its environment. This does not contain same-user malware or a root
 compromise, and it does not replace CI, Kubernetes, production, or centralized
 secret management.
 
-## Agent wrappers
-
-Home Manager persists the Headroom wrappers as zsh aliases, so rebuilds retain
-them:
-
-- `claude` runs `headroom wrap claude --` with Claude Code's standard 200K
-  context window.
-- `claude1m` runs `headroom wrap claude --1m --`, providing the opt-in 1M
-  context window for tasks that truly need it.
-- `codex` runs Headroom on local port `8787` with `--no-proxy`,
-  `--no-context-tool`, `--no-mcp`, `--no-tokensave`, and `--no-serena`.
-
-The Codex wrapper therefore keeps its current no-proxy and no-TokenSave posture
-while preserving the existing Headroom invocation and port.
-
 ## AI runtime hygiene
 
 The runtime uses a selective diagnostics policy:
