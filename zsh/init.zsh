@@ -165,5 +165,4 @@ alias deploy-dev='deploy dev'
 
 # --- Misc env ---
 export BAT_THEME=tokyonight_night
-export HEADROOM_OUTPUT_SHAPER=1
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
