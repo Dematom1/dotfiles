@@ -9,6 +9,13 @@
     brews = [
       # work-only CLI tools, e.g. "awscli"
       "gitlab-ci-local"
+      "glab"
+      "databricks"
+    ];
+    # databricks ships from the databricks/tap tap, not homebrew-core;
+    # declaring it here keeps it tapped across zap rebuilds.
+    taps = [
+      "databricks/tap"
     ];
     casks = [
       # work-only apps, e.g. "company-vpn"
