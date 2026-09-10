@@ -34,10 +34,10 @@ acpx_package=$(nix build --no-link --print-out-paths "$repo#acpx")
 node -e 'const p = require(process.argv[1]); if (p.name !== "@kunchenguid/m87" || p.version !== "0.1.10" || p.repository.url !== "git+https://github.com/kunchenguid/m87.git") process.exit(1)' \
   "$m87_package/libexec/m87/node_modules/@kunchenguid/m87/package.json" \
   || fail "M87 package identity does not match the authoritative upstream"
-node -e 'const p = require(process.argv[1]); if (p.name !== "backpass" || p.version !== "0.1.1" || p.bin.backpass !== "./bin/backpass.js") process.exit(1)' \
+node -e 'const p = require(process.argv[1]); if (p.name !== "backpass" || p.version !== "0.1.15" || p.bin.backpass !== "./bin/backpass.js") process.exit(1)' \
   "$backpass_package/libexec/backpass/node_modules/backpass/package.json" \
   || fail "backpass package identity does not match the authoritative upstream"
-node -e 'const p = require(process.argv[1]); if (p.name !== "acpx" || p.version !== "0.13.1" || p.bin.acpx !== "dist/cli.js") process.exit(1)' \
+node -e 'const p = require(process.argv[1]); if (p.name !== "acpx" || p.version !== "0.13.2" || p.bin.acpx !== "dist/cli.js") process.exit(1)' \
   "$acpx_package/libexec/acpx/node_modules/acpx/package.json" \
   || fail "acpx package identity does not match the authoritative upstream"
 
@@ -62,7 +62,7 @@ for target in "${targets[@]}"; do
 
   pi_fff=$(nix eval --raw "$repo#$prefix.home.file.\".pi/agent/extensions/pi-fff\".source")
   [[ -f "$pi_fff/index.ts" ]] || fail "$profile Pi extension path has no pi-fff entrypoint"
-  node -e 'const p = require(process.argv[1]); if (p.name !== "@ff-labs/pi-fff" || p.version !== "0.10.5" || p.pi.extensions[0] !== "./src/index.ts") process.exit(1)' \
+  node -e 'const p = require(process.argv[1]); if (p.name !== "@ff-labs/pi-fff" || p.version !== "0.10.6" || p.pi.extensions[0] !== "./src/index.ts") process.exit(1)' \
     "$(dirname "$pi_fff")/package.json" \
     || fail "$profile Pi extension path has the wrong package identity"
 
