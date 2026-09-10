@@ -62,7 +62,7 @@ for target in "${targets[@]}"; do
 
   pi_fff=$(nix eval --raw "$repo#$prefix.home.file.\".pi/agent/extensions/pi-fff\".source")
   [[ -f "$pi_fff/index.ts" ]] || fail "$profile Pi extension path has no pi-fff entrypoint"
-  node -e 'const p = require(process.argv[1]); if (p.name !== "@ff-labs/pi-fff" || p.version !== "0.10.5" || p.pi.extensions[0] !== "./src/index.ts") process.exit(1)' \
+  node -e 'const p = require(process.argv[1]); if (p.name !== "@ff-labs/pi-fff" || p.version !== "0.10.6" || p.pi.extensions[0] !== "./src/index.ts") process.exit(1)' \
     "$(dirname "$pi_fff")/package.json" \
     || fail "$profile Pi extension path has the wrong package identity"
 

@@ -6,10 +6,10 @@
 
 buildNpmPackage {
   pname = "pi-fff";
-  version = "0.10.5";
+  version = "0.10.6";
 
   src = ./pi-fff-npm;
-  npmDepsHash = "sha256-xEpDYFMEle8HDEQgZHA9Ru0AIm7FQ5soGsMUSDCXfgE=";
+  npmDepsHash = "sha256-RgI2Ak+lsT8wv5ncG1C0f5orh+ImtgoJmym3PAqOYXM=";
   nodejs = nodejs_24;
   npmFlags = [ "--legacy-peer-deps" ];
   dontNpmBuild = true;
@@ -18,7 +18,7 @@ buildNpmPackage {
   checkPhase = ''
     runHook preCheck
     test -f node_modules/@ff-labs/pi-fff/src/index.ts
-    node -e 'const p = require("./node_modules/@ff-labs/pi-fff/package.json"); if (p.name !== "@ff-labs/pi-fff" || p.version !== "0.10.5" || p.pi.extensions[0] !== "./src/index.ts") process.exit(1)'
+    node -e 'const p = require("./node_modules/@ff-labs/pi-fff/package.json"); if (p.name !== "@ff-labs/pi-fff" || p.version !== "0.10.6" || p.pi.extensions[0] !== "./src/index.ts") process.exit(1)'
     runHook postCheck
   '';
 
