@@ -140,7 +140,7 @@ in
       # runs first - p10k instant prompt must precede any output
       (lib.mkBefore ''
         # p10k instant-prompt verbosity is owned by ~/.p10k.zsh (set to quiet there)
-        ENABLE_CORRECTION="true"
+        ENABLE_CORRECTION="false"
         COMPLETION_WAITING_DOTS="true"
         if [[ -r "''${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-''${(%):-%n}.zsh" ]]; then
           source "''${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-''${(%):-%n}.zsh"
