@@ -37,7 +37,7 @@ node -e 'const p = require(process.argv[1]); if (p.name !== "@kunchenguid/m87" |
 node -e 'const p = require(process.argv[1]); if (p.name !== "backpass" || p.version !== "0.1.1" || p.bin.backpass !== "./bin/backpass.js") process.exit(1)' \
   "$backpass_package/libexec/backpass/node_modules/backpass/package.json" \
   || fail "backpass package identity does not match the authoritative upstream"
-node -e 'const p = require(process.argv[1]); if (p.name !== "acpx" || p.version !== "0.13.1" || p.bin.acpx !== "dist/cli.js") process.exit(1)' \
+node -e 'const p = require(process.argv[1]); if (p.name !== "acpx" || p.version !== "0.13.2" || p.bin.acpx !== "dist/cli.js") process.exit(1)' \
   "$acpx_package/libexec/acpx/node_modules/acpx/package.json" \
   || fail "acpx package identity does not match the authoritative upstream"
 

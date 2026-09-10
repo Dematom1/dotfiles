@@ -7,10 +7,10 @@
 
 buildNpmPackage {
   pname = "acpx";
-  version = "0.13.1";
+  version = "0.13.2";
 
   src = ./acpx-npm;
-  npmDepsHash = "sha256-JRG2W376A1iqTSdNsNx6v2f+bHxZSHdGQy9eK3FiqLs=";
+  npmDepsHash = "sha256-J84cgk/zc8LFWsID19MqlgJmj+IVm1hcsSKuVKb4C/0=";
   nodejs = nodejs_24;
   dontNpmBuild = true;
 
@@ -19,7 +19,7 @@ buildNpmPackage {
   doCheck = true;
   checkPhase = ''
     runHook preCheck
-    node -e 'const p = require("./node_modules/acpx/package.json"); if (p.name !== "acpx" || p.version !== "0.13.1" || p.bin.acpx !== "dist/cli.js") process.exit(1)'
+    node -e 'const p = require("./node_modules/acpx/package.json"); if (p.name !== "acpx" || p.version !== "0.13.2" || p.bin.acpx !== "dist/cli.js") process.exit(1)'
     runHook postCheck
   '';
 
