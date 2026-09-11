@@ -21,6 +21,10 @@ let
   piAutoresearchPackage = "npm:pi-autoresearch";
   nixManagedPiPackage = "npm:@ff-labs/pi-fff";
   piSignedExecutable = "/Applications/Pi Launcher.app/Contents/MacOS/pi-launcher";
+  avProjectPolicy = pkgs.writeShellScriptBin "av" ''
+    unset AV_VENDOR_CLI
+    exec ${pkgs.bash}/bin/bash ${./scripts/av-firstmate-policy.sh} "$@"
+  '';
   piSignedEntrypoint = pkgs.writeShellScript "pi-signed" ''
     set -eu
     if [ "''${1-}" = update ] && [ "''${2-}" = --self ]; then
@@ -38,7 +42,8 @@ in
   home.stateVersion = "26.05";
 
   # Automic Vault installs its signed CLI stub here after the app is opened.
-  # Declare the path explicitly so `av` is available in Home Manager shells.
+  # Managed `av` availability is documented in README.md under
+  # "Firstmate project availability".
   home.sessionPath = lib.optionals pkgs.stdenv.isDarwin [
     "${config.home.homeDirectory}/.local/bin"
     "/usr/local/bin"
@@ -71,6 +76,7 @@ in
     aerospace
     wezterm
     chromeDevtoolsMcp
+    avProjectPolicy
     nerd-fonts.hack
   ]
   # personal Mac only (the Homebrew equivalent lives in hosts/personal.nix)
