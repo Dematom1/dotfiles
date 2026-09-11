@@ -12,7 +12,8 @@ fail() {
 }
 
 policy="$repo/scripts/av-firstmate-policy.sh"
-fm_home="$tmp/firstmate"
+test_home="$tmp/home"
+fm_home="$test_home/agent-workspace"
 canonical="$fm_home/projects/canonical"
 isolated="$tmp/canonical-isolated"
 unregistered="$tmp/unregistered"
@@ -51,55 +52,78 @@ printf 'vendor-ok\n'
 EOF
 chmod +x "$vendor"
 
-run_allowed() {
-  local dir=$1 task=${2-}
-  if [ -n "$task" ]; then
-    (cd "$dir" && FM_HOME="$fm_home" AV_VENDOR_CLI="$vendor" FM_TASK_ID="$task" \
-      "$policy" inject +SAFE_NAME -- approved-tool --flag value)
-  else
-    (cd "$dir" && FM_HOME="$fm_home" AV_VENDOR_CLI="$vendor" \
-      "$policy" inject +SAFE_NAME -- approved-tool --flag value)
-  fi
+invoke_policy() {
+  local dir=$1 task=$2
+  shift 2
+  (cd -L "$dir" && env "${home_env[@]}" AV_VENDOR_CLI="$vendor" FM_TASK_ID="$task" \
+    VENDOR_ARGS="$args_log" "$policy" "$@")
 }
 
-output=$(VENDOR_ARGS="$args_log" run_allowed "$canonical")
-[[ "$output" == vendor-ok ]] || fail "registered canonical clone was denied"
-[[ "$(<"$args_log")" == $'<inject>\n<+SAFE_NAME>\n<-->\n<approved-tool>\n<--flag>\n<value>' ]] \
-  || fail "policy changed the av request instead of forwarding it"
+run_allowed() {
+  local output
+  output=$(invoke_policy "$1" "${2-}" inject +SAFE_NAME -- approved-tool --flag value)
+  [[ "$output" == vendor-ok ]] || fail "registered path was denied: $1"
+  [[ "$(<"$args_log")" == $'<inject>\n<+SAFE_NAME>\n<-->\n<approved-tool>\n<--flag>\n<value>' ]] \
+    || fail "policy changed the av request instead of forwarding it"
+}
+
+expect_denied() {
+  local dir=$1 label=$2 task=${3-} output status
+  rm -f "$args_log"
+  if output=$(invoke_policy "$dir" "$task" --version 2>&1); then
+    fail "$label was allowed"
+  else
+    status=$?
+  fi
+  [[ $status -eq 126 ]] || fail "$label returned $status instead of 126"
+  [[ "$output" == av\ unavailable:* ]] || fail "$label did not fail closed: $output"
+  [[ ! -e "$args_log" ]] || fail "$label reached the vendor CLI"
+}
 
 cat > "$fm_home/state/task-1.meta" <<EOF
 project=$canonical
 worktree=$isolated
 kind=ship
 EOF
-output=$(VENDOR_ARGS="$args_log" run_allowed "$isolated/subdir" task-1)
-[[ "$output" == vendor-ok ]] || fail "verified isolated copy was denied"
-
-expect_denied() {
-  local dir=$1 label=$2 task=${3-}
-  set +e
-  if [ -n "$task" ]; then
-    output=$(cd -L "$dir" && FM_HOME="$fm_home" AV_VENDOR_CLI="$vendor" FM_TASK_ID="$task" \
-      "$policy" --version 2>&1)
-  else
-    output=$(cd -L "$dir" && FM_HOME="$fm_home" AV_VENDOR_CLI="$vendor" \
-      "$policy" --version 2>&1)
-  fi
-  status=$?
-  set -e
-  [[ $status -eq 126 ]] || fail "$label returned $status instead of 126"
-  [[ "$output" == av\ unavailable:* ]] || fail "$label did not fail closed: $output"
-}
-
-expect_denied "$arbitrary" "arbitrary directory"
-expect_denied "$unregistered" "unregistered repository"
-expect_denied "$lookalike" "remote-name-only lookalike"
-expect_denied "$isolated" "isolated copy without task identity"
-expect_denied "$fm_home/projects/spoof" "registered symlink spoof"
-
-# The path below resolves to the canonical clone, but its logical spelling is a
-# symlink. Create it after the direct checks so the canonical fixture stays real.
+cat > "$fm_home/state/path-spoof.meta" <<EOF
+project=$canonical
+worktree=$unregistered
+kind=ship
+EOF
 ln -s "$canonical" "$tmp/canonical-link"
-expect_denied "$tmp/canonical-link" "working-directory symlink spoof"
+ln -s "$isolated" "$tmp/isolated-link"
+cat > "$fm_home/state/symlink-spoof.meta" <<EOF
+project=$canonical
+worktree=$tmp/isolated-link
+kind=ship
+EOF
+git -C "$unregistered" worktree add -q -b spoof "$tmp/unrelated-copy"
+cat > "$fm_home/state/common-spoof.meta" <<EOF
+project=$canonical
+worktree=$tmp/unrelated-copy
+kind=ship
+EOF
+
+for mode in explicit unset empty; do
+  case "$mode" in
+    explicit) home_env=("HOME=$tmp/unused-home" "FM_HOME=$fm_home") ;;
+    unset) home_env=(-u FM_HOME "HOME=$test_home") ;;
+    empty) home_env=("HOME=$test_home" FM_HOME=) ;;
+  esac
+  run_allowed "$canonical"
+  run_allowed "$tmp/canonical-link"
+  run_allowed "$isolated/subdir" task-1
+  run_allowed "$tmp/isolated-link/subdir" task-1
+
+  expect_denied "$arbitrary" "arbitrary directory"
+  expect_denied "$unregistered" "unregistered repository"
+  expect_denied "$lookalike" "remote-name-only lookalike"
+  expect_denied "$isolated" "isolated copy without task identity"
+  expect_denied "$fm_home/projects/spoof" "registered symlink spoof"
+  expect_denied "$unregistered" "task path mismatch" task-1
+  expect_denied "$unregistered" "unlinked task path spoof" path-spoof
+  expect_denied "$isolated" "metadata symlink spoof" symlink-spoof
+  expect_denied "$tmp/unrelated-copy" "Git common directory spoof" common-spoof
+done
 
 printf '%s\n' "Automic Vault Firstmate project policy checks passed"

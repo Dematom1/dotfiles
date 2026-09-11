@@ -85,7 +85,7 @@ registered_project() {
 }
 
 [ -x "$AV_VENDOR_CLI" ] || fail "the signed vendor CLI is not executable"
-[ -n "${FM_HOME:-}" ] || fail "Firstmate home is not explicit"
+FM_HOME=${FM_HOME:-${HOME:?}/agent-workspace}
 [ "${FM_HOME#/}" != "$FM_HOME" ] || fail "Firstmate home must be absolute"
 [ ! -L "$FM_HOME" ] || fail "Firstmate home is a symlink"
 contains_symlink "$FM_HOME" && fail "Firstmate home contains a symlink"
@@ -102,7 +102,6 @@ done
 [ -f "$REGISTRY" ] || fail "Firstmate project registry is missing"
 
 PWD_PHYSICAL=$(pwd -P) || fail "working directory cannot be resolved"
-[ "${PWD:-}" = "$PWD_PHYSICAL" ] || fail "working directory is not the physical path"
 contains_symlink "$PWD_PHYSICAL" && fail "working directory contains a symlink"
 
 CURRENT_ROOT=$(git -C "$PWD_PHYSICAL" rev-parse --path-format=absolute --show-toplevel 2>/dev/null) ||

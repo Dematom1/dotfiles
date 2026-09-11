@@ -421,14 +421,18 @@ The managed `av` command is available only when the physical working directory
 is inside a registered canonical clone or a verified Firstmate worker copy.
 Canonical clones are matched by the authoritative Firstmate registry at
 `$FM_HOME/data/projects.md`, their real path under `$FM_HOME/projects`, and
-Git's content-addressed common repository identity. An isolated copy additionally
+Git's content-addressed common repository identity. When `FM_HOME` is unset or
+empty, the gate uses `$HOME/agent-workspace`, the home installed by
+`just setup-firstmate`. An isolated copy additionally
 requires Firstmate's `FM_TASK_ID`, its unique `state/<task>.meta` `project` and
 `worktree` bindings, and Git's registered worktree record pointing at that exact
 path and common object database.
 
-The gate rejects arbitrary repositories, unregistered clones, symlink or logical
-path spellings, and repositories that merely share a basename or remote URL. It
-never creates a second project registry. It forwards every `av` argument
+The gate rejects arbitrary repositories, unregistered clones, symlinks in
+registered identity paths, and repositories that merely share a basename or remote
+URL. Navigation through a symlink is allowed when the physical working directory
+resolves to the verified clone or worker copy. It never creates a second project
+registry. It forwards every `av` argument
 unchanged to the signed vendor CLI after the identity check.
 
 Availability is not launcher endorsement, secret selection, an approval bypass,
