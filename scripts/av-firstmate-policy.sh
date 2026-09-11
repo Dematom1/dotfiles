@@ -95,7 +95,9 @@ DATA="$FM_HOME/data"
 PROJECTS="$FM_HOME/projects"
 STATE="$FM_HOME/state"
 REGISTRY="$DATA/projects.md"
-[ -d "$DATA" ] && [ -d "$PROJECTS" ] && [ -d "$STATE" ] || fail "Firstmate home is incomplete"
+if ! [ -d "$DATA" ] || ! [ -d "$PROJECTS" ] || ! [ -d "$STATE" ]; then
+  fail "Firstmate home is incomplete"
+fi
 for path in "$DATA" "$PROJECTS" "$STATE" "$REGISTRY"; do
   [ ! -L "$path" ] || fail "Firstmate identity path is a symlink"
 done
@@ -132,7 +134,9 @@ case "$PROJECT_META_INPUT:$WORKTREE_META_INPUT" in
   /*:/*) ;;
   *) fail "Firstmate task paths must be absolute" ;;
 esac
-[ ! -L "$PROJECT_META_INPUT" ] && [ ! -L "$WORKTREE_META_INPUT" ] || fail "Firstmate task path is a symlink"
+if [ -L "$PROJECT_META_INPUT" ] || [ -L "$WORKTREE_META_INPUT" ]; then
+  fail "Firstmate task path is a symlink"
+fi
 contains_symlink "$PROJECT_META_INPUT" && fail "Firstmate project path contains a symlink"
 contains_symlink "$WORKTREE_META_INPUT" && fail "Firstmate worktree path contains a symlink"
 PROJECT_META=$(absolute_dir "$PROJECT_META_INPUT") || fail "Firstmate project binding is not a directory"

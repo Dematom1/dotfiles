@@ -236,7 +236,8 @@ with `just rebuild personal`.
 
 Both macOS profiles declaratively install `kunchenguid/tap/pi-launcher` and the
 single `automic-vault/isotopes/automic-vault` cask that owns the Automic Vault
-app and signed `av` CLI stub. After `just rebuild`, verify that `av --version`
+app and signed `av` CLI stub. After `just rebuild`, follow the
+[Vault command setup](#manual-gh_token-pilot) and verify that `av --version`
 matches the app's `CFBundleShortVersionString`; stop if they differ.
 
 Home Manager installs exactly one credentialed `pi-signed` entrypoint at
@@ -421,12 +422,13 @@ The managed `av` command is available only when the physical working directory
 is inside a registered canonical clone or a verified Firstmate worker copy.
 Canonical clones are matched by the authoritative Firstmate registry at
 `$FM_HOME/data/projects.md`, their real path under `$FM_HOME/projects`, and
-Git's content-addressed common repository identity. When `FM_HOME` is unset or
+Git's common repository directory. When `FM_HOME` is unset or
 empty, the gate uses `$HOME/agent-workspace`, the home installed by
 `just setup-firstmate`. An isolated copy additionally
-requires Firstmate's `FM_TASK_ID`, its unique `state/<task>.meta` `project` and
-`worktree` bindings, and Git's registered worktree record pointing at that exact
-path and common object database.
+requires Firstmate's `FM_TASK_ID`, unique `project`, `worktree`, and `kind`
+fields in `$FM_HOME/state/<task>.meta`, a `kind` of `ship` or `scout`, and Git's
+registered worktree record pointing at that exact path and common repository
+directory.
 
 The gate rejects arbitrary repositories, unregistered clones, symlinks in
 registered identity paths, and repositories that merely share a basename or remote
@@ -440,6 +442,8 @@ or broader credential scope. Existing per-secret and per-launcher authorization,
 including the signed `pi-signed` route and its absolute vendor CLI path, remains
 unchanged.
 
+#### Manual GH_TOKEN pilot
+
 This is a bounded, manual pilot for `GH_TOKEN`. It does not harden or replace
 the Nix-provided `gh`, migrate credentials, or remove any existing GitHub CLI
 authentication.
@@ -447,7 +451,9 @@ authentication.
 1. Apply the selected Mac profile with `just rebuild personal` or
    `just rebuild work`.
 2. Open the app once so its approval service is running and its signed CLI stub
-   is installed, then verify the command is the expected stub:
+   is installed. From a project directory that satisfies
+   [Firstmate project availability](#firstmate-project-availability), verify
+   the managed command below and run the remaining `av` steps:
 
    ```bash
    open /Applications/Automic\ Vault.app
@@ -455,8 +461,7 @@ authentication.
    av --version
    ```
 
-   `command -v av` should print the managed Home Manager `av` wrapper, which
-   delegates to `/usr/local/bin/av` only after the Firstmate project check.
+   `command -v av` should print the managed Home Manager `av` wrapper.
 3. Audit all reported exposure without changing it. The repository wrapper
    runs the real login-shell path and prints only category, severity, and count:
 
