@@ -21,6 +21,10 @@ let
   piAutoresearchPackage = "npm:pi-autoresearch";
   nixManagedPiPackage = "npm:@ff-labs/pi-fff";
   piSignedExecutable = "/Applications/Pi Launcher.app/Contents/MacOS/pi-launcher";
+  avProjectPolicy = pkgs.writeShellScriptBin "av" ''
+    unset AV_VENDOR_CLI
+    exec ${pkgs.bash}/bin/bash ${./scripts/av-firstmate-policy.sh} "$@"
+  '';
   piSignedEntrypoint = pkgs.writeShellScript "pi-signed" ''
     set -eu
     if [ "''${1-}" = update ] && [ "''${2-}" = --self ]; then
@@ -71,6 +75,7 @@ in
     aerospace
     wezterm
     chromeDevtoolsMcp
+    avProjectPolicy
     nerd-fonts.hack
   ]
   # personal Mac only (the Homebrew equivalent lives in hosts/personal.nix)

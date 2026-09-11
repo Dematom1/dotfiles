@@ -405,15 +405,36 @@ clipboard.
 
 Automic Vault is declared as the official
 `automic-vault/isotopes/automic-vault` Homebrew cask in `configuration.nix`, so
-both Mac profiles install it during a rebuild. Home Manager also places the
-vendor's `/usr/local/bin` CLI location on `PATH`. The third-party cask follows
-this repository's existing rolling Homebrew convention and is not pinned by
-`flake.lock`; its cask metadata pins each release artifact by SHA-256. At pilot
-start the captain observed `av 3.3.0`.
+both Mac profiles install it during a rebuild. Home Manager places a managed
+Firstmate identity gate ahead of the vendor's `/usr/local/bin` CLI stub. The
+third-party cask follows this repository's existing rolling Homebrew convention
+and is not pinned by `flake.lock`; its cask metadata pins each release artifact
+by SHA-256. At pilot start the captain observed `av 3.3.0`.
 
 The [official CLI manual](https://www.automicvault.com/docs/) and
 [source repository](https://github.com/automic-vault/automic-vault) are the
 authoritative product references.
+
+#### Firstmate project availability
+
+The managed `av` command is available only when the physical working directory
+is inside a registered canonical clone or a verified Firstmate worker copy.
+Canonical clones are matched by the authoritative Firstmate registry at
+`$FM_HOME/data/projects.md`, their real path under `$FM_HOME/projects`, and
+Git's content-addressed common repository identity. An isolated copy additionally
+requires Firstmate's `FM_TASK_ID`, its unique `state/<task>.meta` `project` and
+`worktree` bindings, and Git's registered worktree record pointing at that exact
+path and common object database.
+
+The gate rejects arbitrary repositories, unregistered clones, symlink or logical
+path spellings, and repositories that merely share a basename or remote URL. It
+never creates a second project registry. It forwards every `av` argument
+unchanged to the signed vendor CLI after the identity check.
+
+Availability is not launcher endorsement, secret selection, an approval bypass,
+or broader credential scope. Existing per-secret and per-launcher authorization,
+including the signed `pi-signed` route and its absolute vendor CLI path, remains
+unchanged.
 
 This is a bounded, manual pilot for `GH_TOKEN`. It does not harden or replace
 the Nix-provided `gh`, migrate credentials, or remove any existing GitHub CLI
@@ -430,7 +451,8 @@ authentication.
    av --version
    ```
 
-   `command -v av` should print `/usr/local/bin/av`.
+   `command -v av` should print the managed Home Manager `av` wrapper, which
+   delegates to `/usr/local/bin/av` only after the Firstmate project check.
 3. Audit all reported exposure without changing it. The repository wrapper
    runs the real login-shell path and prints only category, severity, and count:
 
