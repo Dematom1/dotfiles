@@ -10,6 +10,45 @@ fail() {
   exit 1
 }
 
+av_probe="$tmp/av-probe"
+cat > "$av_probe" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' '{"findings":[{"source":"probe","severity":"high","value":"MUST_NOT_LEAK","affected":[{"path":"MUST_NOT_LEAK"}]}]}'
+EOF
+chmod +x "$av_probe"
+
+output=$("$repo/scripts/av-scan-summary.sh" --scanner "$av_probe")
+[[ $output == '{"total":1,"categories":[{"source":"probe","severity":"high","count":1}]}' ]] \
+  || fail "Automic Vault operator summary exposed or misreported finding payloads"
+[[ $output != *MUST_NOT_LEAK* ]] \
+  || fail "Automic Vault operator summary leaked raw finding data"
+
+set +e
+output=$("$repo/scripts/av-scan-summary.sh" --require-clean --scanner "$av_probe" 2>&1)
+status=$?
+set -e
+[[ $status -eq 1 ]] || fail "Automic Vault clean acceptance allowed findings"
+[[ $output != *MUST_NOT_LEAK* ]] || fail "Automic Vault clean acceptance leaked raw finding data"
+
+av_error_probe="$tmp/av-error-probe"
+cat > "$av_error_probe" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' '{"findings":[]}'
+exit 9
+EOF
+chmod +x "$av_error_probe"
+set +e
+output=$("$repo/scripts/av-scan-summary.sh" --scanner "$av_error_probe" 2>&1)
+status=$?
+set -e
+[[ $status -eq 1 ]] || fail "Automic Vault operator summary accepted an operational scanner failure"
+[[ $output == *"failed operationally with exit 9"* ]] \
+  || fail "Automic Vault operator summary hid the scanner exit state"
+
+mapfile -t git_helpers < <(git config --file "$repo/git/config" --get-all credential.helper)
+[[ ${#git_helpers[@]} -eq 2 && -z ${git_helpers[0]} && ${git_helpers[1]} == osxkeychain ]] \
+  || fail "tracked Git config does not reset plaintext helpers before selecting macOS Keychain"
+
 cat > "$tmp/failing-axi" <<'EOF'
 #!/usr/bin/env bash
 if [[ "$*" == "setup --help" ]]; then
@@ -225,6 +264,49 @@ for recipe in update-skills update-ui-skill; do
 done
 
 ! grep -q 'UIDOTSH_TOKEN' "$repo/zsh/secrets.tpl" || fail "UI token remains in credential automation"
+
+replaceable_read_only_path="$tmp/replaceable-read-only-path"
+writable_path="$tmp/writable-path"
+missing_path="$tmp/missing-path"
+symlink_target="$tmp/symlink-target"
+mkdir -p "$replaceable_read_only_path" "$writable_path"
+mkdir -p "$symlink_target/read-only-path"
+chmod 0555 "$replaceable_read_only_path"
+chmod 0555 "$symlink_target/read-only-path"
+zsh_bin=$(command -v zsh)
+protected_path=$(dirname "$zsh_bin")
+symlink_path="$tmp/symlink-path"
+ln -s "$symlink_target/read-only-path" "$symlink_path"
+replaceable_symlink="$tmp/replaceable-symlink"
+ln -s "$protected_path" "$replaceable_symlink"
+# The single-quoted program expands path inside the child zsh, not this shell.
+# shellcheck disable=SC2016
+output=$(PATH="$writable_path:$replaceable_read_only_path:$symlink_path:$replaceable_symlink:$protected_path::$writable_path:$missing_path:relative" \
+  "$zsh_bin" -dfc 'source "$1"; print -l -- "${path[@]}"' -- "$repo/zsh/path-order.zsh")
+expected=$(printf '%s\n' "$protected_path" "$writable_path")
+[[ "$output" == "$expected" ]] \
+  || fail "shell PATH ordering did not reject relative and replaceable read-only entries, put protected directories first, preserve safe class order, and deduplicate entries"
+
+managed_path=$(sed -n '/^      path=(/,/^      )/p' "$repo/home.nix")
+expected_managed_path=$(cat <<'EOF'
+      path=(
+        "$HOME/.opencode/bin"
+        "$HOME/.lmstudio/bin"
+        "/usr/local/zig"
+        "$HOME/.bun/bin"
+        "$HOME/go/bin"
+        "$HOME/.local/bin"
+        "/etc/profiles/per-user/$USER/bin"
+        $path
+      )
+EOF
+)
+[[ "$managed_path" == "$expected_managed_path" ]] \
+  || fail "managed shell PATH entries no longer preserve historical command precedence"
+
+output=$(cd "$repo" && just --summary)
+[[ " $output " == *" refresh-secrets "* ]] \
+  || fail "the explicit 1Password refresh recipe is no longer available"
 
 policy_surfaces=()
 while IFS= read -r -d '' surface; do

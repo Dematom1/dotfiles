@@ -18,3 +18,10 @@
 
 [diff]
     colorMoved = default     # Detect moved lines
+
+# This file is included after the machine-local ~/.gitconfig. Reset any earlier
+# helper list so a legacy `store` entry cannot keep writing plaintext
+# credentials, then use the native macOS Keychain helper.
+[credential]
+    helper =
+    helper = osxkeychain

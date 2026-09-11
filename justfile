@@ -58,22 +58,9 @@ update-skills:
     #!/usr/bin/env bash
     set -euo pipefail
 
-    echo "==> learning-opportunities  (git: DrCatHicks/learning-opportunities)"
-    tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
-    git clone --quiet --depth 1 https://github.com/DrCatHicks/learning-opportunities.git "$tmp/lo"
-    skillmd=$(find "$tmp/lo" -name SKILL.md -not -path '*/.git/*' | head -1)
-    [[ -n "$skillmd" ]] || { echo "ERROR: no SKILL.md found in the repo"; exit 1; }
-    rsync -a --delete --exclude '.git' "$(dirname "$skillmd")/" {{ skills-dir }}/learning-opportunities/
-
-    echo "==> ui.sh skill  (paste the token into the installer's masked prompt)"
     env -u UIDOTSH_TOKEN npx -y @uidotsh/install
 
-    echo "==> npx skills CLI (Vision + Teach + Show Me + whathappened + vercel-labs)"
-    npx -y skills add kunchenguid/vision -g -y --agent {{ skill-agents }} --copy
-    npx -y skills add mattpocock/skills --skill teach -g -y --agent {{ skill-agents }} --copy
-    npx -y skills add humanlayer/skills --skill show-me -g -y --agent {{ skill-agents }} --copy
-    # Copy mode is required because Claude's Home Manager-owned skill root is
-    # itself a symlink; relative compatibility links there can become self-loops.
+    echo "==> npx skills CLI (whathappened + vercel-labs)"
     npx -y skills add kunchenguid/whathappened -g -y --agent {{ skill-agents }} --copy
     npx -y skills add vercel-labs/agent-skills -g -y --agent {{ skill-agents }} --copy
     npx -y skills add vercel-labs/skills -g -y --agent {{ skill-agents }} --copy
@@ -155,7 +142,7 @@ _select-profile profile="":
 # ---------------------------------------------------------------------------
 # FirstMate + Herdr + Pi agent stack. These are npm globals + curl installers
 # that self-update; the base deps (git/gh/jq/node/curl) come from nix. Tools
-# install to ~/.local/bin (already on PATH via zsh/init.zsh).
+# install to ~/.local/bin (managed on PATH by the Home Manager zsh setup).
 # ---------------------------------------------------------------------------
 
 # Update EVERYTHING in one shot - skills + the FirstMate stack.
@@ -184,6 +171,14 @@ check-regressions:
     ./tests/ponytail.sh
     ./tests/just-update.sh
     ./tests/regressions.sh
+
+# Redacted Automic Vault scan through the real login-shell operator path.
+av-scan:
+    ./scripts/av-scan-summary.sh
+
+# Final app-visible acceptance gate. This fails while any finding remains.
+av-check:
+    ./scripts/av-scan-summary.sh --require-clean
 
 # Install Ponytail through each agent's native user-scoped package manager.
 # Claude Code is shared by both Mac profiles; the Linux sandbox remains Pi-only

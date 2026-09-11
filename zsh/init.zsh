@@ -1,17 +1,8 @@
 # =============================================================================
-# Zsh extras - live-editable (functions, PATH, tool init, env).
+# Zsh extras - live-editable (functions, tool init, env).
 # Structure (prompt, plugins, aliases, history) is declared in home.nix.
 # Sourced at the end of the home-manager-generated ~/.zshrc.
 # =============================================================================
-
-# --- PATH (volta/cargo set in home.nix envExtra; nix per-user for home.packages) ---
-export PATH="/etc/profiles/per-user/$USER/bin:$PATH"
-export PATH="$HOME/.local/bin:$PATH"
-export PATH="$HOME/go/bin:$PATH"
-export PATH="$HOME/.bun/bin:$PATH"
-export PATH="/usr/local/zig:$PATH"
-export PATH="$HOME/.lmstudio/bin:$PATH"
-export PATH="$HOME/.opencode/bin:$PATH"
 
 # Keep the vendor browser telemetry opt-out explicit in interactive shells.
 export CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS="1"
