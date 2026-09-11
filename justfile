@@ -58,10 +58,12 @@ update-skills:
     #!/usr/bin/env bash
     set -euo pipefail
 
+    env -u UIDOTSH_TOKEN npx -y @uidotsh/install
+
     echo "==> npx skills CLI (whathappened + vercel-labs)"
-    npx -y skills add kunchenguid/whathappened -g -y --agent '*'
-    npx -y skills add vercel-labs/agent-skills -g -y --agent '*'
-    npx -y skills add vercel-labs/skills -g -y --agent '*'
+    npx -y skills add kunchenguid/whathappened -g -y --agent {{ skill-agents }} --copy
+    npx -y skills add vercel-labs/agent-skills -g -y --agent {{ skill-agents }} --copy
+    npx -y skills add vercel-labs/skills -g -y --agent {{ skill-agents }} --copy
 
     echo "==> wire shared skills into opencode (regenerated, not committed)"
     mkdir -p opencode/skills
