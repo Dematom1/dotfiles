@@ -42,7 +42,8 @@ in
   home.stateVersion = "26.05";
 
   # Automic Vault installs its signed CLI stub here after the app is opened.
-  # Declare the path explicitly so `av` is available in Home Manager shells.
+  # Managed `av` availability is documented in README.md under
+  # "Firstmate project availability".
   home.sessionPath = lib.optionals pkgs.stdenv.isDarwin [
     "${config.home.homeDirectory}/.local/bin"
     "/usr/local/bin"
