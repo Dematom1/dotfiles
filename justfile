@@ -58,25 +58,10 @@ update-skills:
     #!/usr/bin/env bash
     set -euo pipefail
 
-    echo "==> learning-opportunities  (git: DrCatHicks/learning-opportunities)"
-    tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
-    git clone --quiet --depth 1 https://github.com/DrCatHicks/learning-opportunities.git "$tmp/lo"
-    skillmd=$(find "$tmp/lo" -name SKILL.md -not -path '*/.git/*' | head -1)
-    [[ -n "$skillmd" ]] || { echo "ERROR: no SKILL.md found in the repo"; exit 1; }
-    rsync -a --delete --exclude '.git' "$(dirname "$skillmd")/" {{ skills-dir }}/learning-opportunities/
-
-    echo "==> ui.sh skill  (paste the token into the installer's masked prompt)"
-    env -u UIDOTSH_TOKEN npx -y @uidotsh/install
-
-    echo "==> npx skills CLI (Vision + Teach + Show Me + whathappened + vercel-labs)"
-    npx -y skills add kunchenguid/vision -g -y --agent {{ skill-agents }} --copy
-    npx -y skills add mattpocock/skills --skill teach -g -y --agent {{ skill-agents }} --copy
-    npx -y skills add humanlayer/skills --skill show-me -g -y --agent {{ skill-agents }} --copy
-    # Copy mode is required because Claude's Home Manager-owned skill root is
-    # itself a symlink; relative compatibility links there can become self-loops.
-    npx -y skills add kunchenguid/whathappened -g -y --agent {{ skill-agents }} --copy
-    npx -y skills add vercel-labs/agent-skills -g -y --agent {{ skill-agents }} --copy
-    npx -y skills add vercel-labs/skills -g -y --agent {{ skill-agents }} --copy
+    echo "==> npx skills CLI (whathappened + vercel-labs)"
+    npx -y skills add kunchenguid/whathappened -g -y --agent '*'
+    npx -y skills add vercel-labs/agent-skills -g -y --agent '*'
+    npx -y skills add vercel-labs/skills -g -y --agent '*'
 
     echo "==> wire shared skills into opencode (regenerated, not committed)"
     mkdir -p opencode/skills
