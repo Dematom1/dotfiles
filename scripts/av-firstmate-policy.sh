@@ -125,9 +125,7 @@ CURRENT_ROOT=$(git -C "$PWD_PHYSICAL" rev-parse --path-format=absolute --show-to
   fail "working directory is not a Git worktree"
 CURRENT_ROOT=$(absolute_dir "$CURRENT_ROOT") || fail "Git worktree root cannot be resolved"
 
-# A canonical registered clone is allowed without a task marker. The registry
-# and the real Git common directory are both required; neither basename nor
-# remote URL is used as identity.
+# Task-free availability rules: README.md, "Firstmate project availability".
 if registered_project "$CURRENT_ROOT" || canonical_project "$CURRENT_ROOT"; then
   exec "$AV_VENDOR_CLI" "$@"
 fi
