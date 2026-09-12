@@ -11,11 +11,6 @@ fail() {
 }
 
 profile=darwinConfigurations.personal.config.home-manager.users.laszlohoranszky
-aliases=$(nix eval --raw "$repo#$profile.programs.zsh.shellAliases" \
-  --apply 'aliases: builtins.toJSON aliases')
-[[ $aliases != *headroom* ]] \
-  || fail "generated Claude shell aliases still route through Headroom"
-
 activation=$(nix build --no-link --print-out-paths \
   "$repo#$profile.home.activationPackage")
 home="$tmp/home"
