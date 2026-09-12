@@ -10,9 +10,13 @@ fail() {
   exit 1
 }
 
-av_bin=$(command -v av) || fail "installed Automic Vault scanner is unavailable"
+personal_activation=$(nix build --no-link --print-out-paths \
+  "$repo#darwinConfigurations.personal.config.home-manager.users.laszlohoranszky.home.activationPackage")
+av_bin="$personal_activation/home-path/bin/av"
+[[ -x "$av_bin" ]] || fail "configured Automic Vault scanner is unavailable"
 zsh_bin=$(command -v zsh) || fail "zsh is unavailable"
 scan_external_summary=
+canonical_root="$HOME/Code/dotfiles"
 
 scan_generated_zsh() {
   local profile=$1
@@ -24,10 +28,10 @@ scan_generated_zsh() {
   # The child zsh expands $1 to the scanner path passed after --.
   # shellcheck disable=SC2016
   if [[ -n $generated_zdot ]]; then
-    scan_output=$(ZDOTDIR="$generated_zdot" "$zsh_bin" -lic 'exec "$1" scan --json' \
+    scan_output=$(cd "$canonical_root" && ZDOTDIR="$generated_zdot" "$zsh_bin" -lic 'exec "$1" scan --json' \
       -- "$scanner" 2>/dev/null)
   else
-    scan_output=$("$zsh_bin" -lic 'exec "$1" scan --json' \
+    scan_output=$(cd "$canonical_root" && "$zsh_bin" -lic 'exec "$1" scan --json' \
       -- "$scanner" 2>/dev/null)
   fi
   scan_status=$?

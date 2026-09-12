@@ -419,7 +419,8 @@ authoritative product references.
 #### Firstmate project availability
 
 The managed `av` command is available only when the physical working directory
-is inside a registered canonical clone or a verified Firstmate worker copy.
+is inside a registered canonical clone, the local dotfiles checkout described
+below, or a verified Firstmate worker copy.
 Canonical clones are matched by the authoritative Firstmate registry at
 `$FM_HOME/data/projects.md`, their real path under `$FM_HOME/projects`, and
 Git's common repository directory. When `FM_HOME` is unset or
@@ -430,7 +431,15 @@ fields in `$FM_HOME/state/<task>.meta`, a `kind` of `ship` or `scout`, and Git's
 registered worktree record pointing at that exact path and common repository
 directory.
 
-The gate rejects arbitrary repositories, unregistered clones, symlinks in
+The physical `$HOME/Code/dotfiles` checkout is also allowed without a task
+marker when `$FM_HOME/projects/dotfiles` passes the registered-clone checks.
+`$HOME` must be its physical path, and the local checkout must have no symlink
+components and must own its real `.git` directory. The two checkouts do not
+need to share Git identity or a remote URL. This exception does not extend to
+linked worktrees of the local checkout.
+
+Apart from that local dotfiles exception, the gate rejects unregistered clones
+and arbitrary repositories. It also rejects symlinks in
 registered identity paths, and repositories that merely share a basename or remote
 URL. Navigation through a symlink is allowed when the physical working directory
 resolves to the verified clone or worker copy. It never creates a second project
