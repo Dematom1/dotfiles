@@ -55,6 +55,22 @@ field() {
   printf '%s\n' "$value"
 }
 
+project_identity() {
+  local candidate=$1 candidate_root candidate_common
+  [ -d "$candidate" ] || return 1
+  [ ! -L "$candidate" ] || return 1
+  contains_symlink "$candidate" && return 1
+  candidate_root=$(absolute_dir "$candidate") || return 1
+  same_path "$candidate_root" "$candidate" || return 1
+  [ -d "$candidate/.git" ] || return 1
+  [ ! -L "$candidate/.git" ] || return 1
+  git_root=$(git -C "$candidate" rev-parse --path-format=absolute --show-toplevel 2>/dev/null) || return 1
+  same_path "$git_root" "$candidate" || return 1
+  candidate_common=$(git -C "$candidate" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || return 1
+  same_path "$candidate_common" "$candidate/.git" || return 1
+  REGISTERED_COMMON=$candidate_common
+}
+
 registered_project() {
   local candidate=$1 name
   while IFS= read -r name; do
@@ -63,25 +79,24 @@ registered_project() {
       *[!A-Za-z0-9._-]*) continue ;;
     esac
     candidate="$PROJECTS/$name"
-    [ -d "$candidate" ] || continue
-    [ ! -L "$candidate" ] || continue
-    contains_symlink "$candidate" && continue
-    candidate_root=$(absolute_dir "$candidate") || continue
-    same_path "$candidate_root" "$candidate" || continue
-    [ -d "$candidate/.git" ] || continue
-    [ ! -L "$candidate/.git" ] || continue
-    git_root=$(git -C "$candidate" rev-parse --path-format=absolute --show-toplevel 2>/dev/null) || continue
-    same_path "$git_root" "$candidate" || continue
-    candidate_common=$(git -C "$candidate" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || continue
-    same_path "$candidate_common" "$candidate/.git" || continue
+    project_identity "$candidate" || continue
     if same_path "$candidate" "$1"; then
-      REGISTERED_COMMON=$candidate_common
       return 0
     fi
   done < <(awk '
     /^[[:space:]]*-[[:space:]]+[A-Za-z0-9._-]+([[:space:]]+\[[^]]*\])?[[:space:]]+-/ { print $2 }
   ' "$REGISTRY")
   return 1
+}
+
+canonical_project() {
+  local candidate=$1 home_root canonical_root
+  home_root=$(absolute_dir "$HOME") || return 1
+  same_path "$home_root" "$HOME" || return 1
+  canonical_root="$HOME/Code/dotfiles"
+  same_path "$candidate" "$canonical_root" || return 1
+  project_identity "$candidate" || return 1
+  registered_project "$PROJECTS/dotfiles"
 }
 
 [ -x "$AV_VENDOR_CLI" ] || fail "the signed vendor CLI is not executable"
@@ -113,7 +128,7 @@ CURRENT_ROOT=$(absolute_dir "$CURRENT_ROOT") || fail "Git worktree root cannot b
 # A canonical registered clone is allowed without a task marker. The registry
 # and the real Git common directory are both required; neither basename nor
 # remote URL is used as identity.
-if registered_project "$CURRENT_ROOT"; then
+if registered_project "$CURRENT_ROOT" || canonical_project "$CURRENT_ROOT"; then
   exec "$AV_VENDOR_CLI" "$@"
 fi
 

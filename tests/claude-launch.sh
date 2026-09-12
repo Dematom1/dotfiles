@@ -34,6 +34,11 @@ EOF
   chmod +x "$tmp/bin/$command"
 done
 
+if ! HOME="$home" ZDOTDIR="$zdot" PATH="$tmp/bin:/usr/bin:/bin" \
+  zsh -lic '[[ $options[correct_all] == off ]]' 2>/dev/null; then
+  fail "generated login shell enabled command autocorrection"
+fi
+
 cat > "$home/.local/bin/claude" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$0" > "$CLAUDE_MARKER"
