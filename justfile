@@ -166,6 +166,7 @@ check-regressions:
     ./tests/av-project-policy.sh
     ./tests/nvim-fff.sh
     ./tests/usernames.sh
+    ./tests/claude-launch.sh
     ./tests/terraform.sh
     ./tests/agent-tools.sh
     ./tests/pi-signed.sh
