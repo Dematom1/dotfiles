@@ -232,6 +232,22 @@ Terraform secret workflow. It replaces the former Homebrew formula without
 creating or importing keys or changing credential storage. Apply it after merge
 with `just rebuild personal`.
 
+### Reproducing this Pi config (non-Nix)
+
+For people who want this Pi setup without the Home Manager machinery,
+`scripts/install-pi-config.sh` installs the portable core: the shared packages
+(`@nikolauska/linear-axi`, `pi-autoresearch`, `@ff-labs/pi-fff`) and the
+Fireworks provider defaults (dark theme, hidden thinking block). It skips the
+machine-specific pieces - Nix-store links, the Databricks skills, and the
+OpenCode Go model catalog - so bring your own `FIREWORKS_API_KEY`.
+
+```bash
+FIREWORKS_API_KEY=... ./scripts/install-pi-config.sh
+```
+
+Override `PI_DEFAULT_PROVIDER`, `PI_DEFAULT_MODEL`, or `PI_ENABLED_MODELS` to
+point it at a different provider or model.
+
 ### Signed Pi Launcher
 
 Both macOS profiles declaratively install `kunchenguid/tap/pi-launcher` and the
