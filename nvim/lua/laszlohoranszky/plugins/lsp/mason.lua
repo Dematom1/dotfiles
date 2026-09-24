@@ -60,11 +60,7 @@ return {
 				"prettier", -- prettier formatter
 				"ruff", -- python
 				"eslint_d", -- js linter
-				"cpptools", -- rust
 				"luaformatter", -- lua
-				"delve", -- go
-				"debugpy", -- python
-				"js-debug-adapter",
 			},
 		})
 	end,

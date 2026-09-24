@@ -6,10 +6,7 @@ return {
     "hrsh7th/cmp-buffer",                  -- source for text in buffer
     "hrsh7th/cmp-path",                    -- source for file system paths
     "hrsh7th/cmp-nvim-lsp",                -- This is generally recommended, although nvim_lsp source covers it. Good to explicitly have.
-    "hrsh7th/cmp-nvim-lua",                -- <<-- NEW: For Neovim Lua API completion
     "hrsh7th/cmp-nvim-lsp-signature-help", -- <<-- NEW: For LSP signature help
-    "hrsh7th/cmp-calc",
-    "hrsh7th/cmp-vsnip",
     "hrsh7th/cmp-cmdline",
     {
       "L3MON4D3/LuaSnip",
@@ -53,23 +50,16 @@ return {
         { name = "nvim_lsp_signature_help" }, -- display function signatures with current parameter emphasized
         { name = "buffer",                 keyword_length = 2 },
         { name = "path",                   keyword_length = 2 },
-        { name = "nvim_lua",               keyword_length = 2 }, -- <<-- NEW: Enable nvim_lua source
-        { name = "vsnip",                  keyword_length = 2 }, -- nvim-cmp source for vim-vsnip
-        { name = "calc" },                                       -- source for math calculation
       }),
       formatting = {
         fields = { "menu", "abbr", "kind" },
         format = function(entry, item)
           local menu_icon = {
             nvim_lsp = "λ",
-            vsnip = "⋗",
             buffer = "Ω",
             path = "🖫",
-            calc = "+",
-            nvim_lua = "∞",
-            cmp_nvim_lsp_signature_help = "✎",
+            nvim_lsp_signature_help = "✎",
             dadbod = "🗄",
-            codecompanion = "🤖",
           }
           item.menu = menu_icon[entry.source.name]
           return item
