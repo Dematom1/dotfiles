@@ -6,7 +6,7 @@ return {
   -- dependencies = {
   --   "folke/snacks.nvim"
   -- or
-  --   "nvim-telescope/telescope.nvim"
+  --   -- telescope was removed; fff is the picker
   -- },
   opts = {
     picker_integration = true,

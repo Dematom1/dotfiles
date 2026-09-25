@@ -82,13 +82,6 @@
 | `ds{char}` | Delete surround (e.g., `ds"` removes quotes) |
 | `cs{old}{new}` | Change surround (e.g., `cs"'` changes " to ') |
 
-### Substitute
-| Keys | Action |
-|------|--------|
-| `s{motion}` | Substitute with register |
-| `ss` | Substitute line |
-| `S` | Substitute to end of line |
-
 ### Swap
 | Keys | Action |
 |------|--------|
@@ -122,44 +115,9 @@
 ### FFF (Fuzzy Finder)
 | Keys | Action |
 |------|--------|
-| `ff` | Find files |
-| `fs` | Live grep |
-| `fz` | Fuzzy live grep |
-
-### Harpoon
-| Keys | Action |
-|------|--------|
-| `<leader>a` | Add file to harpoon |
-| `<leader>h` | Open harpoon menu |
-| `<space>1-5` | Jump to harpoon file 1-5 |
-
----
-
-## Search & Replace
-
-### FFF (Files and Text)
-
-| Keys | Action |
-|------|--------|
 | `<leader>ff` | Find files |
-| `<leader>fs` | Search text |
-| `<leader>fz` | Fuzzy text search |
-
-### Spectre (Project-wide Replace)
-| Keys | Action |
-|------|--------|
-| `<leader>sR` | Open Spectre |
-| `<leader>sw` | Search word under cursor |
-| `<leader>sp` | Search in current file |
-
-**Inside Spectre:**
-| Keys | Action |
-|------|--------|
-| `dd` | Toggle line exclude |
-| `<leader>R` | Replace all |
-| `<leader>rc` | Replace current line |
-| `<leader>q` | Send to quickfix |
-| `<CR>` | Jump to match |
+| `<leader>fs` | Live grep |
+| `<leader>fz` | Fuzzy live grep |
 
 ---
 
@@ -173,7 +131,6 @@
 | `<leader>d` | Line diagnostics |
 | `<leader>rs` | Restart LSP |
 | `<leader>mp` | Format file |
-| `<leader>l` | Lint file |
 
 ---
 
@@ -217,26 +174,6 @@
 | Keys | Action |
 |------|--------|
 | `<leader>lg` | Open Lazygit |
-
----
-
-## Debugging (DAP)
-
-| Keys | Action |
-|------|--------|
-| `<space>db` | Toggle breakpoint |
-| `<space>dC` | Run to cursor |
-| `<leader>dc` | Continue |
-| `<leader>df` | Step into |
-| `<leader>dd` | Step over |
-| `<leader>dg` | Step out |
-| `<leader>dB` | Step back |
-| `<leader>dr` | Restart |
-| `<leader>dT` | Terminate |
-| `<leader>dD` | Disconnect |
-| `<leader>du` | Toggle DAP UI |
-| `<leader>de` | Eval expression |
-| `<leader>dp` | Open REPL |
 
 ---
 
@@ -291,25 +228,6 @@
 | `<leader>ca` | Code actions |
 | `<leader>cc` | Chat |
 | `<leader>cs` | Toggle chat |
-
----
-
-## Terminal
-
-| Keys | Action |
-|------|--------|
-| `<leader>ft` | Toggle floating terminal |
-| `<leader>fk` | Kill terminal process |
-
----
-
-## REPL (vim-slime)
-
-| Keys | Action |
-|------|--------|
-| `<leader>sC` | Configure REPL target |
-| `<leader>sr` | Send cell/selection |
-| `<leader>sl` | Send line |
 
 ---
 
