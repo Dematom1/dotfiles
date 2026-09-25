@@ -61,7 +61,7 @@ in
     backpass acpx
     # dev / build
     neovim gh prek cmake lld luarocks protobuf
-    nodejs_24 python311 uv memray
+    nodejs_24 python311 go uv memray
     # upstream pipx 1.8.0 test suite is broken in this nixpkgs pin; skip its checks
     (pipx.overridePythonAttrs (_: { doCheck = false; }))
     # net

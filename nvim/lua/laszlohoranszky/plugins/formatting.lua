@@ -20,7 +20,7 @@ return {
 				markdown = { "prettier" },
 				graphql = { "prettier" },
 				liquid = { "prettier" },
-				lua = { "luaformatter" },
+				lua = { "stylua" },
 				python = { "ruff" },
 				rust = { "rustfmt" }, -- comes with Rust installation
 				sh = { "shfmt" },
