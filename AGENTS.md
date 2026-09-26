@@ -13,6 +13,12 @@
   If you see one, even if it is not caused by what you are working on right now, still get it fixed.
 - Before using "dynamic workflows", "ultra code" or any harness feature that immediately spawns a large swarm of subagents, always explain the tradeoffs and ask the user for explicit approval.
 
+## Neovim / Nix tooling
+
+- App configs are edited in-repo and symlinked into `~` (see `home.file` in `home.nix`); the live `~/.config/nvim` is a read-only nix-store symlink, so never edit it directly.
+- Neovim formatters/linters live across three places that must stay in sync, or a tool errors only when you open that filetype: the reference (`nvim/lua/laszlohoranszky/plugins/formatting.lua` conform), the mason auto-install list (`.../lsp/mason.lua` mason-tool-installer `ensure_installed`), and the language runtime it shells out to (`home.nix` `home.packages`, e.g. `go` for gopls/gofmt).
+- Changes take effect only after a home-manager rebuild plus an nvim relaunch (mason installs new tools on launch). `mason.lua` guards `automatic_enable` so a missing runtime cannot hard-crash the editor on file open.
+
 ## Maintaining this file
 
 Keep this file for knowledge useful to almost every future agent session in this project.
