@@ -41,9 +41,9 @@ in
   # users.users entry in configuration.nix.
   home.stateVersion = "26.05";
 
-  # Automic Vault installs its signed CLI stub here after the app is opened.
-  # Managed `av` availability is documented in README.md under
-  # "Firstmate project availability".
+  # nix-darwin activation copies the app-bundled signed av binary here after
+  # Homebrew updates Automic Vault. Managed `av` availability is documented in
+  # README.md under "Firstmate project availability".
   home.sessionPath = lib.optionals pkgs.stdenv.isDarwin [
     "${config.home.homeDirectory}/.local/bin"
     "/usr/local/bin"

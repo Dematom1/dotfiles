@@ -85,8 +85,8 @@ in
       "agentsview"
       "kunchenguid/tap/baby-menu"
       "kunchenguid/tap/pi-launcher"
-      # One cask owns both the Automic Vault app and its signed `av` CLI stub,
-      # preventing the separately installed app/CLI version skew.
+      # The cask owns the app; postActivation copies its signed binary to
+      # /usr/local/bin/av after Homebrew updates the cask.
       "automic-vault/isotopes/automic-vault"
       # fonts
       "font-hack-nerd-font"
@@ -96,4 +96,53 @@ in
       "sf-symbols"
     ];
   };
+
+  # Homebrew owns the app bundle and runs before postActivation. Keep the
+  # PATH-visible CLI byte-for-byte aligned with the signed bundle binary.
+  system.activationScripts.postActivation.text = ''
+      app="/Applications/Automic Vault.app"
+      bundled="$app/Contents/MacOS/av"
+      target="/usr/local/bin/av"
+
+      if [ ! -x "$bundled" ]; then
+        echo "error: Automic Vault bundled av is missing: $bundled" >&2
+        exit 1
+      fi
+
+      bundled_version=$("$bundled" --version 2>/dev/null) || {
+        echo "error: unable to read the Automic Vault bundled av version" >&2
+        exit 1
+      }
+      if [ -z "$bundled_version" ]; then
+        echo "error: Automic Vault bundled av returned an empty version" >&2
+        exit 1
+      fi
+
+      if [ -x "$target" ]; then
+        target_version=$("$target" --version 2>/dev/null) || target_version="unavailable"
+        if [ "$target_version" != "$bundled_version" ] || ! /usr/bin/cmp -s "$bundled" "$target"; then
+          echo "warning: Automic Vault av mismatch ($target_version vs $bundled_version); replacing $target" >&2
+        fi
+      else
+        echo "Installing Automic Vault av $bundled_version at $target" >&2
+      fi
+
+      if [ ! -x "$target" ] || ! /usr/bin/cmp -s "$bundled" "$target"; then
+        /bin/mkdir -p "$(/usr/bin/dirname "$target")" || exit 1
+        /usr/bin/install -o root -g wheel -m 755 "$bundled" "$target" || exit 1
+      fi
+
+      if ! /usr/bin/cmp -s "$bundled" "$target"; then
+        echo "error: $target is not identical to the bundled Automic Vault av" >&2
+        exit 1
+      fi
+      target_version=$("$target" --version 2>/dev/null) || {
+        echo "error: unable to read the PATH-visible Automic Vault av version" >&2
+        exit 1
+      }
+      if [ "$target_version" != "$bundled_version" ]; then
+        echo "error: Automic Vault av version mismatch after synchronization ($target_version vs $bundled_version)" >&2
+        exit 1
+      fi
+    '';
 }
