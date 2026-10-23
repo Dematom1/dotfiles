@@ -119,14 +119,10 @@ for profile_user in personal:laszlohoranszky work:laszlo; do
   [[ $(nix eval --raw "$repo#darwinConfigurations.$profile.config.home-manager.users.$user.home.sessionPath" \
     --apply 'paths: builtins.concatStringsSep ":" paths') == *"/usr/local/bin"* ]] \
     || fail "$profile profile does not expose the Automic Vault CLI location on PATH"
-  av_sync=$(nix eval --raw "$repo#darwinConfigurations.$profile.config.system.activationScripts.postActivation.text")
-  [[ "$av_sync" == *'app="/Applications/Automic Vault.app"'* \
-    && "$av_sync" == *'bundled="$app/Contents/MacOS/av"'* \
-    && "$av_sync" == *"/usr/local/bin/av"* \
-    && "$av_sync" == *"/usr/bin/cmp -s"* \
-    && "$av_sync" == *"--version"* \
-    && "$av_sync" == *"/usr/bin/install -o root -g wheel -m 755"* ]] \
-    || fail "$profile profile does not verify and install the bundled Automic Vault av"
+  av_sync=$(nix eval --raw --impure --expr \
+    "(import $repo/configuration.nix { pkgs = {}; username = \"$user\"; }).system.activationScripts.postActivation.text")
+  python3 "$repo/tests/av-sync.py" <<<"$av_sync" \
+    || fail "$profile profile failed Automic Vault synchronization regressions"
   alias_names=$(nix eval --raw "$repo#darwinConfigurations.$profile.config.home-manager.users.$user.programs.zsh.shellAliases" \
     --apply 'aliases: builtins.concatStringsSep "," (builtins.attrNames aliases)')
   if grep -Eqi 'TOKEN|SECRET|PASSWORD|PASS|API_KEY|ACCESS_KEY|PRIVATE_KEY|AUTH' <<<"$alias_names"; then

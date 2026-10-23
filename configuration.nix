@@ -128,7 +128,8 @@ in
       fi
 
       if [ ! -x "$target" ] || ! /usr/bin/cmp -s "$bundled" "$target"; then
-        /usr/bin/install -o root -g wheel -m 755 "$bundled" "$target"
+        /bin/mkdir -p "$(/usr/bin/dirname "$target")" || exit 1
+        /usr/bin/install -o root -g wheel -m 755 "$bundled" "$target" || exit 1
       fi
 
       if ! /usr/bin/cmp -s "$bundled" "$target"; then
