@@ -250,9 +250,8 @@ point it at a different provider or model.
 
 ### Signed Pi Launcher
 
-Both macOS profiles declaratively install `kunchenguid/tap/pi-launcher` and the
-single `automic-vault/isotopes/automic-vault` cask that owns the Automic Vault
-app and signed `av` CLI stub. After `just rebuild`, follow the
+Both macOS profiles declaratively install `kunchenguid/tap/pi-launcher` and
+[Automic Vault](#automic-vault-github-cli-pilot). After `just rebuild`, follow the
 [Vault command setup](#manual-gh_token-pilot) and verify that `av --version`
 matches the app's `CFBundleShortVersionString`; stop if they differ.
 
@@ -422,9 +421,14 @@ clipboard.
 
 Automic Vault is declared as the official
 `automic-vault/isotopes/automic-vault` Homebrew cask in `configuration.nix`, so
-both Mac profiles install it during a rebuild. Home Manager places a managed
-Firstmate identity gate ahead of the vendor's `/usr/local/bin` CLI stub. The
-third-party cask follows this repository's existing rolling Homebrew convention
+both Mac profiles install it during a rebuild. After Homebrew runs, nix-darwin's
+`postActivation` synchronizes `/usr/local/bin/av` with
+`/Applications/Automic Vault.app/Contents/MacOS/av`, creating the destination
+directory if needed and replacing a missing or different binary. Every rebuild
+verifies byte identity and matching nonempty `--version` output; activation
+fails if the bundled CLI is unavailable or synchronization cannot be verified.
+Home Manager places a managed Firstmate identity gate ahead of this vendor CLI.
+The third-party cask follows this repository's existing rolling Homebrew convention
 and is not pinned by `flake.lock`; its cask metadata pins each release artifact
 by SHA-256. At pilot start the captain observed `av 3.3.0`.
 
@@ -475,8 +479,8 @@ authentication.
 
 1. Apply the selected Mac profile with `just rebuild personal` or
    `just rebuild work`.
-2. Open the app once so its approval service is running and its signed CLI stub
-   is installed. From a project directory that satisfies
+2. Open the app so its approval service is running. From a project directory
+   that satisfies
    [Firstmate project availability](#firstmate-project-availability), verify
    the managed command below and run the remaining `av` steps:
 
@@ -554,9 +558,12 @@ authentication.
 
 Rollback is to stop using `av inject` and continue with the preserved GitHub CLI
 authentication. To uninstall the application declaratively, remove its cask
-entry from `configuration.nix` and rebuild the selected profile. That does not
-delete the `GH_TOKEN` Keychain item. If desired, the captain can remove that
-item interactively in Automic Vault after confirming the fallback works.
+entry and the Vault `postActivation` synchronization block from
+`configuration.nix`, then rebuild the selected profile. The copied
+`/usr/local/bin/av` is not automatically removed; remove it separately when
+uninstalling. That does not delete the `GH_TOKEN` Keychain item. If desired, the
+captain can remove that item interactively in Automic Vault after confirming
+the fallback works.
 
 The security boundary is local to this Mac. Keychain storage plus per-target
 and launcher authorization reduce ambient secret exposure to local agents, but
