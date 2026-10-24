@@ -681,7 +681,6 @@ def main() -> int:
         # Plugin and AXI CLI calls rewrite the tools' files, so they go first.
         steps = [
             ("Claude plugins", lambda: reconcile_claude_plugins(run, manifest)),
-            ("integrations", lambda: install_integrations(run)),
             ("project hooks", lambda: reconcile_project_hooks(run, manifest)),
             ("AXI hooks", lambda: tools is not None and register_axi_hooks(run, justfile, tools)),
             ("Claude MCP servers", lambda: reconcile_claude_json(run, manifest)),
@@ -690,6 +689,9 @@ def main() -> int:
             ("Claude local hooks", lambda: hooks(HOME / ".claude/settings.local.json", hook_policy("claude", True))),
             ("Codex MCP servers", lambda: reconcile_codex_config(run, manifest)),
             ("Codex hooks", lambda: hooks(HOME / ".codex/hooks.json", hook_policy("codex"))),
+            # Installers must see ensured hooks on the first run too, so their
+            # final ordering and serialization are stable on subsequent runs.
+            ("integrations", lambda: install_integrations(run)),
             ("Pi packages", lambda: reconcile_pi_settings(run, manifest)),
             ("skill roots", lambda: reconcile_skill_roots(run, manifest)),
             ("skill installs", lambda: install_skills(run, manifest, refresh=False)),
