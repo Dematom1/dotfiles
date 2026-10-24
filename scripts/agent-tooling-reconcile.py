@@ -45,10 +45,46 @@ def note(message: str) -> None:
 
 
 class Run:
-    def __init__(self, dry_run: bool, stream: bool = False) -> None:
+    def __init__(self, dry_run: bool, stream: bool = False, manifest: dict | None = None) -> None:
         self.dry_run = dry_run
         self.stream = stream  # show command output live instead of only on failure
         self.backup_root: Path | None = None
+        self.prepared = False
+        self.originals = {}
+        self.paths = [HOME / name for name in [
+            ".claude.json", ".claude/settings.json", ".claude/settings.local.json",
+            ".claude/plugins/installed_plugins.json", ".claude/plugins/known_marketplaces.json",
+            ".codex/config.toml", ".codex/hooks.json", ".pi/agent/settings.json",
+            ".agents/.skill-lock.json", ".claude/hooks/herdr-agent-state.sh",
+            ".codex/herdr-agent-state.sh", ".pi/agent/extensions/herdr-agent-state.ts",
+        ]]
+        if manifest is not None:
+            for root, _ in skill_roots(manifest).values():
+                if root.is_dir():
+                    self.paths.extend(root.iterdir())
+            root = HOME / ".config/opencode/skills"
+            if root.is_dir():
+                self.paths.extend(root.iterdir())
+            self.paths.extend(project / ".claude/settings.local.json"
+                              for project in project_paths(manifest))
+
+    def prepare(self) -> None:
+        if self.prepared or self.dry_run:
+            return
+        for path in dict.fromkeys(self.paths):
+            self.originals[path] = fingerprint(path)
+            if path.is_file():
+                shutil.copy2(path, self.backup_target(path))
+            elif path.is_symlink():
+                self.backup_target(path).symlink_to(os.readlink(path))
+            elif path.is_dir():
+                shutil.copytree(path, self.backup_target(path), symlinks=True)
+        self.prepared = True
+
+    def finish(self) -> None:
+        if self.backup_root and all(fingerprint(path) == original
+                                    for path, original in self.originals.items()):
+            shutil.rmtree(self.backup_root)
 
     def backup_dir(self) -> Path:
         if self.backup_root is None:
@@ -78,8 +114,9 @@ class Run:
             note(f"would update {path}: {summary}")
             return
         real = Path(os.path.realpath(path))
-        self.save_original(path, real.read_bytes())
-        mode = real.stat().st_mode & 0o7777
+        self.prepare()
+        mode = real.stat().st_mode & 0o7777 if real.exists() else 0o600
+        real.parent.mkdir(parents=True, exist_ok=True)
         fd, tmp = tempfile.mkstemp(prefix=f".{real.name}.", dir=real.parent)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
@@ -91,28 +128,26 @@ class Run:
             raise
         note(f"updated {path}: {summary}")
 
-    def save_original(self, path: Path, content: bytes) -> None:
-        """Back up `path` as it was before this run; a later edit keeps the first copy."""
-        target = self.backup_target(path)
-        if not target.exists():
-            target.write_bytes(content)
-            shutil.copymode(os.path.realpath(path), target)
-
     def move_away(self, path: Path, why: str) -> None:
         if self.dry_run:
             note(f"would remove {path} ({why})")
             return
-        shutil.move(str(path), str(self.backup_target(path)))
+        self.prepare()
+        if path.is_dir() and not path.is_symlink():
+            shutil.rmtree(path)
+        else:
+            path.unlink()
         note(f"removed {path} ({why})")
 
-    def command(self, argv: list[str], why: str, timeout: int = 120) -> bool:
+    def command(self, argv: list[str], why: str, timeout: int = 120, cwd: Path | None = None) -> bool:
         if self.dry_run:
             note(f"would run: {' '.join(argv)}")
             return True
+        self.prepare()
         note(f"{why}: {' '.join(argv)}")
         output = None if self.stream else subprocess.PIPE
         try:
-            result = subprocess.run(argv, cwd=HOME, timeout=timeout, stdin=subprocess.DEVNULL,
+            result = subprocess.run(argv, cwd=cwd or HOME, timeout=timeout, stdin=subprocess.DEVNULL,
                                     stdout=output, stderr=subprocess.STDOUT, text=True)
         except (OSError, subprocess.TimeoutExpired) as error:
             warn(f"{' '.join(argv)} failed: {error}")
@@ -123,13 +158,35 @@ class Run:
         return True
 
 
-def load_json(path: Path):
+def fingerprint(path: Path):
+    if path.is_symlink():
+        return ("link", os.readlink(path), path.read_bytes() if path.is_file() else None)
+    if path.is_dir():
+        return {p.name: fingerprint(p) for p in path.iterdir()}
+    if path.is_file():
+        return (path.stat().st_mode, path.read_bytes())
+    return None
+
+
+def project_paths(manifest: dict) -> set[Path]:
+    paths = {Path(expand(p)) for p in manifest["claude"].get("projectPaths", [])}
+    loaded = load_json(HOME / ".claude.json")
+    if loaded and isinstance(loaded[0].get("projects"), dict):
+        paths.update(Path(p) for p in loaded[0]["projects"])
+    return {p for p in paths if p.is_absolute() and p.is_dir()}
+
+
+def load_json(path: Path, create: bool = False):
     """Parsed JSON and its original text, or None when absent or unparsable."""
-    if not path.is_file():
-        return None
+    if not path.exists() and not path.is_symlink():
+        return ({}, "\n") if create else None
     text = path.read_text(encoding="utf-8")
     try:
-        return json.loads(text), text
+        data = json.loads(text)
+        if not isinstance(data, dict):
+            warn(f"{path} is not a JSON object; left untouched")
+            return None
+        return data, text
     except json.JSONDecodeError as error:
         warn(f"{path} is not valid JSON ({error}); left untouched")
         return None
@@ -172,7 +229,7 @@ def desired_servers(current: dict, declared: dict, where: str) -> dict:
 
 def reconcile_claude_json(run: Run, manifest: dict) -> None:
     path = HOME / ".claude.json"
-    loaded = load_json(path)
+    loaded = load_json(path, create=True)
     if loaded is None:
         return
     data, original = loaded
@@ -232,7 +289,7 @@ def reconcile_hooks(hooks: dict, policy: dict) -> dict:
 
 
 def reconcile_hook_file(run: Run, path: Path, policy: dict) -> None:
-    loaded = load_json(path)
+    loaded = load_json(path, create=True)
     if loaded is None:
         return
     data, original = loaded
@@ -284,14 +341,12 @@ def toml_table(path: str, table: dict) -> str:
 
 def reconcile_codex_config(run: Run, manifest: dict) -> None:
     path = HOME / ".codex/config.toml"
-    if not path.is_file():
-        return
     try:
         import tomllib
     except ImportError:
         warn(f"Python {sys.version.split()[0]} has no tomllib; skipped {path}")
         return
-    original = path.read_text(encoding="utf-8")
+    original = path.read_text(encoding="utf-8") if path.exists() else ""
     try:
         parsed = tomllib.loads(original)
     except tomllib.TOMLDecodeError as error:
@@ -342,7 +397,7 @@ def source_of(package) -> str:
 
 def reconcile_pi_settings(run: Run, manifest: dict) -> None:
     path = HOME / ".pi/agent/settings.json"
-    loaded = load_json(path)
+    loaded = load_json(path, create=True)
     if loaded is None:
         return
     data, original = loaded
@@ -444,18 +499,14 @@ def axi_hook_tools(justfile: Path | None, profile: str) -> list[str] | None:
 
 def register_axi_hooks(run: Run, justfile: Path, tools: list[str]) -> None:
     just = shutil.which("just")
-    before = {path: path.read_bytes() for path in HOOK_FILES if path.is_file()}
+    if any(load_json(path, create=True) is None for path in HOOK_FILES):
+        return
     for tool in tools:
         managed = HOME / ".local/bin" / tool
         if not (os.access(managed, os.X_OK) or shutil.which(tool)):
-            note(f"{tool} is not installed; skipped its AXI hooks")
+            note(f"{tool} is not installed; its hooks register on the next rebuild once installed")
             continue
         run.command([just, "--justfile", str(justfile), "_setup-axi-hooks", tool], "register AXI hooks")
-    for path, content in before.items():
-        if path.is_file() and path.read_bytes() != content:
-            run.save_original(path, content)
-            note(f"AXI setup hooks updated {path}")
-
 
 def claude_json(claude: str, args: list[str]):
     try:
@@ -478,6 +529,28 @@ def reconcile_claude_plugins(run: Run, manifest: dict) -> None:
     markets = claude_json(claude, ["plugin", "marketplace", "list"])
     if plugins is None or markets is None:
         return
+    for plugin in plugins:
+        if plugin.get("scope") != "project" or plugin["id"] not in manifest["claude"].get("retiredProjectPlugins", []):
+            continue
+        project = Path(plugin.get("projectPath") or "")
+        if not project.is_absolute() or not project.is_dir():
+            continue
+        paths = [project / ".claude" / name for name in ["settings.json", "settings.local.json"]]
+        run.paths.extend(paths)
+    if any(load_json(path, create=True) is None for path in [
+        HOME / ".claude/settings.json", HOME / ".claude/plugins/installed_plugins.json",
+        HOME / ".claude/plugins/known_marketplaces.json",
+    ]):
+        return
+    for plugin in plugins:
+        project = Path(plugin.get("projectPath") or "")
+        if (plugin.get("scope") == "project"
+                and plugin["id"] in manifest["claude"].get("retiredProjectPlugins", [])
+                and project.is_absolute() and project.is_dir()
+                and all(load_json(project / ".claude" / name, create=True) is not None
+                        for name in ["settings.json", "settings.local.json"])):
+            run.command([claude, "plugin", "uninstall", plugin["id"], "--scope", "project"],
+                        "uninstall project plugin", cwd=project)
     user = {p["id"]: p for p in plugins if p.get("scope") == "user"}
     for plugin_id in user:
         if plugin_id not in declared_plugins:
@@ -495,6 +568,73 @@ def reconcile_claude_plugins(run: Run, manifest: dict) -> None:
             run.command([claude, "plugin", "enable", plugin_id, "--scope", "user"], "enable plugin")
 
 
+def reconcile_project_hooks(run: Run, manifest: dict) -> None:
+    retired = manifest["claude"].get("retiredProjectHooks", [])
+    for project in project_paths(manifest):
+        path = project / ".claude/settings.local.json"
+        loaded = load_json(path)
+        if loaded is None:
+            continue
+        data, original = loaded
+        hooks = data.get("hooks")
+        if not isinstance(hooks, dict):
+            continue
+        desired = {}
+        for event, groups in hooks.items():
+            desired[event] = []
+            for group in groups:
+                kept = [h for h in group.get("hooks", [])
+                        if not any(pattern in hook_text(h) for pattern in retired)]
+                if kept == group.get("hooks", []):
+                    desired[event].append(group)
+                elif kept:
+                    desired[event].append({**group, "hooks": kept})
+        if desired != hooks:
+            data["hooks"] = desired
+            run.write_text(path, dump_json(data, original), "retired project hooks removed")
+
+
+def install_integrations(run: Run) -> None:
+    rtk = shutil.which("rtk")
+    if rtk is None:
+        warn("rtk is not installed; its Claude hook installs on the next rebuild once installed")
+    elif load_json(HOME / ".claude/settings.json", create=True) is not None:
+        if not run.dry_run:
+            (HOME / ".claude").mkdir(parents=True, exist_ok=True)
+        run.command([rtk, "init", "-g", "--hook-only", "--auto-patch"], "install rtk hook")
+    herdr = shutil.which("herdr")
+    if herdr is None:
+        warn("herdr is not installed; its integrations install on the next rebuild once installed")
+    else:
+        for agent, directory, settings in [
+            ("claude", ".claude", ".claude/settings.json"),
+            ("codex", ".codex", ".codex/hooks.json"),
+            ("pi", ".pi/agent/extensions", ".pi/agent/settings.json"),
+        ]:
+            if load_json(HOME / settings, create=True) is None:
+                continue
+            if agent == "codex" and (HOME / ".codex/config.toml").exists():
+                import tomllib
+                try:
+                    tomllib.loads((HOME / ".codex/config.toml").read_text())
+                except tomllib.TOMLDecodeError:
+                    warn("invalid Codex config; skipped herdr Codex installer")
+                    continue
+            if not run.dry_run:
+                (HOME / directory).mkdir(parents=True, exist_ok=True)
+            run.command([herdr, "integration", "install", agent], f"install herdr {agent}")
+    rex = shutil.which("rex")
+    if rex is None:
+        note("Rex app owns its skill and hook; no Rex CLI installer is available")
+    else:
+        result = subprocess.run([rex, "setup", "--help"], capture_output=True, text=True, timeout=30)
+        if result.returncode == 0 and re.search(r"^\s+hooks\b", result.stdout, re.MULTILINE):
+            if all(load_json(path, create=True) is not None for path in HOOK_FILES):
+                run.command([rex, "setup", "hooks"], "install Rex hooks")
+        else:
+            note("Rex CLI exposes no supported hook installer; preserving app-owned integration")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--manifest", required=True, type=Path)
@@ -507,10 +647,11 @@ def main() -> int:
     args = parser.parse_args()
     justfile = args.justfile or args.manifest.parent / "justfile"
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
-    run = Run(args.dry_run, stream=args.refresh_skills)
+    run = Run(args.dry_run, stream=args.refresh_skills, manifest=manifest)
     if args.refresh_skills:
         install_skills(run, manifest, refresh=True)
         # An explicit refresh fails loudly; activation below only warns.
+        run.finish()
         return 1 if warnings else 0
     else:
         tools = axi_hook_tools(justfile, args.profile)
@@ -526,6 +667,8 @@ def main() -> int:
         # Plugin and AXI CLI calls rewrite the tools' files, so they go first.
         steps = [
             ("Claude plugins", lambda: reconcile_claude_plugins(run, manifest)),
+            ("integrations", lambda: install_integrations(run)),
+            ("project hooks", lambda: reconcile_project_hooks(run, manifest)),
             ("AXI hooks", lambda: tools is not None and register_axi_hooks(run, justfile, tools)),
             ("Claude MCP servers", lambda: reconcile_claude_json(run, manifest)),
             ("Claude hooks", lambda: hooks(HOME / ".claude/settings.json", hook_policy("claude"))),
@@ -542,6 +685,7 @@ def main() -> int:
                 step()
             except Exception as error:  # one broken tool must not block the others
                 warn(f"{name} failed: {error!r}")
+    run.finish()
     if warnings:
         print(f"agent-tooling: finished with {len(warnings)} warning(s)", file=sys.stderr)
     return 0

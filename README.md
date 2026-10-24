@@ -231,19 +231,34 @@ brings each tool's own state to exactly that set:
 
 | Manifest key | Tool state | Reconciliation |
 |---|---|---|
-| `claude.plugins`, `claude.marketplaces` | Claude's plugin registry | The `claude plugin` CLI uninstalls undeclared user-scope plugins, removes undeclared marketplaces, and adds and installs missing ones. |
+| `claude.plugins`, `claude.marketplaces` | Claude's plugin registry | The `claude plugin` CLI uninstalls undeclared user-scope plugins and retired project plugins, removes undeclared marketplaces, and adds and installs missing ones. |
 | `claude.mcpServers` | `~/.claude.json` `mcpServers` | Declared fields are set, existing `headers` and `env` are kept, and undeclared servers are removed. `retiredProjectMcpServers` are removed from every project scope; other project servers stay. |
 | `claude.hooks` | `~/.claude/settings.json` and `settings.local.json` hooks | Each installed AXI tool in the justfile's `axi-tools`, Git-source, and (on the work profile) work lists first registers its own hooks with `just _setup-axi-hooks`. Then `ensure` entries are written (replacing any hook that matches them), hooks matching a `keep` substring or a hook-enabled AXI tool name are left to their installers (rtk, herdr, rex, AXI), and every other hook is removed, including those of `axi-tools-no-hooks`. `settings.local.json` only loses hooks. If the justfile lists cannot be read, hooks are left untouched with a warning. |
 | `codex.mcpServers` | `~/.codex/config.toml` `[mcp_servers.*]` | As for Claude. Every other table is preserved byte for byte. |
 | `codex.hooks` | `~/.codex/hooks.json` | As for Claude. |
-| `pi.packages` | `~/.pi/agent/settings.json` `packages` | Exactly the declared list. Pi installs a missing package on its next start. pi-fff is a Nix-linked extension, so it is not a package. |
+| `pi.packages` | `~/.pi/agent/settings.json` `packages` | Exactly the declared list. Pi installs a missing package on its next start. pi-fff and terminal-status-title are Nix-linked extensions, so they are not packages. |
 | `pi.skills` | `~/.pi/agent/skills` | Home Manager links each one from the pinned `pstack-claude` source in `home.nix`. |
 | `skills.sources`, `skills.keep` | `~/.claude/skills`, `~/.agents/skills`, `~/.codex/skills`, `~/.pi/agent/skills` | Undeclared entries and broken links are removed, stale skill-lock entries are dropped, and missing declared skills are installed with the skills CLI. See [the skill reference](.agents/SKILLS.md). |
 
-The run is idempotent: a second run changes nothing. Before it rewrites a file
-or removes a skill, it copies the original to
+Activation invokes `rtk init -g --hook-only --auto-patch` and
+`herdr integration install claude`, `codex`, and `pi` when their CLIs are
+available. Missing tools warn without failing activation. The 16 legacy
+Impeccable command skills are replaced by the consolidated upstream `impeccable`
+skill. Home Manager links the vendored `pi/extensions/terminal-status-title.js`.
+
+AXI binary installation belongs to the separate Nix packaging PR. Missing AXI
+tools report that their hooks register on the next rebuild once installed.
+Rex is an explicit exception: the app owns its skill and hook, and this
+repository preserves them. If a Rex CLI advertises `setup hooks`, activation
+invokes it; otherwise the app remains responsible for installation.
+
+The run is idempotent: a second run changes nothing. Before its first mutation,
+it snapshots tool configurations, plugin registries, skill locks, existing
+skill directories, and known project settings to
 `~/.local/state/dotfiles/agent-tooling-backups/<UTC timestamp>/`, under the
-same path relative to `~`. A file it cannot parse is left untouched with a
+same path relative to `~`. Originals are retained once per run, including
+before external installers run. An unchanged run discards its snapshot.
+Absent configuration files receive declared initial state. A file it cannot parse is left untouched with a
 warning. Network and CLI failures also only warn, so they never fail a rebuild.
 Preview the plan without changing anything:
 
@@ -277,22 +292,17 @@ after a rebuild. Quit running Claude Code sessions before rebuilding: a running
 session can write its own copy of `~/.claude.json` back over the result. A
 second rebuild converges either way.
 
-Some state is outside what dotfiles can reach. Do these steps by hand:
+Activation removes `playground@claude-plugins-official` at existing project
+paths reported by Claude's plugin registry. It also removes only retired
+headroom hooks from `.claude/settings.local.json` in projects recorded in
+`~/.claude.json` and the manifest's `projectPaths`. Unrelated project settings
+are preserved, and missing project directories are skipped.
 
-- **claude.ai connectors** (claude.ai, Settings > Connectors): disconnect
-  **Gmail**, **Google Calendar**, **Google Drive**, and **Notion**. They were
-  never authenticated. Keep **Claude Docs** and the synced account skills.
-- **Project-owned settings:** run `claude plugin uninstall
-  playground@claude-plugins-official -s project` in `~/Code/AIAgenticAcademy`.
-  Delete the headroom selfheal hook from `.claude/settings.local.json` in
-  `~/Code/firstmate`, `~/Code/dotfiles`, and `~/Code/bytebytego-ebook`.
-- **`~/.claude/settings.local.json`** is invalid JSON: a stray `"env"` block
-  follows the closing brace. The run leaves it untouched and warns. Repair the
-  JSON, and the next rebuild drops its headroom hook.
-- **Codex hook trust:** Codex trusts hooks by their position in `hooks.json`,
-  so it asks once to trust the changed hooks.
-- **Disk:** checkouts of removed Pi packages under `~/.pi/agent/git` and
-  `~/.pi/agent/npm` are no longer loaded. Delete them if you want the space back.
+The only manual removal is in **claude.ai, Settings > Connectors**: disconnect
+**Gmail**, **Google Calendar**, **Google Drive**, and **Notion**. Keep **Claude
+Docs** and the synced account skills. Malformed local JSON remains untouched
+with a warning until repaired. Codex may ask to trust changed hooks. Removed
+Pi package caches remain on disk but are no longer loaded.
 
 The Xirp app may re-add its hooks when it updates; the next rebuild removes
 them again.

@@ -76,9 +76,27 @@ for target in "${targets[@]}"; do
   agent_tooling=$(nix eval --raw "$repo#$prefix.home.activation.agentTooling.data")
   home_files=$(nix build --no-link --print-out-paths "$repo#$prefix.home-files")
   for name in typescript-best-practices principle-type-system-discipline; do
-    grep -q "^name: $name\$" "$home_files/.pi/agent/skills/$name/SKILL.md" \
-      || fail "$profile Pi-root skill $name is not the pinned pstack copy"
+    skill_source=$(nix eval --raw "$repo#$prefix.home.file.\".pi/agent/skills/$name\".source")
+    [[ -f "$home_files/.pi/agent/skills/$name/SKILL.md" ]] || fail "$profile Pi skill $name is missing"
+    skill_store=${skill_source%%/plugins/*}
+    nix derivation show "$skill_store" | node -e '
+      let text = "";
+      process.stdin.on("data", chunk => text += chunk);
+      process.stdin.on("end", () => {
+        const derivations = Object.values(JSON.parse(text));
+        const urls = derivations.flatMap(d => (d.env.urls || "").split(/\s+/)).filter(Boolean);
+        if (!urls.some(value => {
+          const url = new URL(value);
+          return url.hostname === "github.com" && url.pathname ===
+            "/michael-denyer/pstack-claude/archive/356c6e0f978df729eb16f227d795f34d221c5aad.tar.gz";
+        })) process.exit(1);
+      });' || fail "$profile Pi skill $name has the wrong source identity"
   done
+
+  activation_file=$(mktemp "$repo/.agent-activation-shell.XXXXXX")
+  printf '%s\n' "$agent_tooling" > "$activation_file"
+  bash "$repo/tests/agent-tooling-activation.sh" "$profile" "$activation_file"
+  rm -f "$activation_file"
 
   models_source=$(nix eval --raw "$repo#$prefix.home.file.\".pi/agent/models.json\".source")
   [[ -L "$models_source" && "$(readlink "$models_source")" == */pi/models.json ]] \
@@ -107,9 +125,8 @@ done
 
 m87_sandbox=$(mktemp -d "$repo/.agent-tools-m87.XXXXXX")
 awkless_sandbox=$(mktemp -d "$repo/.agent-tools-m87-awkless.XXXXXX")
-pi_sandbox=$(mktemp -d "$repo/.agent-tools-pi.XXXXXX")
 skills_sandbox=$(mktemp -d "$repo/.agent-tools-skills.XXXXXX")
-trap 'rm -rf "$m87_sandbox" "$awkless_sandbox" "$pi_sandbox" "$skills_sandbox"' EXIT
+trap 'rm -rf "$m87_sandbox" "$awkless_sandbox" "$skills_sandbox"' EXIT
 M87_STATE_DIR="$m87_sandbox/state" "$m87_package/bin/m87" \
   init --yes --plugin skip --no-install-service >/dev/null
 DRY_RUN_CMD='' M87_STATE_DIR="$m87_sandbox/state" HOME="$m87_sandbox/home" \
@@ -156,28 +173,6 @@ set -e
 [[ $failure_status -eq 23 ]] || fail "M87 plugin-list failure returned $failure_status instead of 23"
 [[ "$failure_output" == *"simulated plugin list failure"* && "$failure_output" == *"plugin list failed"* ]] \
   || fail "M87 plugin-list failure diagnostics were hidden"
-
-# The activation runs the tracked reconciler on the tracked manifest. Its
-# behavior is covered by tests/agent-tooling.py; this proves the Nix wiring.
-read -r agent_python agent_script < <(grep -Eo '/nix/store/[^ ]+/bin/python3[.0-9]* /nix/store/[^ ]+-agent-tooling-reconcile.py' <<<"$agent_tooling")
-agent_manifest=$(grep -Eo '/nix/store/[^ ]+-agent-tooling.json' <<<"$agent_tooling")
-cmp -s "$agent_script" "$repo/scripts/agent-tooling-reconcile.py" || fail "activation runs a stale reconciler"
-cmp -s "$agent_manifest" "$repo/agent-tooling.json" || fail "activation reconciles a stale manifest"
-[[ "$agent_tooling" == *'[[ -v DRY_RUN ]]'*'--dry-run'* ]] || fail "activation ignores Home Manager dry runs"
-[[ "$agent_tooling" == *"--justfile "*"/Code/dotfiles/justfile"*"--profile "* ]] \
-  || fail "activation does not read the AXI tool lists from the live justfile"
-mkdir -p "$pi_sandbox/.pi/agent" "$pi_sandbox/.codex"
-printf '%s\n' '{"packages": ["npm:pi-autoresearch", "git:github.com/DietrichGebert/ponytail"]}' \
-  > "$pi_sandbox/.pi/agent/settings.json"
-printf '[mcp_servers.linear]\nurl = "https://mcp.linear.app/mcp"\n' > "$pi_sandbox/.codex/config.toml"
-before=$(cat "$pi_sandbox/.pi/agent/settings.json" "$pi_sandbox/.codex/config.toml")
-plan=$(env -i HOME="$pi_sandbox" PATH=/usr/bin:/bin "$agent_python" "$agent_script" --manifest "$agent_manifest" --dry-run)
-[[ "$plan" == *"would update $pi_sandbox/.pi/agent/settings.json: packages -['npm:pi-autoresearch']"* ]] \
-  || fail "activation does not plan the Pi package removal: $plan"
-[[ "$plan" == *"would update $pi_sandbox/.codex/config.toml: MCP servers -['linear']"* ]] \
-  || fail "activation Python cannot reconcile the Codex TOML config: $plan"
-[[ "$(cat "$pi_sandbox/.pi/agent/settings.json" "$pi_sandbox/.codex/config.toml")" == "$before" ]] \
-  || fail "activation dry run changed files"
 
 if [[ "$system" == aarch64-darwin ]]; then
   for profile in personal work; do

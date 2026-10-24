@@ -152,6 +152,7 @@ in
     # It is not a declared Pi package, so the agentTooling activation removes its
     # duplicate npm registry entry.
     ".pi/agent/extensions/pi-fff".source = "${pkgs.pi-fff}/${pkgs.pi-fff.extensionPath}";
+    ".pi/agent/extensions/terminal-status-title.js".source = ./pi/extensions/terminal-status-title.js;
     ".pi/agent/models.json".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/pi/models.json";
   }
   // lib.listToAttrs (map (name: lib.nameValuePair ".pi/agent/skills/${name}" {
@@ -180,7 +181,7 @@ in
     if [[ -v DRY_RUN ]]; then dry_run=(--dry-run); fi
     PATH="${lib.makeBinPath [ pkgs.nodejs_24 pkgs.git pkgs.just pkgs.bash pkgs.gnugrep ]}:$HOME/.local/bin:${lib.concatMapStrings (path: "${path}:") homebrewPath}$PATH" \
       ${lib.getExe pkgs.python311} ${./scripts/agent-tooling-reconcile.py} \
-      --manifest ${./agent-tooling.json} --justfile ${lib.escapeShellArg "${dotfiles}/justfile"} \
+      --manifest ${./agent-tooling.json} --justfile "$HOME/Code/dotfiles/justfile" \
       --profile ${lib.escapeShellArg profile} "''${dry_run[@]}"
   '';
 

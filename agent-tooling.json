@@ -2,7 +2,6 @@
   "$comment": "Declared agent tooling. `just rebuild` reconciles each tool's own state to exactly this set (scripts/agent-tooling-reconcile.py); see README.md 'Declarative agent tooling'.",
   "claude": {
     "marketplaces": {
-      "claude-plugins-official": "anthropics/claude-plugins-official",
       "ponytail": "DietrichGebert/ponytail"
     },
     "plugins": ["ponytail@ponytail"],
@@ -12,6 +11,9 @@
       "uidotsh": {"type": "http", "url": "https://ui.sh/mcp?agent=claude", "requiredHeaders": ["Authorization"]}
     },
     "retiredProjectMcpServers": ["linear-server"],
+    "retiredProjectPlugins": ["playground@claude-plugins-official"],
+    "retiredProjectHooks": ["headroom"],
+    "projectPaths": ["~/Code/firstmate", "~/Code/dotfiles", "~/Code/bytebytego-ebook"],
     "hooks": {
       "ensure": [
         {"event": "SessionStart", "matcher": "", "match": "gh-axi",
@@ -58,7 +60,7 @@
     ],
     "keep": {
       "claude": ["rex", "synced"],
-      "shared": ["rex", "adapt", "animate", "audit", "bolder", "clarify", "colorize", "critique", "delight", "distill", "layout", "optimize", "overdrive", "polish", "quieter", "shape", "typeset"],
+      "shared": ["rex"],
       "codex": []
     }
   }

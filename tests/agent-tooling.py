@@ -26,7 +26,7 @@ if args == ["plugin", "list", "--json"]:
 elif args == ["plugin", "marketplace", "list", "--json"]:
     print(json.dumps(state["marketplaces"]))
 elif args[:2] == ["plugin", "uninstall"]:
-    state["plugins"] = [p for p in state["plugins"] if not (p["id"] == args[2] and p["scope"] == "user")]
+    state["plugins"] = [p for p in state["plugins"] if not (p["id"] == args[2] and p["scope"] == args[-1] and (args[-1] != "project" or p["projectPath"] == os.getcwd()))]
 elif args[:3] == ["plugin", "marketplace", "remove"]:
     state["marketplaces"] = [m for m in state["marketplaces"] if m["name"] != args[3]]
 elif args[:3] == ["plugin", "marketplace", "add"]:
@@ -35,6 +35,15 @@ elif args[:2] == ["plugin", "install"]:
     state["plugins"].append({"id": args[-1], "scope": "user", "projectPath": None, "enabled": True})
 else:
     sys.exit("unexpected claude call: " + " ".join(args))
+if not args[-1] == "--json":
+    home = __import__("pathlib").Path(os.environ["HOME"])
+    registry = home / ".claude/plugins/installed_plugins.json"
+    registry.parent.mkdir(parents=True, exist_ok=True)
+    registry.write_text(json.dumps({"plugins": state["plugins"]}))
+    settings = home / ".claude/settings.json"
+    data = json.loads(settings.read_text()) if settings.exists() else {}
+    data["enabledPlugins"] = {p["id"]: True for p in state["plugins"] if p["scope"] == "user"}
+    settings.write_text(json.dumps(data))
 json.dump(state, open(state_path, "w"))
 '''
 
@@ -72,6 +81,36 @@ elif args == ["setup", "hooks"]:
         groups[:] = [g for g in groups if g["hooks"]]
         groups.append({"matcher": "", "hooks": [{"type": "command", "command": name, "timeout": 10}]})
         path.write_text(json.dumps(settings, indent=2) + "\n")
+'''
+
+FAKE_INTEGRATION = r'''#!/usr/bin/env python3
+import json, os, pathlib, sys
+home = pathlib.Path(os.environ["HOME"])
+name = pathlib.Path(sys.argv[0]).name
+args = sys.argv[1:]
+with open(os.environ["FAKE_LOG"], "a") as log:
+    log.write(name + " " + " ".join(args) + "\n")
+if name == "rtk":
+    assert args == ["init", "-g", "--hook-only", "--auto-patch"]
+    relative, event, command = ".claude/settings.json", "PreToolUse", "rtk hook claude"
+else:
+    assert args[:2] == ["integration", "install"]
+    agent = args[2]
+    artifact = home / {"claude": ".claude/hooks/herdr-agent-state.sh",
+                       "codex": ".codex/herdr-agent-state.sh",
+                       "pi": ".pi/agent/extensions/herdr-agent-state.ts"}[agent]
+    artifact.parent.mkdir(parents=True, exist_ok=True)
+    artifact.write_text("installed integration\n")
+    if agent == "pi":
+        sys.exit(0)
+    relative = ".claude/settings.json" if agent == "claude" else ".codex/hooks.json"
+    event, command = "SessionStart", f"bash '{artifact}' session"
+path = home / relative
+settings = json.loads(path.read_text()) if path.exists() else {}
+groups = settings.setdefault("hooks", {}).setdefault(event, [])
+if not any(h.get("command") == command for group in groups for h in group["hooks"]):
+    groups.append({"hooks": [{"type": "command", "command": command}]})
+path.write_text(json.dumps(settings, indent=2) + "\n")
 '''
 
 CODEX_CONFIG = '''# Codex config (fixture)
@@ -253,13 +292,22 @@ def fake_bin(root):
     # The real justfile recipe runs the AXI hook setup; it needs just and node.
     for name in ["just", "node"]:
         (bin_dir / name).symlink_to(shutil.which(name))
+    project = root / "home/Code/retired-project"
+    write_json(project / ".claude/settings.local.json", {
+        "permissions": {"allow": ["Bash"]},
+        "hooks": {"SessionStart": [hook_group("headroom selfheal"), hook_group("keep-project-hook")]},
+    })
+    config = root / "home/.claude.json"
+    data = json.loads(config.read_text()) if config.exists() else {}
+    data.setdefault("projects", {})[str(project)] = {}
+    write_json(config, data)
     state = root / "claude-state.json"
     state.write_text(json.dumps({
         "plugins": [
             {"id": "adlc@ai-agentic-academy", "scope": "user", "projectPath": None, "enabled": True},
             {"id": "posthog@claude-plugins-official", "scope": "user", "projectPath": None, "enabled": True},
             {"id": "playground@claude-plugins-official", "scope": "user", "projectPath": None, "enabled": True},
-            {"id": "playground@claude-plugins-official", "scope": "project", "projectPath": "/fixture/p", "enabled": True},
+            {"id": "playground@claude-plugins-official", "scope": "project", "projectPath": str(project), "enabled": True},
         ],
         "marketplaces": [
             {"name": "ai-agentic-academy", "repo": "dematom1/AIAgenticAcademy"},
@@ -267,6 +315,8 @@ def fake_bin(root):
             {"name": "memtrace", "url": "https://github.com/syncable-dev/memtrace-public.git"},
         ],
     }))
+    for name in ["installed_plugins.json", "known_marketplaces.json"]:
+        write_json(root / "home/.claude/plugins" / name, {"original": name})
     return bin_dir, state
 
 
@@ -310,11 +360,12 @@ def hook_commands(settings, event):
     return [h["command"] for group in settings["hooks"].get(event, []) for h in group["hooks"]]
 
 
-with tempfile.TemporaryDirectory(prefix=".agent-tooling-") as directory:
+with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as directory:
     root = Path(directory)
     home = build_home(root)
     bin_dir, state = fake_bin(root)
     log = root / "calls.log"
+    (home / ".agents/skills/teach/SKILL.md").write_text("locally customized sibling skill\n")
     initial = snapshot(home)
 
     # Dry run: reports, changes nothing, calls nothing that mutates.
@@ -389,19 +440,19 @@ with tempfile.TemporaryDirectory(prefix=".agent-tooling-") as directory:
     check((claude_root / "codebase-design/SKILL.md").is_file()
           and not (claude_root / "codebase-design").is_symlink(), "self-referencing skill link was not reinstalled")
     shared_names = {p.name for p in (home / ".agents/skills").iterdir()}
-    check(not shared_names & {"seo-audit", "frontend-design", "seo-sprint"}, "removed shared skills survived")
-    check({"rex", "adapt", "axi", "impeccable", "lavish"} <= shared_names, "kept shared skills were removed")
+    check(not shared_names & {"seo-audit", "frontend-design", "seo-sprint", "adapt"}, "removed shared skills survived")
+    check({"rex", "axi", "impeccable", "lavish"} <= shared_names, "kept shared skills were removed")
     check({p.name for p in (home / ".codex/skills").iterdir()} == {".system"}, "Codex-only skills")
     check({p.name for p in (home / ".pi/agent/skills").iterdir()} == {"typescript-best-practices"},
           "Pi-root skills")
     check(sorted(p.name for p in (home / "Code/dotfiles/opencode/skills").iterdir()) == ["no-mistakes"],
           "dangling OpenCode skill links")
     lock = json.loads((home / ".agents/.skill-lock.json").read_text())
-    check(set(lock["skills"]) == {"axi", "adapt"}, f"skill lock entries: {sorted(lock['skills'])}")
+    check(set(lock["skills"]) == {"axi"}, f"skill lock entries: {sorted(lock['skills'])}")
 
     plugin_state = json.loads(state.read_text())
     check({(p["id"], p["scope"]) for p in plugin_state["plugins"]} == {
-        ("ponytail@ponytail", "user"), ("playground@claude-plugins-official", "project")},
+        ("ponytail@ponytail", "user")},
         f"Claude plugins: {plugin_state['plugins']}")
     check({m["name"] for m in plugin_state["marketplaces"]} == set(manifest["claude"]["marketplaces"]),
           f"Claude marketplaces: {plugin_state['marketplaces']}")
@@ -412,12 +463,21 @@ with tempfile.TemporaryDirectory(prefix=".agent-tooling-") as directory:
     taken = backups(home)
     check(len(taken) == 1, f"expected one backup directory, got {taken}")
     for relative in [".claude.json", ".claude/settings.json", ".codex/config.toml", ".codex/hooks.json",
-                     ".pi/agent/settings.json", ".agents/.skill-lock.json"]:
+                     ".pi/agent/settings.json", ".agents/.skill-lock.json",
+                     ".claude/plugins/installed_plugins.json", ".claude/plugins/known_marketplaces.json"]:
         check((taken[0] / relative).read_bytes() == initial[relative], f"backup of {relative} is not the original")
     for relative in [".claude/skills/design/SKILL.md", ".agents/skills/seo-audit/SKILL.md",
                      ".codex/skills/workos/SKILL.md", ".pi/agent/skills/memtrace-first/SKILL.md"]:
         check((taken[0] / relative).is_file(), f"removed {relative} was not backed up")
     check("FIXTURE-SECRET" in (taken[0] / ".codex/config.toml").read_text(), "backup lost content")
+
+    project_settings = json.loads((home / "Code/retired-project/.claude/settings.local.json").read_text())
+    check(hook_commands(project_settings, "SessionStart") == ["keep-project-hook"], "project hook cleanup")
+    check(project_settings["permissions"] == {"allow": ["Bash"]}, "project permissions changed")
+    check((taken[0] / "Code/retired-project/.claude/settings.local.json").read_bytes()
+          == initial["Code/retired-project/.claude/settings.local.json"], "project backup changed")
+    check((taken[0] / ".agents/skills/teach/SKILL.md").read_bytes()
+          == initial[".agents/skills/teach/SKILL.md"], "overwritten sibling skill was not saved")
 
     # Second run: nothing left to do.
     converged = snapshot(home)
@@ -471,6 +531,49 @@ with tempfile.TemporaryDirectory(prefix=".agent-tooling-") as directory:
     converged_codex = (codex_home / ".codex/config.toml").read_text()
     reconcile(codex_home, root / "no-bin", state, root / "codex/calls.log", manifest_file=variant_path)
     check((codex_home / ".codex/config.toml").read_text() == converged_codex, "Codex reconcile is not idempotent")
+
+    fresh_home = root / "fresh/home"
+    fresh_home.mkdir(parents=True)
+    result = reconcile(fresh_home, bin_dir, state, root / "fresh/calls.log", manifest_file=variant_path,
+                       *["--justfile", str(repo / "justfile")])
+    check(set(json.loads((fresh_home / ".claude.json").read_text())["mcpServers"]) == {"fff", "superlogical"},
+          "fresh Claude MCP configuration missing")
+    check(json.loads((fresh_home / ".pi/agent/settings.json").read_text())["packages"] == manifest["pi"]["packages"],
+          "fresh Pi packages missing")
+    for name in [".claude/settings.json", ".codex/hooks.json"]:
+        check(hook_commands(json.loads((fresh_home / name).read_text()), "SessionStart"), "fresh hooks missing")
+    check(set(tomllib.loads((fresh_home / ".codex/config.toml").read_text())["mcp_servers"]) == {"docs", "local"},
+          "fresh Codex MCP configuration missing")
+
+    integrations = root / "integrations"
+    integration_home = integrations / "home"
+    integration_home.mkdir(parents=True)
+    integration_bin = integrations / "bin"
+    integration_bin.mkdir()
+    (integration_bin / "just").symlink_to(shutil.which("just"))
+    integration_log = integrations / "calls.log"
+    for name in ["rtk", "herdr"]:
+        executable = integration_bin / name
+        executable.write_text(FAKE_INTEGRATION.replace("#!/usr/bin/env python3", f"#!{sys.executable}", 1))
+        executable.chmod(0o755)
+    result = reconcile(integration_home, integration_bin, state, integration_log)
+    check(not "failed:" in result.stderr, result.stderr)
+    for agent in ["claude", "codex", "pi"]:
+        check(f"herdr integration install {agent}" in calls(integration_log), f"missing herdr {agent}")
+    check("rtk init -g --hook-only --auto-patch" in calls(integration_log), "rtk installer missing")
+    integrated = snapshot(integration_home)
+    integration_backups = backups(integration_home)
+    reconcile(integration_home, integration_bin, state, integration_log)
+    check(snapshot(integration_home) == integrated, "integration installers do not converge")
+    check(backups(integration_home) == integration_backups, "converged installers kept another backup")
+    for name in [".claude/settings.json", ".codex/hooks.json"]:
+        (integration_home / name).write_text("{invalid")
+    integration_log.unlink()
+    result = reconcile(integration_home, integration_bin, state, integration_log)
+    check(not any(line.startswith("rtk ") or line.endswith(("install claude", "install codex"))
+                  for line in calls(integration_log)), "installer touched malformed hook configuration")
+    for name in [".claude/settings.json", ".codex/hooks.json"]:
+        check((integration_home / name).read_text() == "{invalid", "malformed hook state changed")
 
     # A layout the line editor cannot express safely is reported, not mangled.
     inline_home = root / "inline/home"
