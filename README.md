@@ -225,7 +225,9 @@ discovery paths, and why installation uses physical copies. Invoke a skill such
 as Vision with `/skill:vision` in Pi or `/vision` in Claude Code.
 
 The copies and tool registries are never committed. After shipping, run
-`just update-skills` to refresh all-agent skill copies.
+`just update-skills` to refresh the declared skill copies. These recipes do not
+uninstall removed skills, plugins, MCP servers, or hooks from tool-owned state;
+existing installations require separate cleanup through their owning tools.
 Ponytail remains owned by its existing native package-manager recipe; run the
 focused `just _setup-ponytail`, then verify `claude plugin details
 ponytail@ponytail`. Use `/reload-plugins` in an existing Claude session or start

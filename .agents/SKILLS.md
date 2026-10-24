@@ -12,15 +12,15 @@ Every `skills add` command targets only Claude Code, Codex, OpenCode, and Pi and
 uses `--copy`. Eve and PromptScript are intentionally excluded. Claude's Home
 Manager-owned skills root is itself a symlink, so generated relative leaf links
 can point back to themselves; physical generated copies avoid that self-loop.
-Bundles used only by Codex and Pi omit Claude Code (`skill-agents-shared`) to
+Bundles shared by Codex, OpenCode, and Pi omit Claude Code (`skill-agents-shared`) to
 keep Claude's budget-capped skill listing small.
 
 ## Not committed - regenerated from source
 
 The skill *content* is gitignored (`.agents/skills/*`, `opencode/skills/*`); only
 the recipe, wiring, and this doc are committed - like committing `package.json`,
-not `node_modules`. Every source is public, so the update recipe is fully
-reproducible.
+not `node_modules`. The sources installed by `just update-skills` are public;
+the recipe fetches their current content rather than pinning a snapshot.
 
 Reproduce on a fresh machine:
 
@@ -32,7 +32,7 @@ Reproduce on a fresh machine:
 
 - `just skills`        - list installed skills + descriptions
 - `just check-skills`  - validate each has a SKILL.md with name + description
-- `just update-skills` - refresh EVERY skill from source and re-wire only the opencode links that target `.agents/skills`
+- `just update-skills` - refresh the sources below and re-wire only the opencode links that target `.agents/skills`
 
 ## Provenance
 

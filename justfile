@@ -60,7 +60,7 @@ check-skills:
     done
     if [[ $fail -eq 0 ]]; then echo "all skills OK"; else exit 1; fi
 
-# All-in-one: refresh EVERY skill from its source (see .agents/SKILLS.md),
+# Refresh the sources listed in .agents/SKILLS.md,
 # then run `just check-skills` and review with `git diff` before committing.
 update-skills:
     #!/usr/bin/env bash
