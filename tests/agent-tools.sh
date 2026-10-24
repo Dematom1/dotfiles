@@ -51,9 +51,8 @@ for target in "${targets[@]}"; do
   [[ ",$packages," == *,acpx,* ]] || fail "$profile profile does not install acpx"
   if [[ "$system" == aarch64-darwin ]]; then
     [[ ",$packages," != *,tailscale,* ]] || fail "$profile still installs nixpkgs tailscale on darwin"
-    tailscale_wrapper=$(nix eval --raw "$repo#$prefix.home.file.\".local/bin/tailscale\".source")
-    [[ "$(cat "$tailscale_wrapper")" == *'/Applications/Tailscale.app/Contents/MacOS/Tailscale'* ]] \
-      || fail "$profile tailscale wrapper does not target the app CLI"
+    tailscale_wrapper=$(nix build --no-link --print-out-paths "$repo#$prefix.home.file.\".local/bin/tailscale\".source")
+    bash "$repo/tests/tailscale-app-cli.sh" "$tailscale_wrapper"
   else
     [[ ",$packages," == *,tailscale,* ]] || fail "$profile no longer installs nixpkgs tailscale"
   fi
