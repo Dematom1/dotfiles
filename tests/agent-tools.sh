@@ -162,8 +162,6 @@ cat > "$pi_sandbox/.pi/agent/settings.json" <<'EOF'
     "git:github.com/algal/pi-openai-server-compaction@c6d593087709e9481223dc6c6c2269b371b5e055",
     "git:github.com/DietrichGebert/ponytail",
     "npm:@ff-labs/pi-fff",
-    "npm:pi-autoresearch",
-    "npm:pi-autoresearch",
     "npm:unrelated-local-extension@1.0.0"
   ]
 }
@@ -173,8 +171,8 @@ printf 'keep me\n' > "$pi_sandbox/temp-symlink-target"
 ln -s "$pi_sandbox/temp-symlink-target" "$pi_sandbox/.pi/agent/settings.json.tmp"
 DRY_RUN_CMD='' HOME="$pi_sandbox" bash -euo pipefail -c "$pi_packages"
 settings="$pi_sandbox/.pi/agent/settings.json"
-[[ $(jq '[.packages[] | select(. == "npm:pi-autoresearch")] | length' "$settings") -eq 1 ]] \
-  || fail "generated Pi settings do not contain pi-autoresearch exactly once"
+[[ $(jq '[.packages[] | select(. == "npm:pi-autoresearch")] | length' "$settings") -eq 0 ]] \
+  || fail "Pi package reconciliation reinstalled the removed pi-autoresearch package"
 [[ $(jq '[.packages[] | select(. == "npm:@ff-labs/pi-fff")] | length' "$settings") -eq 0 ]] \
   || fail "generated Pi settings retain the duplicate Nix-managed pi-fff package"
 [[ $(jq -r '.theme' "$settings") == captain-local ]] \
@@ -204,19 +202,33 @@ if [[ "$system" == aarch64-darwin ]]; then
   done
 fi
 
-HOME="$skills_sandbox" npx -y skills add kunchenguid/vision -g -y --agent claude-code codex opencode pi --copy >/dev/null
-HOME="$skills_sandbox" npx -y skills add mattpocock/skills --skill teach -g -y --agent claude-code codex opencode pi --copy >/dev/null
-HOME="$skills_sandbox" npx -y skills add humanlayer/skills --skill show-me -g -y --agent claude-code codex opencode pi --copy >/dev/null
-for skill in vision teach show-me; do
-  [[ -f "$skills_sandbox/.claude/skills/$skill/SKILL.md" ]] \
-    || fail "sandboxed Claude runtime cannot discover $skill"
-  # The skills CLI installs once to the shared .agents/skills directory, which
-  # Codex, OpenCode, and Pi all read; Claude Code gets its own copy.
-  [[ -f "$skills_sandbox/.agents/skills/$skill/SKILL.md" ]] \
+# Run the real recipe against a sandboxed home: Claude's skill root is
+# HOME/.claude/skills, while Codex, OpenCode, and Pi share HOME/.agents/skills.
+skills_home="$skills_sandbox/home"
+mkdir -p "$skills_sandbox/repo" "$skills_home"
+cp "$repo/justfile" "$skills_sandbox/repo/justfile"
+HOME="$skills_home" just --justfile "$skills_sandbox/repo/justfile" update-skills >/dev/null
+for skill in no-mistakes vision teach show-me whathappened lavish codebase-design diagnosing-bugs \
+  domain-modeling grill-me grill-with-docs grilling improve-codebase-architecture; do
+  # Physical copies: a relative leaf link under Claude's linked root can resolve to itself.
+  [[ -f "$skills_home/.claude/skills/$skill/SKILL.md" && ! -L "$skills_home/.claude/skills/$skill" ]] \
+    || fail "sandboxed Claude runtime has no physical copy of $skill"
+  [[ -f "$skills_home/.agents/skills/$skill/SKILL.md" ]] \
     || fail "sandboxed Codex, OpenCode, and Pi runtimes cannot discover $skill"
-  [[ $(find "$skills_sandbox" -path '*/node_modules' -prune -o \
+  [[ $(find "$skills_home" -path '*/node_modules' -prune -o \
     -path "*/skills/$skill/SKILL.md" -print | wc -l | tr -d ' ') -eq 2 ]] \
     || fail "sandboxed skills CLI installed $skill for Eve or PromptScript"
+done
+for skill in axi impeccable; do
+  [[ -f "$skills_home/.agents/skills/$skill/SKILL.md" ]] \
+    || fail "sandboxed Codex, OpenCode, and Pi runtimes cannot discover $skill"
+  [[ ! -e "$skills_home/.claude/skills/$skill" ]] \
+    || fail "Codex/Pi-only skill $skill was installed for Claude Code"
+done
+for skill in find-skills vercel-optimize deploy-to-vercel web-design-guidelines writing-guidelines \
+  design ideas learning-opportunities design-control-loop improve-claude-md seo-audit frontend-design; do
+  [[ -z $(find "$skills_home" -path "*/skills/$skill" -print) ]] \
+    || fail "update-skills installed the removed skill $skill"
 done
 
 ! git -C "$repo" ls-files --error-unmatch .agents/skills/vision/SKILL.md >/dev/null 2>&1 \

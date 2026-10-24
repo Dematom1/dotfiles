@@ -69,7 +69,7 @@ command resolution. Non-Darwin profiles continue to use the nixpkgs package.
 | **Automic Vault** | Local macOS Keychain and command-approval boundary |
 | **Pi Launcher** | Credentialed signed Pi route for supervised Firstmate sessions |
 | **M87** | Local-first GitHub review queue with pinned Nix packaging |
-| **Agent skills / Pi extensions** | Declared cross-agent skills, pi-autoresearch, and pinned Pi-native FFF search extension |
+| **Agent skills / Pi extensions** | Declared cross-agent skills and pinned Pi-native FFF search extension |
 | **yazi** | Terminal file manager |
 | **bat** | Syntax-highlighted output |
 | **aerospace** | macOS window manager |
@@ -219,17 +219,15 @@ are not changed by this discovery configuration.
 
 ### Agent skills and Pi packages
 
-`just update-skills` installs Vision for the maintained agent surfaces. See
-[the skill reference](.agents/SKILLS.md) for sources, discovery paths, and why
-installation uses physical copies. Invoke Vision as follows:
+`just update-skills` installs the kept skill set for the maintained agent
+surfaces. See [the skill reference](.agents/SKILLS.md) for the sources,
+discovery paths, and why installation uses physical copies. Invoke a skill such
+as Vision with `/skill:vision` in Pi or `/vision` in Claude Code.
 
-- Pi: `/skill:vision`;
-- Claude Code: `/vision`.
-
-The same recipe installs only the approved `teach` skill from
-`mattpocock/skills` and `show-me` from `humanlayer/skills`, preserving the
-existing skill set. The copies and tool registries are never committed. After
-shipping, run `just update-skills` to refresh all-agent skill copies.
+The copies and tool registries are never committed. After shipping, run
+`just update-skills` to refresh the declared skill copies. These recipes do not
+uninstall removed skills, plugins, MCP servers, or hooks from tool-owned state;
+existing installations require separate cleanup through their owning tools.
 Ponytail remains owned by its existing native package-manager recipe; run the
 focused `just _setup-ponytail`, then verify `claude plugin details
 ponytail@ponytail`. Use `/reload-plugins` in an existing Claude session or start
@@ -239,9 +237,8 @@ The exact npm package `@ff-labs/pi-fff@0.10.5` is pinned with npm integrity
 hashes and linked at Pi's native extension path
 `~/.pi/agent/extensions/pi-fff/index.ts`. This registers the `fffind`,
 `ffgrep`, and `fff-multi-grep` tools. Home Manager removes only its duplicate
-`npm:@ff-labs/pi-fff` mutable registration, preserves every other Pi setting and
-package, and reconciles the upstream-documented `npm:pi-autoresearch` package
-exactly once. Existing Pi sessions use `/reload` after
+`npm:@ff-labs/pi-fff` mutable registration and preserves every other Pi setting
+and package. Existing Pi sessions use `/reload` after
 `just rebuild personal`.
 
 The personal Home Manager profile also supplies GnuPG's `gpg` command for the
@@ -253,7 +250,7 @@ with `just rebuild personal`.
 
 For people who want this Pi setup without the Home Manager machinery,
 `scripts/install-pi-config.sh` installs the portable core: the shared packages
-(`@nikolauska/linear-axi`, `pi-autoresearch`, `@ff-labs/pi-fff`) and the
+(`@nikolauska/linear-axi`, `@ff-labs/pi-fff`) and the
 Fireworks provider defaults (dark theme, hidden thinking block). It skips the
 machine-specific pieces - Nix-store links, the Databricks skills, and the
 OpenCode Go model catalog - so bring your own `FIREWORKS_API_KEY`.
@@ -426,13 +423,6 @@ Manager zsh setup:
 op signin
 just refresh-secrets
 ```
-
-The ui.sh installer is deliberately interactive. During `just bootstrap`,
-`just update-skills`, or `just update-ui-skill`, enter its token only in the
-installer's masked prompt. The recipes remove any inherited `UIDOTSH_TOKEN` and
-do not pass a token through argv. Do not put the token in a command, environment
-file, repository file, chat, logs, or agent pane. The setup does not inspect the
-clipboard.
 
 ### Automic Vault GitHub CLI pilot
 
@@ -626,9 +616,9 @@ Darwin and Home Manager homes. Its Terraform check selects both Darwin profiles
 on Apple Silicon macOS or the portable sandbox Home Manager output on supported
 Linux systems, then verifies the selected package sets and the activated
 operator path when safe local evidence is available. It also checks profile
-validation, selective OpenCode links, masked ui.sh installation, SketchyBar
+validation, selective OpenCode links, the kept skill sources, SketchyBar
 state-file safety (on macOS; on Linux it instead asserts the hook stays
-undefined), AXI hook failures, the Neovim fff search mapping, and shell
+undefined), AXI hook failures and stale shadowing copies, the Neovim fff search mapping, and shell
 regressions.
 
 ## Key bindings

@@ -101,21 +101,6 @@
       "rollback_note": "Restore the recorded Nix closure or exact Pi package version after owner selection."
     },
     {
-      "id": "pi-autoresearch",
-      "name": "Pi Autoresearch",
-      "owner": "Pi package manager",
-      "version_command": ["pi", "list"],
-      "version_pattern": "pi-autoresearch[^\\n]*?(\\d+\\.\\d+(?:\\.\\d+)*)",
-      "known_version": "1.6.2",
-      "release_adapter": "npm",
-      "package_name": "pi-autoresearch",
-      "github_repo": "davebcn87/pi-autoresearch",
-      "release_source": "https://github.com/davebcn87/pi-autoresearch/releases",
-      "risk": "R2",
-      "risk_reason": "It can run experiments and hooks with agent privileges.",
-      "rollback_note": "Restore the exact Pi package version."
-    },
-    {
       "id": "claude-code",
       "name": "Claude Code",
       "owner": "Native installer and Homebrew cask collision",

@@ -18,8 +18,6 @@ let
     "dematom-labs/seo-scout"
     "dematom-labs/truediyer"
   ];
-  # Follow Pi's existing mutable-package policy; upstream documents this spec.
-  piAutoresearchPackage = "npm:pi-autoresearch";
   nixManagedPiPackage = "npm:@ff-labs/pi-fff";
   piSignedExecutable = "/Applications/Pi Launcher.app/Contents/MacOS/pi-launcher";
   avProjectPolicy = pkgs.writeShellScriptBin "av" ''
@@ -159,9 +157,9 @@ in
     ".local/bin/tailscale".source = tailscaleAppCli;
   };
 
-  # Reconcile only the declarative Pi package entries. Preserve the mutable
-  # settings and every other package; pi-fff is loaded by its Nix-managed
-  # extension path above, so removing its npm entry prevents double loading.
+  # Preserve the mutable Pi settings and every other package; pi-fff is loaded
+  # by its Nix-managed extension path above, so removing its npm entry prevents
+  # double loading.
   home.activation.piPackageReconciliation = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     settings="$HOME/.pi/agent/settings.json"
     if [[ -v DRY_RUN ]]; then
@@ -169,9 +167,8 @@ in
     elif [[ -f "$settings" ]]; then
       tmp=$(${pkgs.coreutils}/bin/mktemp "$settings.tmp.XXXXXX")
       if ! ${lib.getExe pkgs.jq} \
-        --arg autoresearch ${lib.escapeShellArg piAutoresearchPackage} \
         --arg nixManaged ${lib.escapeShellArg nixManagedPiPackage} \
-        '.packages = (((.packages // []) | map(select(. != $nixManaged and . != $autoresearch))) + [$autoresearch])' \
+        '.packages = ((.packages // []) | map(select(. != $nixManaged)))' \
         "$settings" > "$tmp" \
         || ! ${pkgs.coreutils}/bin/chmod --reference="$settings" "$tmp"; then
         rm -f "$tmp"
@@ -179,9 +176,6 @@ in
         exit 1
       fi
       mv "$tmp" "$settings"
-    else
-      mkdir -p "$(dirname "$settings")"
-      printf '{"packages":["%s"]}\n' ${lib.escapeShellArg piAutoresearchPackage} > "$settings"
     fi
   '';
 

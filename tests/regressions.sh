@@ -257,11 +257,23 @@ output=$(cd "$repo" && just _setup-axi-hooks "$tmp/quota-axi" 2>&1)
 [[ $output == *"no setup hooks"* ]] || fail "quota-axi top-level help was not identified"
 [[ ! -e "$tmp/quota-ran" ]] || fail "quota-axi setup hooks were executed"
 
-for recipe in update-skills update-ui-skill; do
-  output=$(cd "$repo" && just --dry-run "$recipe" 2>&1)
-  [[ $output == *"env -u UIDOTSH_TOKEN npx -y @uidotsh/install"* ]] || fail "$recipe does not clear inherited UI credentials"
-  [[ $output != *"--token"* ]] || fail "$recipe passes the UI token through argv"
+axi_home="$tmp/axi-home"
+shadow_bin="$tmp/shadow-bin"
+mkdir -p "$axi_home/.local/bin" "$shadow_bin"
+for copy in "$axi_home/.local/bin" "$shadow_bin"; do
+  cat > "$copy/shadowed-axi" <<EOF
+#!/usr/bin/env bash
+if [[ "\$*" == "setup --help" ]]; then
+  echo "usage: shadowed-axi setup hooks"
+  exit 0
+fi
+printf '%s\n' "$copy" >> "$tmp/shadowed-hooks"
+EOF
+  chmod +x "$copy/shadowed-axi"
 done
+(cd "$repo" && HOME="$axi_home" PATH="$shadow_bin:$PATH" just _setup-axi-hooks shadowed-axi >/dev/null)
+[[ $(<"$tmp/shadowed-hooks") == "$axi_home/.local/bin" ]] \
+  || fail "a stale AXI copy earlier on PATH registered the hooks instead of the managed install"
 
 ! grep -q 'UIDOTSH_TOKEN' "$repo/zsh/secrets.tpl" || fail "UI token remains in credential automation"
 
@@ -362,37 +374,18 @@ mkdir -p "$skills_sandbox/.agents/skills/shared" "$skills_sandbox/.agents/skills
 cp "$repo/justfile" "$skills_sandbox/justfile"
 ln -s /tool-managed/shared "$skills_sandbox/opencode/skills/shared"
 ln -s ../../.agents/skills/stale "$skills_sandbox/opencode/skills/stale"
-cat > "$skills_sandbox/bin/git" <<'EOF'
+cat > "$skills_sandbox/bin/npx" <<'EOF'
 #!/usr/bin/env bash
-destination=${@: -1}
-mkdir -p "$destination"
-printf '%s\n' 'name: learning-opportunities' 'description: test' > "$destination/SKILL.md"
-EOF
-cat > "$skills_sandbox/bin/rsync" <<'EOF'
-#!/usr/bin/env bash
-destination=${@: -1}
-mkdir -p "$destination"
-printf '%s\n' 'name: learning-opportunities' 'description: test' > "$destination/SKILL.md"
-EOF
-cat > "$skills_sandbox/bin/npx" <<EOF
-#!/usr/bin/env bash
-if [[ "\$*" == "-y @uidotsh/install" ]]; then
-  [[ -z \${UIDOTSH_TOKEN+x} ]] || exit 64
-  echo ui >> "$skills_sandbox/ui-installs"
-fi
 EOF
 chmod +x "$skills_sandbox/bin/"*
-for recipe in update-skills update-ui-skill; do
-  HOME="$skills_sandbox/home" UIDOTSH_TOKEN=automated PATH="$skills_sandbox/bin:$PATH" \
-    just --justfile "$skills_sandbox/justfile" "$recipe" >/dev/null
-done
-[[ $(wc -l < "$skills_sandbox/ui-installs") -eq 2 ]] || fail "UI installers did not run without inherited credentials"
+HOME="$skills_sandbox/home" PATH="$skills_sandbox/bin:$PATH" \
+  just --justfile "$skills_sandbox/justfile" update-skills >/dev/null
 [[ $(readlink "$skills_sandbox/opencode/skills/shared") == /tool-managed/shared ]] || fail "shared-skill linking replaced a tool-managed link"
 [[ ! -e "$skills_sandbox/opencode/skills/stale" && ! -L "$skills_sandbox/opencode/skills/stale" ]] || fail "managed stale skill link was preserved"
 [[ $(readlink "$skills_sandbox/opencode/skills/fresh") == ../../.agents/skills/fresh ]] || fail "missing shared skill link was not created"
 
 rm -rf "$skills_sandbox/opencode"
-HOME="$skills_sandbox/home" UIDOTSH_TOKEN=automated PATH="$skills_sandbox/bin:$PATH" \
+HOME="$skills_sandbox/home" PATH="$skills_sandbox/bin:$PATH" \
   just --justfile "$skills_sandbox/justfile" update-skills >/dev/null
 [[ -d "$skills_sandbox/opencode/skills" ]] || fail "skill linking did not create its parent directory"
 [[ $(readlink "$skills_sandbox/opencode/skills/fresh") == ../../.agents/skills/fresh ]] || fail "fresh checkout skill link was not created"
