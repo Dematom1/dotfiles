@@ -1,0 +1,7 @@
+{
+  "name": "dotfiles-bun-axi-package",
+  "private": true,
+  "dependencies": {
+    "bun-axi": "0.1.1"
+  }
+}

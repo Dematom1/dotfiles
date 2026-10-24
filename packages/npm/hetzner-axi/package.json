@@ -1,0 +1,7 @@
+{
+  "name": "dotfiles-hetzner-axi-package",
+  "private": true,
+  "dependencies": {
+    "hetzner-axi": "0.1.1"
+  }
+}

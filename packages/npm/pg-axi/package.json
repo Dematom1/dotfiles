@@ -1,0 +1,7 @@
+{
+  "name": "dotfiles-pg-axi-package",
+  "private": true,
+  "dependencies": {
+    "pg-axi": "0.1.2"
+  }
+}

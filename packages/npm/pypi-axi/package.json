@@ -1,0 +1,7 @@
+{
+  "name": "dotfiles-pypi-axi-package",
+  "private": true,
+  "dependencies": {
+    "pypi-axi": "0.1.1"
+  }
+}

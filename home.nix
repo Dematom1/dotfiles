@@ -60,9 +60,11 @@ in
     git git-crypt lazygit lazydocker
     # kubernetes / infra
     argocd kubectl kubernetes-helm kustomize k9s kubectx kubernetes-axi terraform
-    # agent review queue (npm identity/integrity are pinned in packages/m87-npm)
-    m87
-    backpass acpx
+    # agent tools; npm ones are pinned by packages/npm/<name>/package-lock.json
+    m87 backpass acpx treehouse
+    # AXI agent tools (https://axi.md); the justfile lists decide which get hooks
+    gh-axi chrome-devtools-axi tasks-axi quota-axi pg-axi docker-axi npm-axi
+    pypi-axi homebrew-axi jev-axi bun-axi hetzner-axi linear-axi hey-axi lavish-axi
     # dev / build
     neovim gh prek cmake lld luarocks protobuf
     nodejs_24 bun python311 go uv memray
@@ -95,6 +97,7 @@ in
   ++ lib.optionals (profile == "work") [
     # work-only nix packages
     awscli2
+    slack-axi aws-axi gws-axi notion-axi
   ];
   # Desktop fonts only matter where there's a GUI.
   fonts.fontconfig.enable = pkgs.stdenv.isDarwin;

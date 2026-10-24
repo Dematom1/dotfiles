@@ -1,0 +1,7 @@
+{
+  "name": "dotfiles-aws-axi-package",
+  "private": true,
+  "dependencies": {
+    "aws-axi": "0.7.4"
+  }
+}

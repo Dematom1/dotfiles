@@ -17,14 +17,22 @@
   },
   "packageRules": [
     {
+      "description": "Nix-packaged CLIs (packages/npm/<name>): checked daily and auto-merged by GitHub once the required darwin-build check passes",
+      "matchFileNames": ["packages/npm/**"],
+      "schedule": ["before 6am"],
+      "minimumReleaseAge": "1 day",
+      "automerge": true,
+      "platformAutomerge": true
+    },
+    {
       "description": "Group TanStack packages",
       "groupName": "TanStack",
-      "matchPackagePatterns": ["^@tanstack/"]
+      "matchPackageNames": ["/^@tanstack//"]
     },
     {
       "description": "Group Drizzle packages",
       "groupName": "Drizzle",
-      "matchPackagePatterns": ["^drizzle"]
+      "matchPackageNames": ["/^drizzle/"]
     },
     {
       "description": "Group React packages",
@@ -44,12 +52,12 @@
     {
       "description": "Group Vite packages",
       "groupName": "Vite",
-      "matchPackagePatterns": ["^vite", "^@vitejs/"]
+      "matchPackageNames": ["/^vite/", "/^@vitejs//"]
     },
     {
       "description": "Group ESLint packages",
       "groupName": "ESLint",
-      "matchPackagePatterns": ["eslint"]
+      "matchPackageNames": ["/eslint/"]
     },
     {
       "description": "Group TypeScript packages",
@@ -59,18 +67,17 @@
     {
       "description": "Group type definitions",
       "groupName": "Type definitions",
-      "matchPackagePatterns": ["^@types/"],
-      "excludePackageNames": ["@types/react", "@types/react-dom"]
+      "matchPackageNames": ["/^@types//", "!@types/react", "!@types/react-dom"]
     },
     {
       "description": "Group Pydantic packages",
       "groupName": "Pydantic",
-      "matchPackagePatterns": ["^pydantic"]
+      "matchPackageNames": ["/^pydantic/"]
     },
     {
       "description": "Group psycopg packages",
       "groupName": "psycopg",
-      "matchPackagePatterns": ["^psycopg"]
+      "matchPackageNames": ["/^psycopg/"]
     },
     {
       "description": "Group SQLAlchemy and Alembic",
@@ -96,7 +103,7 @@
       "description": "Group Docker base images",
       "groupName": "Docker images",
       "matchDatasources": ["docker"],
-      "matchPackagePatterns": ["^python$", "^postgres$", "^node$"]
+      "matchPackageNames": ["/^python$/", "/^postgres$/", "/^node$/"]
     }
   ]
 }

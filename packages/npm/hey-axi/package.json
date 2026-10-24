@@ -1,0 +1,7 @@
+{
+  "name": "dotfiles-hey-axi-package",
+  "private": true,
+  "dependencies": {
+    "hey-axi": "0.3.3"
+  }
+}

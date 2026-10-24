@@ -103,30 +103,14 @@
     {
       "id": "claude-code",
       "name": "Claude Code",
-      "owner": "Native installer and Homebrew cask collision",
+      "owner": "Native installer (self-updating, ~/.local/bin/claude)",
       "version_command": ["claude", "--version"],
-      "release_adapter": "homebrew",
-      "brew_name": "claude-code",
-      "brew_kind": "cask",
+      "release_adapter": "github",
       "github_repo": "anthropics/claude-code",
       "release_source": "https://github.com/anthropics/claude-code/releases",
       "risk": "R3",
-      "risk_reason": "The active native launcher and declared cask are different owners.",
-      "rollback_note": "Preserve the native versions directory and prior cask artifact; choose one owner before updating."
-    },
-    {
-      "id": "claude-code-homebrew",
-      "name": "Claude Code Homebrew cask",
-      "owner": "Homebrew cask (collision surface)",
-      "version_command": ["/opt/homebrew/bin/claude", "--version"],
-      "release_adapter": "homebrew",
-      "brew_name": "claude-code",
-      "brew_kind": "cask",
-      "github_repo": "anthropics/claude-code",
-      "release_source": "https://github.com/anthropics/claude-code/releases",
-      "risk": "R3",
-      "risk_reason": "The Homebrew cask may differ from the active native Claude launcher.",
-      "rollback_note": "Choose one Claude owner and preserve the other version before changing the cask."
+      "risk_reason": "Claude Code updates itself in place; it is the only install.",
+      "rollback_note": "Run `claude install <version>` to pin a previous native version."
     },
     {
       "id": "codex-cli",
@@ -181,15 +165,15 @@
     {
       "id": "m87",
       "name": "m87",
-      "owner": "Nix/Home Manager and npm global collision",
+      "owner": "Nix flake",
       "version_command": ["m87", "--version"],
       "release_adapter": "npm",
       "package_name": "@kunchenguid/m87",
       "github_repo": "kunchenguid/m87",
       "release_source": "https://github.com/kunchenguid/m87/releases",
       "risk": "R2",
-      "risk_reason": "Nix and user npm currently disagree about the owner.",
-      "rollback_note": "Restore the Nix closure or exact npm package only after owner selection."
+      "risk_reason": "Pinned in flake.lock or packages/npm; a daily PR updates it and auto-merges only after the darwin build passes.",
+      "rollback_note": "Revert the update PR, or `sudo darwin-rebuild --rollback` locally."
     },
     {
       "id": "herdr",
@@ -208,18 +192,19 @@
     {
       "id": "treehouse",
       "name": "Treehouse",
-      "owner": "Direct installer",
+      "owner": "Nix flake",
       "version_command": ["treehouse", "--version"],
-      "release_adapter": "unknown",
-      "release_source": "https://kunchenguid.github.io/treehouse/install.sh",
+      "release_adapter": "github",
+      "release_source": "https://github.com/kunchenguid/treehouse/releases",
       "risk": "R3",
-      "risk_reason": "No stable machine-readable release source or checksum contract was verified.",
-      "rollback_note": "Keep the previous binary or installer artifact."
+      "risk_reason": "Pinned in flake.lock or packages/npm; a daily PR updates it and auto-merges only after the darwin build passes.",
+      "rollback_note": "Revert the update PR, or `sudo darwin-rebuild --rollback` locally.",
+      "github_repo": "kunchenguid/treehouse"
     },
     {
       "id": "gh-axi",
       "name": "gh-axi",
-      "owner": "npm global",
+      "owner": "Nix flake",
       "version_command": ["gh-axi", "--version"],
       "release_adapter": "native_axi",
       "native_check": ["gh-axi", "update", "--check"],
@@ -227,13 +212,13 @@
       "github_repo": "kunchenguid/gh-axi",
       "release_source": "https://github.com/kunchenguid/gh-axi/releases",
       "risk": "R2",
-      "risk_reason": "It wraps GitHub operations.",
-      "rollback_note": "Install the recorded exact npm version from the existing npm cache."
+      "risk_reason": "Pinned in flake.lock or packages/npm; a daily PR updates it and auto-merges only after the darwin build passes.",
+      "rollback_note": "Revert the update PR, or `sudo darwin-rebuild --rollback` locally."
     },
     {
       "id": "lavish-axi",
       "name": "lavish-axi",
-      "owner": "npm global",
+      "owner": "Nix flake",
       "version_command": ["lavish-axi", "--version"],
       "release_adapter": "native_axi",
       "native_check": ["lavish-axi", "update", "--check"],
@@ -241,27 +226,27 @@
       "github_repo": "kunchenguid/lavish-axi",
       "release_source": "https://github.com/kunchenguid/lavish-axi/releases",
       "risk": "R2",
-      "risk_reason": "It runs a local browser editor/server.",
-      "rollback_note": "Restore the exact npm version."
+      "risk_reason": "Pinned in flake.lock or packages/npm; a daily PR updates it and auto-merges only after the darwin build passes.",
+      "rollback_note": "Revert the update PR, or `sudo darwin-rebuild --rollback` locally."
     },
     {
       "id": "quota-axi",
       "name": "quota-axi",
-      "owner": "npm global",
+      "owner": "Nix flake",
       "version_command": ["quota-axi", "--version"],
       "release_adapter": "native_axi",
       "native_check": ["quota-axi", "update", "--check"],
       "package_name": "quota-axi",
       "github_repo": "kunchenguid/quota-axi",
       "release_source": "https://github.com/kunchenguid/quota-axi/releases",
-      "risk": "R1",
-      "risk_reason": "Update check is read-only; normal quota reads are credential-adjacent.",
-      "rollback_note": "Restore the exact npm version."
+      "risk": "R2",
+      "risk_reason": "Pinned in flake.lock or packages/npm; a daily PR updates it and auto-merges only after the darwin build passes.",
+      "rollback_note": "Revert the update PR, or `sudo darwin-rebuild --rollback` locally."
     },
     {
       "id": "chrome-devtools-axi",
       "name": "chrome-devtools-axi",
-      "owner": "npm global",
+      "owner": "Nix flake",
       "version_command": ["chrome-devtools-axi", "--version"],
       "release_adapter": "native_axi",
       "native_check": ["chrome-devtools-axi", "update", "--check"],
@@ -269,33 +254,34 @@
       "github_repo": "kunchenguid/chrome-devtools-axi",
       "release_source": "https://github.com/kunchenguid/chrome-devtools-axi/releases",
       "risk": "R3",
-      "risk_reason": "It controls a browser and its MCP launcher.",
-      "rollback_note": "Restore the exact npm version and re-check the tracked MCP launcher."
+      "risk_reason": "Pinned in flake.lock or packages/npm; a daily PR updates it and auto-merges only after the darwin build passes.",
+      "rollback_note": "Revert the update PR, or `sudo darwin-rebuild --rollback` locally."
     },
     {
       "id": "tasks-axi",
       "name": "tasks-axi",
-      "owner": "npm global",
+      "owner": "Nix flake",
       "version_command": ["tasks-axi", "--version"],
       "release_adapter": "npm",
       "package_name": "tasks-axi",
       "github_repo": "kunchenguid/tasks-axi",
       "release_source": "https://github.com/kunchenguid/tasks-axi/releases",
-      "risk": "R1",
-      "risk_reason": "Native update check is unsupported; registry metadata is used instead.",
-      "rollback_note": "Restore the exact npm version."
+      "risk": "R2",
+      "risk_reason": "Pinned in flake.lock or packages/npm; a daily PR updates it and auto-merges only after the darwin build passes.",
+      "rollback_note": "Revert the update PR, or `sudo darwin-rebuild --rollback` locally."
     },
     {
       "id": "linear-axi",
       "name": "linear-axi",
-      "owner": "GitHub/npm source with inconsistent identity",
+      "owner": "Nix flake",
       "version_command": ["linear-axi", "--version"],
       "release_adapter": "npm",
-      "package_name": "linear-axi",
-      "release_source": "https://www.npmjs.com/package/linear-axi",
+      "package_name": "@nikolauska/linear-axi",
+      "release_source": "https://www.npmjs.com/package/@nikolauska/linear-axi",
       "risk": "R3",
-      "risk_reason": "Configured and installed repository identities disagree.",
-      "rollback_note": "Pin a verified commit after the captain resolves identity."
+      "risk_reason": "Pinned in flake.lock or packages/npm; a daily PR updates it and auto-merges only after the darwin build passes.",
+      "rollback_note": "Revert the update PR, or `sudo darwin-rebuild --rollback` locally.",
+      "github_repo": "nikolauska/linear-axi"
     },
     {
       "id": "gh-cli",
@@ -347,101 +333,110 @@
     {
       "id": "pg-axi",
       "name": "pg-axi",
-      "owner": "npm global (declared, absent locally)",
+      "owner": "Nix flake",
       "version_command": ["pg-axi", "--version"],
-      "release_adapter": "unknown",
-      "release_source": "https://axi.md",
-      "risk": "R1",
-      "risk_reason": "Declared work surface is not installed on this machine.",
-      "rollback_note": "No rollback needed because the tool is absent."
+      "release_adapter": "npm",
+      "release_source": "https://www.npmjs.com/package/pg-axi",
+      "risk": "R2",
+      "risk_reason": "Pinned in flake.lock or packages/npm; a daily PR updates it and auto-merges only after the darwin build passes.",
+      "rollback_note": "Revert the update PR, or `sudo darwin-rebuild --rollback` locally.",
+      "package_name": "pg-axi"
     },
     {
       "id": "docker-axi",
       "name": "docker-axi",
-      "owner": "npm global (declared, absent locally)",
+      "owner": "Nix flake",
       "version_command": ["docker-axi", "--version"],
       "release_adapter": "unknown",
-      "release_source": "https://axi.md",
-      "risk": "R1",
-      "risk_reason": "Declared work surface is not installed on this machine.",
-      "rollback_note": "No rollback needed because the tool is absent."
+      "release_source": "https://github.com/thatdudealso/docker-axi",
+      "risk": "R2",
+      "risk_reason": "Pinned in flake.lock or packages/npm; a daily PR updates it and auto-merges only after the darwin build passes.",
+      "rollback_note": "Revert the update PR, or `sudo darwin-rebuild --rollback` locally.",
+      "github_repo": "thatdudealso/docker-axi"
     },
     {
       "id": "npm-axi",
       "name": "npm-axi",
-      "owner": "npm global (declared, absent locally)",
+      "owner": "Nix flake",
       "version_command": ["npm-axi", "--version"],
-      "release_adapter": "unknown",
-      "release_source": "https://axi.md",
-      "risk": "R1",
-      "risk_reason": "Declared work surface is not installed on this machine.",
-      "rollback_note": "No rollback needed because the tool is absent."
+      "release_adapter": "npm",
+      "release_source": "https://www.npmjs.com/package/npm-axi",
+      "risk": "R2",
+      "risk_reason": "Pinned in flake.lock or packages/npm; a daily PR updates it and auto-merges only after the darwin build passes.",
+      "rollback_note": "Revert the update PR, or `sudo darwin-rebuild --rollback` locally.",
+      "package_name": "npm-axi"
     },
     {
       "id": "pypi-axi",
       "name": "pypi-axi",
-      "owner": "npm global (declared, absent locally)",
+      "owner": "Nix flake",
       "version_command": ["pypi-axi", "--version"],
-      "release_adapter": "unknown",
-      "release_source": "https://axi.md",
-      "risk": "R1",
-      "risk_reason": "Declared work surface is not installed on this machine.",
-      "rollback_note": "No rollback needed because the tool is absent."
+      "release_adapter": "npm",
+      "release_source": "https://www.npmjs.com/package/pypi-axi",
+      "risk": "R2",
+      "risk_reason": "Pinned in flake.lock or packages/npm; a daily PR updates it and auto-merges only after the darwin build passes.",
+      "rollback_note": "Revert the update PR, or `sudo darwin-rebuild --rollback` locally.",
+      "package_name": "pypi-axi"
     },
     {
       "id": "homebrew-axi",
       "name": "homebrew-axi",
-      "owner": "npm global (declared, absent locally)",
+      "owner": "Nix flake",
       "version_command": ["homebrew-axi", "--version"],
-      "release_adapter": "unknown",
-      "release_source": "https://axi.md",
-      "risk": "R1",
-      "risk_reason": "Declared work surface is not installed on this machine.",
-      "rollback_note": "No rollback needed because the tool is absent."
+      "release_adapter": "npm",
+      "release_source": "https://www.npmjs.com/package/homebrew-axi",
+      "risk": "R2",
+      "risk_reason": "Pinned in flake.lock or packages/npm; a daily PR updates it and auto-merges only after the darwin build passes.",
+      "rollback_note": "Revert the update PR, or `sudo darwin-rebuild --rollback` locally.",
+      "package_name": "homebrew-axi"
     },
     {
       "id": "slack-axi",
       "name": "slack-axi",
-      "owner": "npm global (work-only, absent locally)",
+      "owner": "Nix flake (work profile only)",
       "version_command": ["slack-axi", "--version"],
-      "release_adapter": "unknown",
-      "release_source": "https://axi.md",
-      "risk": "R1",
-      "risk_reason": "Work-only declared surface is not installed on this machine.",
-      "rollback_note": "No rollback needed because the tool is absent."
+      "release_adapter": "npm",
+      "release_source": "https://www.npmjs.com/package/slack-axi",
+      "risk": "R2",
+      "risk_reason": "Pinned in flake.lock or packages/npm; a daily PR updates it and auto-merges only after the darwin build passes.",
+      "rollback_note": "Revert the update PR, or `sudo darwin-rebuild --rollback` locally.",
+      "package_name": "slack-axi"
     },
     {
       "id": "aws-axi",
       "name": "aws-axi",
-      "owner": "npm global (work-only, absent locally)",
+      "owner": "Nix flake (work profile only)",
       "version_command": ["aws-axi", "--version"],
-      "release_adapter": "unknown",
-      "release_source": "https://axi.md",
+      "release_adapter": "npm",
+      "release_source": "https://www.npmjs.com/package/aws-axi",
       "risk": "R2",
-      "risk_reason": "Work-only cloud control surface is not installed on this machine.",
-      "rollback_note": "No rollback needed because the tool is absent."
+      "risk_reason": "Pinned in flake.lock or packages/npm; a daily PR updates it and auto-merges only after the darwin build passes.",
+      "rollback_note": "Revert the update PR, or `sudo darwin-rebuild --rollback` locally.",
+      "package_name": "aws-axi"
     },
     {
       "id": "gws-axi",
       "name": "gws-axi",
-      "owner": "npm global (work-only, absent locally)",
+      "owner": "Nix flake (work profile only)",
       "version_command": ["gws-axi", "--version"],
-      "release_adapter": "unknown",
-      "release_source": "https://axi.md",
+      "release_adapter": "npm",
+      "release_source": "https://www.npmjs.com/package/gws-axi",
       "risk": "R2",
-      "risk_reason": "Work-only cloud control surface is not installed on this machine.",
-      "rollback_note": "No rollback needed because the tool is absent."
+      "risk_reason": "Pinned in flake.lock or packages/npm; a daily PR updates it and auto-merges only after the darwin build passes.",
+      "rollback_note": "Revert the update PR, or `sudo darwin-rebuild --rollback` locally.",
+      "package_name": "gws-axi"
     },
     {
       "id": "notion-axi",
       "name": "notion-axi",
-      "owner": "npm global (work-only, absent locally)",
+      "owner": "Nix flake (work profile only)",
       "version_command": ["notion-axi", "--version"],
-      "release_adapter": "unknown",
-      "release_source": "https://axi.md",
-      "risk": "R1",
-      "risk_reason": "Work-only declared surface is not installed on this machine.",
-      "rollback_note": "No rollback needed because the tool is absent."
+      "release_adapter": "npm",
+      "release_source": "https://www.npmjs.com/package/notion-axi",
+      "risk": "R2",
+      "risk_reason": "Pinned in flake.lock or packages/npm; a daily PR updates it and auto-merges only after the darwin build passes.",
+      "rollback_note": "Revert the update PR, or `sudo darwin-rebuild --rollback` locally.",
+      "package_name": "notion-axi"
     }
   ]
 }

@@ -2,22 +2,19 @@
 
 skills-dir := ".agents/skills"
 
-# AXI agent tools installed as npm globals (https://axi.md).
-# kubernetes-axi is intentionally absent: flake.nix pins and packages it through
-# Nix so both Macs and the Linux sandbox receive the same reproducible build.
-axi-tools := "gh-axi chrome-devtools-axi tasks-axi quota-axi pg-axi docker-axi npm-axi pypi-axi homebrew-axi jev-axi bun-axi hetzner-axi"
+# AXI agent tools (https://axi.md). Nix installs every one of them (home.nix,
+# packages/npm/<name>), so these lists only decide whose session hooks are set
+# up. kubernetes-axi is Nix-installed too but registers no hooks.
+axi-tools := "gh-axi chrome-devtools-axi tasks-axi quota-axi pg-axi docker-axi npm-axi pypi-axi homebrew-axi jev-axi bun-axi hetzner-axi linear-axi"
 
 # HEY stays on-demand so session-start hooks cannot inject private email.
 # lavish-axi is routed by its skill instead of a per-session status dump.
 axi-tools-no-hooks := "hey-axi lavish-axi"
 
-# work-machine-only AXI tools - installed by setup/update-firstmate only when
-# ~/.config/dotfiles-profile says "work" (the same marker rebuild.sh reads).
+# work-machine-only AXI tools - Nix installs them on the work profile only, and
+# their hooks are set up only when ~/.config/dotfiles-profile says "work" (the
+# same marker rebuild.sh reads).
 axi-tools-work := "slack-axi aws-axi gws-axi notion-axi"
-
-# AXI tools installed from GitHub (npm install owner/repo). The binary name is
-# the repo (basename of the spec), which is what `setup hooks` runs.
-axi-tools-git := "nikolauska/linear-axi"
 
 # Reviewed upstream agent package/plugin identities. Keep these user-scoped and
 # tool-owned: Pi and Claude Code both reconcile repeated installs idempotently.
@@ -133,9 +130,11 @@ _select-profile profile="":
     echo "==> Selected profile: $profile"
 
 # ---------------------------------------------------------------------------
-# FirstMate + Herdr + Pi agent stack. These are npm globals + curl installers
-# that self-update; the base deps (git/gh/jq/node/curl) come from nix. Tools
-# install to ~/.local/bin (managed on PATH by the Home Manager zsh setup).
+# FirstMate + Herdr + Pi agent stack. Pi, Herdr, No Mistakes and Claude Code
+# are npm globals + native installers that self-update into ~/.local/bin
+# (managed on PATH by the Home Manager zsh setup). Nix installs the base deps
+# (git/gh/jq/node/curl), Treehouse and every AXI tool: daily auto-merged PRs
+# keep their pins current and `just rebuild` activates them.
 # ---------------------------------------------------------------------------
 
 # Update EVERYTHING in one shot - skills + the FirstMate stack.
@@ -185,7 +184,7 @@ _setup-ponytail:
     pi install {{ ponytail-pi-source }}
     if ! command -v claude >/dev/null 2>&1; then
       if [[ $(uname -s) == Darwin ]]; then
-        echo "missing Claude Code: run 'just rebuild' before agent bootstrap" >&2
+        echo "missing Claude Code: run 'just setup-firstmate' to install it" >&2
         exit 1
       fi
       echo "    - Claude Code unavailable; installed Ponytail for Pi only"
@@ -209,9 +208,10 @@ _setup-axi-hooks tool:
     #!/usr/bin/env bash
     set -euo pipefail
     tool='{{ tool }}'
-    # Prefer the copy these recipes install over a stale global earlier on PATH.
-    managed="$HOME/.local/bin/$tool"
-    [[ "$tool" == */* || ! -x "$managed" ]] || tool=$managed
+    # Prefer the Nix-managed copy over a stale npm or Homebrew global earlier on PATH.
+    for dir in "/etc/profiles/per-user/${USER:-$(id -un)}/bin" "$HOME/.nix-profile/bin"; do
+      [[ "$tool" == */* || ! -x "$dir/$tool" ]] || tool=$dir/$tool
+    done
     if help=$("$tool" setup --help 2>&1); then
       probe_status=0
     else
@@ -242,9 +242,9 @@ _setup-axi-hooks tool:
       exit 1
     fi
     if output=$("$tool" setup hooks 2>&1); then
-      if [[ "$tool" == "$HOME/.local/bin/gh-axi" ]]; then
+      if [[ "$tool" == /*/gh-axi ]]; then
         # gh-axi setup persists a bare command even when invoked by absolute path.
-        node -e '
+        GH_AXI_PATH=$tool node -e '
           const fs = require("node:fs");
           for (const relative of [".claude/settings.json", ".codex/hooks.json"]) {
             const path = `${process.env.HOME}/${relative}`;
@@ -253,7 +253,7 @@ _setup-axi-hooks tool:
             for (const group of settings.hooks?.SessionStart ?? []) {
               for (const hook of group.hooks ?? []) {
                 if (hook.type === "command" && hook.command === "gh-axi") {
-                  hook.command = "\"$HOME/.local/bin/gh-axi\"";
+                  hook.command = JSON.stringify(process.env.GH_AXI_PATH);
                   changed = true;
                 }
               }
@@ -275,7 +275,7 @@ setup-firstmate:
     #!/usr/bin/env bash
     set -euo pipefail
     set +h   # don't cache command locations - we install tools then use them
-    for c in git gh jq node npm curl; do
+    for c in git gh jq node npm curl treehouse; do
       command -v "$c" >/dev/null || { echo "missing base dep: $c (add in nix + ./rebuild.sh)"; exit 1; }
     done
 
@@ -287,33 +287,27 @@ setup-firstmate:
     npm install -g --ignore-scripts @earendil-works/pi-coding-agent
     curl -fsSL https://herdr.dev/install.sh | sh
     herdr integration install pi
+    if [[ $(uname -s) == Darwin ]] && ! command -v claude >/dev/null; then
+      echo "==> Claude Code (native install; it updates itself)"
+      curl -fsSL https://claude.ai/install.sh | bash
+    fi
     just _setup-ponytail
 
-    echo "==> Treehouse + No Mistakes + AXI tools"
-    curl -fsSL https://kunchenguid.github.io/treehouse/install.sh | sh
+    echo "==> No Mistakes"
     curl -fsSL https://raw.githubusercontent.com/kunchenguid/no-mistakes/main/docs/install.sh | sh
-    npm install -g {{ axi-tools }} {{ axi-tools-no-hooks }}
-    # hook-enabled AXI tools install via `setup hooks`; report per tool
-    # (a few legitimately have no such subcommand)
+    just _retire-superseded-installs
+    # Nix installs the AXI tools; hook-enabled ones register via `setup hooks`,
+    # reported per tool (a few legitimately have no such subcommand)
     echo "==> AXI setup hooks"
     for t in {{ axi-tools }}; do
       just _setup-axi-hooks "$t"
-    done
-
-    # AXI tools installed from GitHub (npm spec != binary name)
-    echo "==> GitHub AXI tools"
-    for spec in {{ axi-tools-git }}; do
-      npm install -g "$spec"
-      bin="$(basename "$spec")"
-      just _setup-axi-hooks "$bin"
     done
 
     # work-only AXI tools (same ~/.config/dotfiles-profile marker rebuild.sh reads)
     profile=personal
     if [[ -f ~/.config/dotfiles-profile ]]; then profile="$(<~/.config/dotfiles-profile)"; fi
     if [[ "$profile" == work ]]; then
-      echo "==> work-only AXI tools (slack/aws/gws/notion)"
-      npm install -g {{ axi-tools-work }}
+      echo "==> work-only AXI setup hooks (slack/aws/gws/notion)"
       for t in {{ axi-tools-work }}; do
         just _setup-axi-hooks "$t"
       done
@@ -333,6 +327,24 @@ setup-firstmate:
 
     echo
     echo "Done. Next:  gh auth login   then   cd $ws && herdr   (run 'pi' in pane 1)"
+
+# Remove the npm-global and curl-installed copies of tools Nix now installs, so
+# a stale copy in ~/.local/bin cannot shadow them for callers that skip the
+# shell's PATH ordering (e.g. hooks that resolve a bare command).
+_retire-superseded-installs:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root=$(npm root -g)
+    for package in {{ axi-tools }} {{ axi-tools-no-hooks }} {{ axi-tools-work }} @nikolauska/linear-axi; do
+      if [[ -n "$root" && -d "$root/$package" ]]; then
+        echo "    - removing npm-global $package (Nix installs it now)"
+        npm uninstall -g "$package"
+      fi
+    done
+    if [[ -f "$HOME/.local/bin/treehouse" && ! -L "$HOME/.local/bin/treehouse" ]]; then
+      echo "    - removing ~/.local/bin/treehouse (Nix installs it now)"
+      rm -- "$HOME/.local/bin/treehouse"
+    fi
 
 # Read-only signed-Pi drift report; the signed app exists only on macOS.
 report-pi-signed-drift:
@@ -363,15 +375,20 @@ update-firstmate:
     pi update --self
     just _update-ponytail
     just _update-herdr
-    treehouse update
-    no-mistakes update
-    npm update -g {{ axi-tools }} {{ axi-tools-no-hooks }} gnhf
+    # No Mistakes refuses to restart its shared daemon under active pipeline
+    # runs; report that instead of failing the whole update (never --force).
+    if ! no-mistakes update </dev/null; then
+      echo "WARNING: no-mistakes was not updated; it refuses while pipeline runs are active." >&2
+      echo "         Rerun 'no-mistakes update' once no runs are active (never with --force)." >&2
+    fi
+    # Treehouse and the AXI tools are Nix-pinned: daily auto-merged PRs move the
+    # pins and `just rebuild` activates them, so only their hooks refresh here.
+    just _retire-superseded-installs
+    npm update -g gnhf
     for t in {{ axi-tools }}; do just _setup-axi-hooks "$t"; done   # refresh hooks
     if [[ -f ~/.config/dotfiles-profile && "$(<~/.config/dotfiles-profile)" == work ]]; then
-      npm update -g {{ axi-tools-work }}
       for t in {{ axi-tools-work }}; do just _setup-axi-hooks "$t"; done
     fi
-    for spec in {{ axi-tools-git }}; do npm install -g "$spec"; just _setup-axi-hooks "$(basename "$spec")"; done
     herdr integration install pi   # refresh Pi integration after a herdr update
     just report-pi-signed-drift
     echo "FirstMate stack updated."

@@ -1,0 +1,7 @@
+{
+  "name": "dotfiles-quota-axi-package",
+  "private": true,
+  "dependencies": {
+    "quota-axi": "0.1.67"
+  }
+}

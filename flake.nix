@@ -28,15 +28,27 @@
     # the expected version in tests/terraform.sh to match.
     nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
 
-    # Agent-facing Kubernetes CLI. The source commit is pinned here and in
-    # flake.lock; packages/kubernetes-axi.nix supplies the reproducible build.
+    # Agent-facing Kubernetes and Docker CLIs. Upstream cuts no releases or npm
+    # packages, so flake.lock pins the default-branch commit and
+    # .github/workflows/flake-update.yml moves it daily;
+    # packages/node-source-tool.nix supplies the reproducible build.
     kubernetes-axi = {
-      url = "github:thatdudealso/kubernetes-axi/c05c686e02cb0074ccf1ba5284d2941c05e9a54e";
+      url = "github:thatdudealso/kubernetes-axi";
       flake = false;
     };
+    docker-axi = {
+      url = "github:thatdudealso/docker-axi";
+      flake = false;
+    };
+
+    # Pinned to an upstream release tag; upstream's flake owns vendorHash, so a
+    # bump is a tag edit plus `nix flake lock`, which
+    # .github/workflows/flake-update.yml does daily. It deliberately does not
+    # follow nixpkgs: upstream builds and tests only against its own pin.
+    treehouse.url = "github:kunchenguid/treehouse/v3.1.5";
   };
 
-  outputs = inputs@{ self, nix-darwin, nix-homebrew, home-manager, nixpkgs, nixpkgs-unstable, kubernetes-axi }:
+  outputs = inputs@{ self, nix-darwin, nix-homebrew, home-manager, nixpkgs, nixpkgs-unstable, kubernetes-axi, docker-axi, treehouse }:
   let
     supportedSystems = [
       "aarch64-darwin"
@@ -45,17 +57,29 @@
     ];
     forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
 
+    # Every packages/npm/<name> directory becomes package <name>; Renovate keeps
+    # its package.json and package-lock.json current.
+    npmTools = builtins.attrNames (nixpkgs.lib.filterAttrs (_: type: type == "directory")
+      (builtins.readDir ./packages/npm));
+
     # One overlay keeps package identities identical in standalone package
     # builds, nix-darwin, NixOS, and standalone Home Manager configurations.
-    dotfilesOverlay = final: _: {
-      kubernetes-axi = final.callPackage ./packages/kubernetes-axi.nix {
-        src = kubernetes-axi;
+    dotfilesOverlay = final: _:
+      nixpkgs.lib.genAttrs npmTools (name: final.callPackage ./packages/npm-tool.nix {
+        npmRoot = ./packages/npm + "/${name}";
+      })
+      // {
+        kubernetes-axi = final.callPackage ./packages/node-source-tool.nix { src = kubernetes-axi; };
+        docker-axi = final.callPackage ./packages/node-source-tool.nix { src = docker-axi; };
+        treehouse = treehouse.packages.${final.stdenv.hostPlatform.system}.default;
+        # A Pi extension, not a CLI: home.nix links its entrypoint directory.
+        pi-fff = (final.callPackage ./packages/npm-tool.nix { npmRoot = ./packages/npm/pi-fff; }).overrideAttrs (old: {
+          npmFlags = [ "--legacy-peer-deps" ];
+          passthru = old.passthru or { } // {
+            extensionPath = "libexec/pi-fff/node_modules/@ff-labs/pi-fff/src";
+          };
+        });
       };
-      m87 = final.callPackage ./packages/m87.nix { };
-      pi-fff = final.callPackage ./packages/pi-fff.nix { };
-      backpass = final.callPackage ./packages/backpass.nix { };
-      acpx = final.callPackage ./packages/acpx.nix { };
-    };
 
     # Swaps in terraform from nixpkgs-unstable, currently pinning it to
     # 1.15.8; see the nixpkgs-unstable input comment above for how to move to
@@ -63,7 +87,7 @@
     # - this only changes which nixpkgs tree the one package comes from.
     terraformOverlay = final: _: {
       terraform = (import nixpkgs-unstable {
-        inherit (final) system;
+        system = final.stdenv.hostPlatform.system;
         config.allowUnfree = true;
       }).terraform;
     };
@@ -150,8 +174,8 @@
     packages = forAllSystems (system:
       let
         pkgs = pkgsFor system;
-      in {
-        inherit (pkgs) kubernetes-axi m87 pi-fff backpass acpx;
+      in nixpkgs.lib.genAttrs npmTools (name: pkgs.${name}) // {
+        inherit (pkgs) kubernetes-axi docker-axi treehouse;
         default = pkgs.kubernetes-axi;
       });
 
@@ -173,11 +197,13 @@
         '';
 
         agent-tools-layout = pkgs.runCommand "agent-tools-layout" {
-          nativeBuildInputs = [ pkgs.m87 pkgs.backpass pkgs.acpx pkgs.nodejs_24 ];
+          nativeBuildInputs = [ pkgs.m87 pkgs.treehouse pkgs.nodejs_24 ];
         } ''
-          test "$(m87 --version)" = 0.1.10
-          test "$(command -v backpass)" = ${pkgs.backpass}/bin/backpass
-          test "$(command -v acpx)" = ${pkgs.acpx}/bin/acpx
+          test "$(m87 --version)" = ${pkgs.m87.version}
+          treehouse --version | grep -Fq ${pkgs.treehouse.version}
+          ${nixpkgs.lib.concatMapStrings (name: ''
+            test -x ${pkgs.${name}}/bin/${name}
+          '') (nixpkgs.lib.remove "pi-fff" npmTools ++ [ "kubernetes-axi" "docker-axi" ])}
           test -f ${pkgs.pi-fff}/${pkgs.pi-fff.extensionPath}/index.ts
           mkdir "$out"
         '';

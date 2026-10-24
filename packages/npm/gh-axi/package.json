@@ -1,0 +1,7 @@
+{
+  "name": "dotfiles-gh-axi-package",
+  "private": true,
+  "dependencies": {
+    "gh-axi": "0.1.43"
+  }
+}
