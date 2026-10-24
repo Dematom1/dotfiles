@@ -375,10 +375,15 @@ update-firstmate:
     just _update-ponytail
     just _update-herdr
     # No Mistakes refuses to restart its shared daemon under active pipeline
-    # runs; report that instead of failing the whole update (never --force).
-    if ! no-mistakes update </dev/null; then
-      echo "WARNING: no-mistakes was not updated; it refuses while pipeline runs are active." >&2
-      echo "         Rerun 'no-mistakes update' once no runs are active (never with --force)." >&2
+    # runs; skip only that refusal (never --force). Other failures stay fatal.
+    nm_status=0
+    nm_output=$(no-mistakes update </dev/null 2>&1 | tee /dev/stderr) || nm_status=$?
+    if (( nm_status != 0 )); then
+      if [[ "$nm_output" =~ refusing\ update\ because\ ([0-9]+)\ active\ pipeline\ run ]]; then
+        echo "skipped no-mistakes update: ${BASH_REMATCH[1]} active pipeline runs; rerun 'no-mistakes update' once they finish (never --force)" >&2
+      else
+        exit "$nm_status"
+      fi
     fi
     # Treehouse and the AXI tools are Nix-pinned: daily auto-merged PRs move the
     # pins and `just rebuild` activates them, so only their hooks refresh here.
