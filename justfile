@@ -287,9 +287,8 @@ setup-firstmate:
     npm install -g --ignore-scripts @earendil-works/pi-coding-agent
     curl -fsSL https://herdr.dev/install.sh | sh
     herdr integration install pi
-    if [[ $(uname -s) == Darwin ]] && ! command -v claude >/dev/null; then
-      echo "==> Claude Code (native install; it updates itself)"
-      curl -fsSL https://claude.ai/install.sh | bash
+    if [[ $(uname -s) == Darwin ]]; then
+      bash scripts/install-claude-native.sh
     fi
     just _setup-ponytail
 

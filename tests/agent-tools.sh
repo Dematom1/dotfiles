@@ -12,6 +12,8 @@ jq -e '((.mcp // {}) | has("memtrace") | not)' \
   "$repo/opencode/opencode.json" >/dev/null \
   || fail "OpenCode configuration still registers a removed agent integration"
 
+bash "$repo/tests/claude-native-install.sh"
+
 system=$(nix eval --impure --raw --expr 'builtins.currentSystem')
 bash_bin=$(command -v bash)
 case "$system" in

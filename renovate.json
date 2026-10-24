@@ -17,12 +17,12 @@
   },
   "packageRules": [
     {
-      "description": "Nix-packaged CLIs (packages/npm/<name>): checked daily and auto-merged by GitHub once the required darwin-build check passes",
+      "description": "Nix-packaged CLIs (packages/npm/<name>): checked daily and auto-merged by Renovate once all checks pass",
       "matchFileNames": ["packages/npm/**"],
       "schedule": ["before 6am"],
       "minimumReleaseAge": "1 day",
       "automerge": true,
-      "platformAutomerge": true
+      "platformAutomerge": false
     },
     {
       "description": "Group TanStack packages",

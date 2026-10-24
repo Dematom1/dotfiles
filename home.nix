@@ -165,11 +165,17 @@ in
     ".local/bin/tailscale".source = tailscaleAppCli;
   };
 
+  home.activation.claudeNativeInstall = lib.mkIf pkgs.stdenv.isDarwin (
+    lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      DRY_RUN="''${DRY_RUN+1}" ${pkgs.bash}/bin/bash ${./scripts/install-claude-native.sh}
+    ''
+  );
+
   # Reconcile Claude plugins, marketplaces, MCP servers and hooks, Codex MCP
   # servers and hooks, Pi packages, and every skill root to agent-tooling.json,
   # and register the hooks of each installed hook-enabled AXI tool listed in
   # the justfile. Network or parse problems only warn, so a rebuild never fails.
-  home.activation.agentTooling = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+  home.activation.agentTooling = lib.hm.dag.entryAfter [ "linkGeneration" "claudeNativeInstall" ] ''
     dry_run=()
     if [[ -v DRY_RUN ]]; then dry_run=(--dry-run); fi
     PATH="${lib.makeBinPath [ pkgs.nodejs_24 pkgs.git pkgs.just pkgs.bash pkgs.gnugrep ]}:$HOME/.local/bin:${lib.concatMapStrings (path: "${path}:") homebrewPath}$PATH" \

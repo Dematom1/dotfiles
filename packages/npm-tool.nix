@@ -7,6 +7,7 @@
   buildNpmPackage,
   importNpmLock,
   nodejs_24,
+  bun,
   npmRoot,
 }:
 
@@ -24,9 +25,8 @@ buildNpmPackage {
   npmConfigHook = importNpmLock.npmConfigHook;
   nodejs = nodejs_24;
   dontNpmBuild = true;
+  buildInputs = lib.optionals (pname == "bun-axi") [ bun ];
 
-  # npmConfigHook already pointed every shebang at the Nix node, so each bin is
-  # linked straight to its script inside the copied node_modules.
   installPhase = ''
     runHook preInstall
 
@@ -38,6 +38,7 @@ buildNpmPackage {
       const bin = typeof p.bin === "string" ? { [p.name.split("/").pop()]: p.bin } : p.bin ?? {};
       for (const [name, path] of Object.entries(bin)) console.log(name + "\t" + path);
     ' "$root" | while IFS=$'\t' read -r name path; do
+      patchShebangs "$root/$path"
       ln -s "$root/$path" "$out/bin/$name"
     done
 

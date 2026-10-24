@@ -163,6 +163,9 @@ installed hook-enabled tool and removes any hook a no-hook tool left behind
 (see [Declarative agent tooling](#declarative-agent-tooling)). Claude Code has
 one install, the native self-updating one in `~/.local/bin`; it is deliberately
 not a Homebrew cask.
+On macOS, attended `just rebuild` activation installs it when missing, skips
+installation during dry runs, and fails clearly if installation fails.
+`just setup-firstmate` uses the same installer.
 
 Home Manager uses `mkOutOfStoreSymlink`, so edits to linked files apply without
 copying them into the Nix store or rebuilding. On first activation, an existing
@@ -197,17 +200,19 @@ Treehouse is a flake input pinned to an upstream release tag, and
 `kubernetes-axi`/`docker-axi` (no releases, no npm) track their default
 branch through `flake.lock`.
 
-Updates arrive as pull requests that GitHub auto-merges:
+Updates arrive as pull requests:
 
 - Renovate (`renovate.json`) checks `packages/npm` daily, after a one-day
-  release soak, and enables GitHub auto-merge on its PRs.
+  release soak, and merges its PRs through Renovate after all checks pass.
+  Native platform auto-merge is disabled while the main ruleset is pending.
 - `.github/workflows/flake-update.yml` runs `scripts/flake-update.sh` daily:
   it moves tag-pinned inputs to upstream's latest stable release once it is a
   day old, refreshes the branch-tracked inputs, opens or refreshes one PR, and
-  enables auto-merge.
+  enables GitHub auto-merge only when main requires `darwin-build`.
 - `.github/workflows/darwin-build.yml` builds both Macs' systems and runs
   `nix flake check` on `macos-15` (Apple silicon) for every PR. The main
-  ruleset requires its `darwin-build` check, so only green builds merge.
+  ruleset requiring its `darwin-build` check is pending in infrastructure
+  Terraform; flake update PRs remain unmerged automatically until it exists.
 
 Merged updates are not activated automatically: run `just rebuild`. Roll back
 with a revert PR, or locally with `sudo darwin-rebuild --rollback`. Do not use
