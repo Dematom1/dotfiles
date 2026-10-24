@@ -79,6 +79,7 @@
             extensionPath = "libexec/pi-fff/node_modules/@ff-labs/pi-fff/src";
           };
         });
+        signoff = final.callPackage ./packages/signoff.nix { };
       };
 
     # Swaps in terraform from nixpkgs-unstable, currently pinning it to
@@ -124,6 +125,7 @@
       modules = [
         { nixpkgs.overlays = sharedOverlays; }
         ./configuration.nix
+        ./modules/signoff.nix
         hostModule
         nix-homebrew.darwinModules.nix-homebrew
         home-manager.darwinModules.home-manager
@@ -177,6 +179,8 @@
       in nixpkgs.lib.genAttrs npmTools (name: pkgs.${name}) // {
         inherit (pkgs) kubernetes-axi docker-axi treehouse;
         default = pkgs.kubernetes-axi;
+      } // nixpkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
+        inherit (pkgs) signoff;
       });
 
     # The package build runs upstream's unit suite. This additional bounded
@@ -209,6 +213,37 @@
           test -f ${pkgs.pi-fff}/${pkgs.pi-fff.extensionPath}/index.ts
           mkdir "$out"
         '';
+      } // nixpkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
+        # Only the personal Mac gets the signer, its watcher ships off, and the
+        # binary resolves tools only from its baked-in trusted PATH.
+        signoff-install =
+          let
+            inherit (nixpkgs) lib;
+            personal = self.darwinConfigurations.personal.config;
+            watch = (self.darwinConfigurations.personal.extendModules {
+              modules = [ { services.signoff.watch.enable = true; } ];
+            }).config.launchd.user.agents.signoff-watch;
+          in
+          assert lib.assertMsg personal.services.signoff.enable "personal must install signoff";
+          assert lib.assertMsg (!self.darwinConfigurations.work.config.services.signoff.enable) "work must not install signoff";
+          assert lib.assertMsg (!personal.launchd.user.agents ? signoff-watch) "the watcher must ship disabled";
+          assert watch.serviceConfig.StartInterval == 120;
+          assert lib.hasInfix "--app-id 5460531" watch.script;
+          assert lib.hasInfix "--installation-id 174959222" watch.script;
+          assert lib.hasInfix "SHA256:tlF5N8zgxWi5AR2FZdYPcRdbm8C1Dk4LkwsMp77A4Uk=" watch.script;
+          pkgs.runCommand "signoff-install" {
+            nativeBuildInputs = [ pkgs.gnugrep ];
+          } ''
+            grep -qF '${pkgs.signoff.tools}/bin:/usr/bin:/bin' ${lib.getExe pkgs.signoff}
+            test -x ${pkgs.signoff.tools}/bin/just
+            # A non-fleet repo is refused before any network call or key use.
+            if GH_TOKEN=unused ${lib.getExe pkgs.signoff} run octocat/Hello-World \
+              7fd1a60b01f91b314f59955a4e4d4e80d8edf11d 2> err; then
+              exit 1
+            fi
+            grep -q 'refused: octocat/Hello-World is not a fleet repo' err
+            mkdir "$out"
+          '';
       });
 
     darwinConfigurations = {

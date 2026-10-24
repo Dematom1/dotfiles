@@ -139,7 +139,8 @@ existing non-symlink at that path.
 2. **`configuration.nix`** owns macOS system defaults, the selected macOS user,
    shared Homebrew packages, and shared system configuration. Darwin only.
 3. **`hosts/personal.nix` and `hosts/work.nix`** append machine-specific
-   Homebrew packages. **`hosts/sandbox.nix`** is the standalone NixOS module for
+   Homebrew packages; `hosts/personal.nix` also enables
+   [Local signoff](#local-signoff). **`hosts/sandbox.nix`** is the standalone NixOS module for
    the Linux sandbox (SSH, `captain`, Docker + gVisor, firewall). Profile-specific
    Nix packages are selected in `home.nix`.
 4. **`home.nix`** owns user packages, zsh structure and aliases, and selected
@@ -451,6 +452,77 @@ just rebuild personal
 just report-pi-signed-drift
 ./tests/pi-signed.sh
 ```
+
+### Local signoff
+
+The personal Mac installs `signoff`, the signer that posts the App-signed
+`local-signoff` check run. It runs a repository's trusted `just signoff` recipe
+on a fresh checkout of a pull request head; see
+[packages/signoff-src/README.md](packages/signoff-src/README.md) for what it
+does and its trust model. [modules/signoff.nix](modules/signoff.nix) installs
+it at `/run/current-system/sw/bin/signoff` and declares the `signoff watch`
+launchd agent.
+
+- **Source:** `dematom-labs/workflows` is private, so CI and the root-run
+  `darwin-rebuild` cannot fetch it as a flake input. `packages/signoff-src` is
+  its `signoff/` directory at the `rev` pinned in
+  [packages/signoff.nix](packages/signoff.nix). To move to another commit, run
+  `scripts/vendor-signoff.sh <sha>`, then `nix build .#signoff`, which runs the
+  signer's tests.
+- **Trusted PATH:** the build compiles in a read-only `/nix/store` tool
+  environment (`git`, `just`, `ast-grep`, `bun`, `node`, `uv`, `python3`, `go`,
+  `ruby`, and `bash`) followed by `/usr/bin:/bin`. These are the only tools
+  `git`, `just`, and a recipe can resolve. Add a package to `tools` in
+  `packages/signoff.nix` when a repository's recipe needs another one.
+- **Watcher:** `services.signoff.watch.enable` is off by default. When on, a
+  user agent runs one `signoff watch` pass every 120 seconds with App ID
+  `5460531`, installation `174959222`, and key fingerprint
+  `SHA256:tlF5N8zgxWi5AR2FZdYPcRdbm8C1Dk4LkwsMp77A4Uk=`. A pass exits when done,
+  so launchd schedules passes instead of keeping a process alive, and never
+  runs two at once. Output goes to `~/.local/state/signoff/watch.log`, and each
+  signed head's full log to `~/.local/state/signoff/<owner>/<repo>/<sha>.log`.
+
+Before turning the watcher on, add the installed binary to the App key's access
+list. Until then, every signature raises a Keychain prompt.
+
+1. After `just rebuild personal`, print the binary's store path and copy it:
+
+   ```bash
+   readlink -f /run/current-system/sw/bin/signoff
+   ```
+
+2. Open Keychain Access:
+
+   ```bash
+   open "/System/Library/CoreServices/Applications/Keychain Access.app"
+   ```
+
+3. Select the **login** keychain and the **Keys** category. Double-click the
+   private key imported for the `dematom-local-signoff` App (kind
+   **private key**, RSA 2048-bit). Its name depends on how it was imported.
+4. On the **Access Control** tab, select **Confirm before allowing access**.
+   Under **Always allow access by these applications**, click **+**, press
+   **Cmd-Shift-G**, paste the store path from step 1, press **Return**, and
+   click **Add**. Select every other entry in the list and click **-**.
+5. Click **Save Changes** and enter the login password.
+
+Each signoff build has a new store path and code signature, so repeat these
+steps whenever that path changes: after `scripts/vendor-signoff.sh` or a
+nixpkgs bump that rebuilds it. Remove the old entry at the same time.
+
+To turn the watcher on, set `services.signoff.watch.enable = true;` in
+[hosts/personal.nix](hosts/personal.nix) and run `just rebuild personal`. Then
+check that it is loaded and signing:
+
+```bash
+launchctl print "gui/$(id -u)/org.nixos.signoff-watch"
+tail -f ~/.local/state/signoff/watch.log
+```
+
+`nix flake check` runs the `signoff-install` check. It verifies that only the
+personal Mac installs the signer, that the watcher ships off with the settings
+above, that the binary carries the trusted PATH, and that it refuses a
+repository outside `dematom-labs`.
 
 ## Linux sandbox server
 
@@ -779,6 +851,7 @@ dotfiles/
 ├── configuration.nix    # shared nix-darwin system and Homebrew configuration
 ├── home.nix             # Home Manager packages, links, zsh (macOS-gated where needed)
 ├── hosts/               # personal.nix, work.nix (Mac deltas), sandbox.nix (Linux NixOS)
+├── modules/             # opt-in nix-darwin modules (signoff)
 ├── packages/            # custom Nix package definitions
 ├── rebuild.sh           # validated profile selection and darwin-rebuild
 ├── justfile             # bootstrap, update, skills, and checks
