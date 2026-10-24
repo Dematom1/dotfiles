@@ -37,11 +37,6 @@ cat > "$bin/stack" <<'EOF'
 set -euo pipefail
 name=${0##*/}
 printf '%s %s\n' "$name" "$*" >> "$STACK_LOG"
-if [[ "$name" == git && "$1" == clone ]]; then
-  destination="${@: -1}"
-  mkdir -p "$destination"
-  printf '%s\n' 'name: learning-opportunities' 'description: test' > "$destination/SKILL.md"
-fi
 if [[ "$name" == git && "$1" == -C ]]; then
   exit 0
 fi
@@ -49,19 +44,9 @@ if [[ "$name" == *-axi && "$*" == "setup --help" ]]; then
   printf 'usage: %s setup hooks\n' "$name"
 fi
 EOF
-cat > "$bin/rsync" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-destination="${@: -1}"
-mkdir -p "$destination"
-printf '%s\n' 'name: learning-opportunities' 'description: test' > "$destination/SKILL.md"
-EOF
 cat > "$bin/npx" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-if [[ "$*" == "-y @uidotsh/install" ]]; then
-  exit 0
-fi
 [[ "$1" == -y && "$2" == skills && "$3" == add ]] || exit 1
 for arg in "$@"; do
   case "$arg" in
@@ -93,7 +78,7 @@ cat > "$bin/uname" <<'EOF'
 #!/usr/bin/env bash
 printf 'Linux\n'
 EOF
-chmod +x "$bin/stack" "$bin/rsync" "$bin/npx" "$bin/brew" "$bin/uname"
+chmod +x "$bin/stack" "$bin/npx" "$bin/brew" "$bin/uname"
 for command in git gh jq node curl pi claude herdr treehouse no-mistakes npm memtrace; do ln -s stack "$bin/$command"; done
 for command in gh-axi chrome-devtools-axi lavish-axi tasks-axi quota-axi pg-axi docker-axi npm-axi pypi-axi homebrew-axi jev-axi bun-axi hey-axi hetzner-axi linear-axi; do
   ln -s stack "$bin/$command"
@@ -159,6 +144,28 @@ for tool in jev-axi bun-axi hetzner-axi; do
   [[ "$(grep -Fxc "$tool setup hooks" "$stack_log")" -eq 2 ]] \
     || fail "update did not refresh $tool hooks"
 done
+[[ "$(grep -Ec '^npm update -g .* lavish-axi( |$)' "$stack_log")" -eq 2 ]] \
+  || fail "update did not update lavish-axi"
+[[ "$(grep -Fxc 'lavish-axi setup hooks' "$stack_log" || true)" -eq 0 ]] \
+  || fail "update re-registered the lavish-axi SessionStart hook"
+
+# Each run installs exactly the kept skill sources, all as physical copies.
+[[ "$(grep -c . "$skills_log")" -eq 24 ]] \
+  || fail "update-skills did not run exactly the eight kept skill sources in each of three updates"
+for source in kunchenguid/no-mistakes kunchenguid/vision mattpocock/skills humanlayer/skills kunchenguid/whathappened \
+  kunchenguid/lavish-axi kunchenguid/axi pbakaus/impeccable; do
+  [[ "$(grep -Fc "skills add $source " "$skills_log")" -eq 3 ]] \
+    || fail "update-skills did not install $source"
+done
+[[ "$(grep -vc -- ' --copy$' "$skills_log" || true)" -eq 0 ]] \
+  || fail "update-skills installed a skill without copy mode"
+for skill in teach codebase-design diagnosing-bugs domain-modeling grill-me grill-with-docs \
+  grilling improve-codebase-architecture; do
+  grep -E "^-y skills add mattpocock/skills --skill( [a-z][a-z-]*)* $skill( |$)" "$skills_log" >/dev/null \
+    || fail "update-skills omitted mattpocock skill $skill"
+done
+[[ "$(grep -E 'skills add (kunchenguid/axi|pbakaus/impeccable) ' "$skills_log" | grep -c claude-code || true)" -eq 0 ]] \
+  || fail "Codex/Pi-only skill bundles were installed for Claude Code"
 [[ "$(grep -Ec '^npm update -g .* hey-axi( |$)' "$stack_log")" -eq 2 ]] \
   || fail "update did not update hey-axi"
 [[ "$(grep -Ec '^hey-axi ' "$stack_log" || true)" -eq 0 ]] \

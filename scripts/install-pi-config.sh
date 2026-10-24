@@ -21,7 +21,6 @@ firstmate_dir=${FIRSTMATE_DIR:-$HOME/firstmate}
 
 packages=(
   npm:@nikolauska/linear-axi
-  npm:pi-autoresearch
   npm:@ff-labs/pi-fff
 )
 

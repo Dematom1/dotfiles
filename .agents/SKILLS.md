@@ -12,22 +12,21 @@ Every `skills add` command targets only Claude Code, Codex, OpenCode, and Pi and
 uses `--copy`. Eve and PromptScript are intentionally excluded. Claude's Home
 Manager-owned skills root is itself a symlink, so generated relative leaf links
 can point back to themselves; physical generated copies avoid that self-loop.
+Bundles used only by Codex and Pi omit Claude Code (`skill-agents-shared`) to
+keep Claude's budget-capped skill listing small.
 
 ## Not committed - regenerated from source
 
 The skill *content* is gitignored (`.agents/skills/*`, `opencode/skills/*`); only
 the recipe, wiring, and this doc are committed - like committing `package.json`,
-not `node_modules`. This keeps authenticated or licensed skills (ui.sh) out
-of this public repo. The update recipe is reproducible, while ui.sh
-authentication stays a manual entry in the installer's masked prompt.
+not `node_modules`. Every source is public, so the update recipe is fully
+reproducible.
 
 Reproduce on a fresh machine:
 
 1. `./rebuild.sh`     # nix: install tools, activate symlinks
 2. `op signin`        # 1Password
 3. `just bootstrap`   # secrets + FirstMate stack + skills
-
-Enter the ui.sh token manually when its masked prompt appears.
 
 ## Maintaining
 
@@ -37,19 +36,26 @@ Enter the ui.sh token manually when its masked prompt appears.
 
 ## Provenance
 
-| Skill | Type | Source | Auth |
+All rows are installed by `just update-skills` through the skills CLI.
+
+| Skill | Agents | Source | Auth |
 |---|---|---|---|
-| learning-opportunities | git repo | `https://github.com/DrCatHicks/learning-opportunities.git` | none (public) |
-| ui.sh (design, ideas, ...) | authenticated npx | `@uidotsh/install` | manual entry in the masked prompt |
-| vision | git repo (skills CLI) | `kunchenguid/vision` via the maintained-agent `skills add` command in `justfile` | none (MIT) |
-| teach | git repo (skills CLI) | `mattpocock/skills:teach` via the maintained-agent `skills add` command in `justfile` | none |
-| show-me | git repo (skills CLI) | `humanlayer/skills:show-me` via the maintained-agent `skills add` command in `justfile` | none |
-| whathappened | git repo (skills CLI) | `kunchenguid/whathappened` via the maintained-agent `skills add` command in `justfile` | none |
-| vercel-labs skills | skills CLI | `vercel-labs/agent-skills` and `vercel-labs/skills` via the maintained-agent commands in `justfile` | none |
+| no-mistakes | all four | `kunchenguid/no-mistakes` | none |
+| vision | all four | `kunchenguid/vision` | none (MIT) |
+| teach, codebase-design, diagnosing-bugs, domain-modeling, grill-me, grill-with-docs, grilling, improve-codebase-architecture | all four | `mattpocock/skills` (`mattpocock-skills` in `justfile`) | none |
+| show-me | all four | `humanlayer/skills:show-me` | none |
+| whathappened | all four | `kunchenguid/whathappened` | none |
+| lavish | all four | `kunchenguid/lavish-axi:lavish` | none |
+| axi | Codex, OpenCode, Pi | `kunchenguid/axi:axi` | none |
+| impeccable | Codex, OpenCode, Pi | `pbakaus/impeccable` | none |
+
+Tool-owned skills stay with their owner: `rex` (written by the Rex app),
+Ponytail (`just _setup-ponytail`), and the claude.ai account skills.
+
 ## Adding a new skill
 
 Add its refresh step to `just update-skills` so one command keeps everything
-current, then add a Provenance row. Sources fall into: public git repo (clone),
-authenticated npx installer (manual masked prompt), or tool-generated (call the tool).
+current, then add a Provenance row. Sources fall into: public git repo (skills
+CLI) or tool-generated (call the tool).
 For a hand-authored skill you want to keep, `git add -f .agents/skills/<name>` -
 the dir is gitignored, so tracking a first-party skill is a deliberate force-add.

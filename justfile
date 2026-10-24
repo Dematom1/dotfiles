@@ -2,14 +2,19 @@
 
 skills-dir := ".agents/skills"
 skill-agents := "claude-code codex opencode pi"
+# Codex, OpenCode, and Pi share ~/.agents/skills; omitting claude-code keeps
+# these bundles out of Claude's budget-capped skill listing.
+skill-agents-shared := "codex opencode pi"
+mattpocock-skills := "teach codebase-design diagnosing-bugs domain-modeling grill-me grill-with-docs grilling improve-codebase-architecture"
 
 # AXI agent tools installed as npm globals (https://axi.md).
 # kubernetes-axi is intentionally absent: flake.nix pins and packages it through
 # Nix so both Macs and the Linux sandbox receive the same reproducible build.
-axi-tools := "gh-axi chrome-devtools-axi lavish-axi tasks-axi quota-axi pg-axi docker-axi npm-axi pypi-axi homebrew-axi jev-axi bun-axi hetzner-axi"
+axi-tools := "gh-axi chrome-devtools-axi tasks-axi quota-axi pg-axi docker-axi npm-axi pypi-axi homebrew-axi jev-axi bun-axi hetzner-axi"
 
 # HEY stays on-demand so session-start hooks cannot inject private email.
-axi-tools-no-hooks := "hey-axi"
+# lavish-axi is routed by its skill instead of a per-session status dump.
+axi-tools-no-hooks := "hey-axi lavish-axi"
 
 # work-machine-only AXI tools - installed by setup/update-firstmate only when
 # ~/.config/dotfiles-profile says "work" (the same marker rebuild.sh reads).
@@ -61,12 +66,17 @@ update-skills:
     #!/usr/bin/env bash
     set -euo pipefail
 
-    env -u UIDOTSH_TOKEN npx -y @uidotsh/install
-
-    echo "==> npx skills CLI (whathappened + vercel-labs)"
+    echo "==> npx skills CLI (all maintained agents)"
+    npx -y skills add kunchenguid/no-mistakes -g -y --agent {{ skill-agents }} --copy
+    npx -y skills add kunchenguid/vision -g -y --agent {{ skill-agents }} --copy
+    npx -y skills add mattpocock/skills --skill {{ mattpocock-skills }} -g -y --agent {{ skill-agents }} --copy
+    npx -y skills add humanlayer/skills --skill show-me -g -y --agent {{ skill-agents }} --copy
     npx -y skills add kunchenguid/whathappened -g -y --agent {{ skill-agents }} --copy
-    npx -y skills add vercel-labs/agent-skills -g -y --agent {{ skill-agents }} --copy
-    npx -y skills add vercel-labs/skills -g -y --agent {{ skill-agents }} --copy
+    npx -y skills add kunchenguid/lavish-axi --skill lavish -g -y --agent {{ skill-agents }} --copy
+
+    echo "==> npx skills CLI (Codex, OpenCode, and Pi only)"
+    npx -y skills add kunchenguid/axi --skill axi -g -y --agent {{ skill-agents-shared }} --copy
+    npx -y skills add pbakaus/impeccable -g -y --agent {{ skill-agents-shared }} --copy
 
     echo "==> wire shared skills into opencode (regenerated, not committed)"
     mkdir -p opencode/skills
@@ -84,13 +94,6 @@ update-skills:
 
     echo
     echo "All updated (skill content is gitignored). Validate:  just check-skills"
-
-# Refresh ONLY the ui.sh skill; paste the token into the masked installer prompt.
-update-ui-skill:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    env -u UIDOTSH_TOKEN npx -y @uidotsh/install
-    echo "Done. Review:  git status {{ skills-dir }}"
 
 # ---------------------------------------------------------------------------
 # Machine setup - install Nix, then activate the nix-darwin configuration.
@@ -218,6 +221,10 @@ _setup-axi-hooks tool:
     #!/usr/bin/env bash
     set -euo pipefail
     tool='{{ tool }}'
+    # Prefer the copy these recipes install: a stale global earlier on PATH
+    # (e.g. /opt/homebrew/bin) would register its own path as the hook command.
+    managed="$HOME/.local/bin/$tool"
+    [[ "$tool" == */* || ! -x "$managed" ]] || tool=$managed
     if help=$("$tool" setup --help 2>&1); then
       probe_status=0
     else
