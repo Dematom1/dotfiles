@@ -191,7 +191,7 @@ def project_paths(manifest: dict) -> set[Path]:
 
 
 def load_json(path: Path, create: bool = False):
-    """Parsed JSON and its original text, or None when absent or unparsable."""
+    """Return data and text, or None; create supplies an empty object only if absent."""
     if not path.exists() and not path.is_symlink():
         return ({}, "\n") if create else None
     text = path.read_text(encoding="utf-8")

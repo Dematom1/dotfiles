@@ -21,17 +21,11 @@ declared set lives in [agent-tooling.json](../agent-tooling.json): each
 targets. Bundles shared by Codex, OpenCode, and Pi omit `claude-code` to keep
 Claude's budget-capped skill listing small. `skills.keep` lists skills that a
 tool writes itself and that must survive: `rex` (the Rex app), `synced`
-(claude.ai account skills). Rex is an explicit app-owned installation exception.
-The 16 legacy per-command Impeccable directories are removed with backups;
-`pbakaus/impeccable` installs the consolidated `impeccable` skill instead.
+(claude.ai account skills). See the rebuild reference below for installer
+exceptions and the Impeccable migration.
 
-`just rebuild` removes any undeclared entry from `~/.claude/skills`,
-`~/.agents/skills`, `~/.codex/skills`, and `~/.pi/agent/skills`, backs it up
-first, and installs missing declared skills. Before any installer runs, existing
-skill directories and the skills CLI lock are snapshotted so a bundle reinstall
-cannot overwrite the only copy of a sibling skill. Pi-root skills (`pi.skills`) are
-linked by Home Manager from a pinned source. See README.md
-"Declarative agent tooling".
+See [Declarative agent tooling](../README.md#declarative-agent-tooling) for
+rebuild reconciliation, backup guarantees, and the Nix-linked Pi-root skills.
 
 Reproduce on a fresh machine:
 
