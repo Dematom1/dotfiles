@@ -35,6 +35,9 @@ let
     exec /usr/local/bin/av inject +OPENCODE_API_KEY -- \
       ${lib.escapeShellArg piSignedExecutable} "$@"
   '';
+  tailscaleAppCli = pkgs.writeShellScript "tailscale" ''
+    exec /Applications/Tailscale.app/Contents/MacOS/Tailscale "$@"
+  '';
 in
 {
   # home.username / home.homeDirectory are derived from the profile's
@@ -55,7 +58,7 @@ in
     # git
     git git-crypt lazygit lazydocker
     # kubernetes / infra
-    argocd kubectl kubernetes-helm kustomize k9s kubectx kubernetes-axi terraform tailscale
+    argocd kubectl kubernetes-helm kustomize k9s kubectx kubernetes-axi terraform
     # agent review queue (npm identity/integrity are pinned in packages/m87-npm)
     m87
     backpass acpx
@@ -66,6 +69,9 @@ in
     (pipx.overridePythonAttrs (_: { doCheck = false; }))
     # net
     websocat curl
+  ]
+  ++ lib.optionals (!pkgs.stdenv.isDarwin) [
+    tailscale
   ]
   # macOS-only: GUI/desktop tooling that either won't build on Linux (aerospace)
   # or is pointless on a headless server (wezterm, the browser MCP, desktop fonts).
@@ -149,6 +155,7 @@ in
     ".wezterm.lua".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/.wezterm.lua";
     # One credentialed signed-Pi entrypoint; regular `pi` remains unchanged.
     ".local/bin/pi-signed".source = piSignedEntrypoint;
+    ".local/bin/tailscale".source = tailscaleAppCli;
   };
 
   # Reconcile only the declarative Pi package entries. Preserve the mutable

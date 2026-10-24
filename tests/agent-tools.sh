@@ -49,6 +49,13 @@ for target in "${targets[@]}"; do
   [[ ",$packages," == *,m87,* ]] || fail "$profile profile does not install M87"
   [[ ",$packages," == *,backpass,* ]] || fail "$profile profile does not install backpass"
   [[ ",$packages," == *,acpx,* ]] || fail "$profile profile does not install acpx"
+  if [[ "$system" == aarch64-darwin ]]; then
+    [[ ",$packages," != *,tailscale,* ]] || fail "$profile still installs nixpkgs tailscale on darwin"
+    tailscale_wrapper=$(nix build --no-link --print-out-paths "$repo#$prefix.home.file.\".local/bin/tailscale\".source")
+    bash "$repo/tests/tailscale-app-cli.sh" "$tailscale_wrapper"
+  else
+    [[ ",$packages," == *,tailscale,* ]] || fail "$profile no longer installs nixpkgs tailscale"
+  fi
 
   home_path=$(nix build --no-link --print-out-paths "$repo#$prefix.home.path")
   [[ -x "$home_path/bin/m87" ]] || fail "$profile Home Manager path has no M87 executable"
