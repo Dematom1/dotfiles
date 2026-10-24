@@ -3,6 +3,7 @@
 let
   dotfiles = "${config.home.homeDirectory}/Code/dotfiles";
   securePathOrder = builtins.readFile ./zsh/path-order.zsh;
+  homebrewPath = lib.optionals pkgs.stdenv.isDarwin [ "/opt/homebrew/bin" ];
   chromeDevtoolsMcp = pkgs.writeTextFile {
     name = "chrome-devtools-mcp";
     destination = "/bin/chrome-devtools-mcp";
@@ -47,7 +48,7 @@ in
   # nix-darwin activation copies the app-bundled signed av binary here after
   # Homebrew updates Automic Vault. Managed `av` availability is documented in
   # README.md under "Firstmate project availability".
-  home.sessionPath = lib.optionals pkgs.stdenv.isDarwin [
+  home.sessionPath = homebrewPath ++ lib.optionals pkgs.stdenv.isDarwin [
     "${config.home.homeDirectory}/.local/bin"
     "/usr/local/bin"
   ];
@@ -246,6 +247,7 @@ in
         "$HOME/.opencode/bin"
         "$HOME/.lmstudio/bin"
         "/usr/local/zig"
+        ${lib.concatStringsSep "\n        " (map (path: ''"${path}"'') homebrewPath)}
         "$HOME/.bun/bin"
         "$HOME/go/bin"
         "$HOME/.local/bin"
