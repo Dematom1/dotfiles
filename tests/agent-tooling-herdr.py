@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Check reconciliation convergence with the real Herdr integration installer."""
 import json
-import os
 from pathlib import Path
 import shutil
 import subprocess

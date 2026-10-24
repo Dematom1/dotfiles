@@ -585,7 +585,7 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
         executable.write_text(FAKE_INTEGRATION.replace("#!/usr/bin/env python3", f"#!{sys.executable}", 1))
         executable.chmod(0o755)
     result = reconcile(integration_home, integration_bin, state, integration_log)
-    check(not "failed:" in result.stderr, result.stderr)
+    check("failed:" not in result.stderr, result.stderr)
     for agent in ["claude", "codex", "pi"]:
         check(f"herdr integration install {agent}" in calls(integration_log), f"missing herdr {agent}")
     check("rtk init -g --hook-only --auto-patch" in calls(integration_log), "rtk installer missing")

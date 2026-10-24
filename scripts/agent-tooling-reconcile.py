@@ -9,9 +9,9 @@ headers and env survive, and a server that needs auth is never created
 without it.
 
 AXI tools are the exception: their lists stay in the justfile (`axi-tools`,
-`axi-tools-work`; `axi-tools-no-hooks` get none). Each
-installed hook tool registers its own hooks through `just _setup-axi-hooks`,
-and those hooks are kept.
+`axi-tools-work`; `axi-tools-no-hooks` get none). Each installed hook tool
+registers its own hooks through `just _setup-axi-hooks`, and those hooks are
+kept.
 
 Home Manager activation runs the full reconcile; `just update-skills` runs
 `--refresh-skills`, which only reinstalls every declared skill source.
