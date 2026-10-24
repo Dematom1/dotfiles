@@ -45,6 +45,16 @@ gcloud --version
 gcloud auth list
 ```
 
+### Tailscale CLI
+
+On macOS, Home Manager exposes `tailscale` on `PATH` through
+`~/.local/bin/tailscale`, which forwards arguments to
+`/Applications/Tailscale.app/Contents/MacOS/Tailscale`. This keeps the CLI
+version aligned with the installed app instead of using the nixpkgs CLI.
+The app must already be installed; its installation method is unchanged.
+Apply the wrapper with `just rebuild`, then use `type -a tailscale` to check
+command resolution. Non-Darwin profiles continue to use the nixpkgs package.
+
 ## Included configuration
 
 | Tool | Purpose |
