@@ -18,7 +18,16 @@ let
     "dematom-labs/seo-scout"
     "dematom-labs/truediyer"
   ];
-  nixManagedPiPackage = "npm:@ff-labs/pi-fff";
+  # The kept agent tooling; the agentTooling activation below reconciles every
+  # tool to it. See README.md "Declarative agent tooling".
+  agentTooling = lib.importJSON ./agent-tooling.json;
+  # Source of the Pi-root skills kept from the retired pstack-claude package.
+  pstackClaude = pkgs.fetchFromGitHub {
+    owner = "michael-denyer";
+    repo = "pstack-claude";
+    rev = "356c6e0f978df729eb16f227d795f34d221c5aad";
+    hash = "sha256-PxD5vgXMTtwgxGP3wFyiSO8TcXh0xTJaym2+VpVf4LE=";
+  };
   piSignedExecutable = "/Applications/Pi Launcher.app/Contents/MacOS/pi-launcher";
   avProjectPolicy = pkgs.writeShellScriptBin "av" ''
     unset AV_VENDOR_CLI
@@ -129,8 +138,9 @@ in
 
     # AI tooling - one AGENTS.md shared across Claude + Codex
     ".config/herdr".source         = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/herdr";
-    # ~/.claude/settings.json is intentionally NOT managed here: AXI setup hooks
-    # and Claude's plugin manager mutate it, so it's tool-owned like the skills.
+    # ~/.claude/settings.json is intentionally NOT linked: AXI setup hooks and
+    # Claude's plugin manager mutate it. The agentTooling activation edits only
+    # its hooks.
     # Claude gets a composition entrypoint (shared AGENTS.md + Claude-only RTK)
     ".claude/CLAUDE.md".source     = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/claude/CLAUDE.md";
     ".codex/AGENTS.md".source      = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/AGENTS.md";
@@ -139,10 +149,14 @@ in
     # linked root can otherwise point back to itself. See .agents/SKILLS.md.
     ".claude/skills".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/.agents/skills";
     # pi-fff is a real Pi extension entrypoint, not merely an installed package.
-    # The activation reconciliation below removes its duplicate npm registry entry.
+    # It is not a declared Pi package, so the agentTooling activation removes its
+    # duplicate npm registry entry.
     ".pi/agent/extensions/pi-fff".source = "${pkgs.pi-fff}/${pkgs.pi-fff.extensionPath}";
     ".pi/agent/models.json".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/pi/models.json";
   }
+  // lib.listToAttrs (map (name: lib.nameValuePair ".pi/agent/skills/${name}" {
+    source = "${pstackClaude}/plugins/pstack/skills/${name}";
+  }) agentTooling.pi.skills)
   # macOS-only: configs for GUI apps (window manager, terminals, status bar,
   # keyboard remapper) that don't exist on the headless Linux sandbox.
   // lib.optionalAttrs pkgs.stdenv.isDarwin {
@@ -157,26 +171,15 @@ in
     ".local/bin/tailscale".source = tailscaleAppCli;
   };
 
-  # Preserve the mutable Pi settings and every other package; pi-fff is loaded
-  # by its Nix-managed extension path above, so removing its npm entry prevents
-  # double loading.
-  home.activation.piPackageReconciliation = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    settings="$HOME/.pi/agent/settings.json"
-    if [[ -v DRY_RUN ]]; then
-      echo "Would reconcile Pi packages in $settings"
-    elif [[ -f "$settings" ]]; then
-      tmp=$(${pkgs.coreutils}/bin/mktemp "$settings.tmp.XXXXXX")
-      if ! ${lib.getExe pkgs.jq} \
-        --arg nixManaged ${lib.escapeShellArg nixManagedPiPackage} \
-        '.packages = ((.packages // []) | map(select(. != $nixManaged)))' \
-        "$settings" > "$tmp" \
-        || ! ${pkgs.coreutils}/bin/chmod --reference="$settings" "$tmp"; then
-        rm -f "$tmp"
-        echo "ERROR: unable to reconcile Pi packages in $settings" >&2
-        exit 1
-      fi
-      mv "$tmp" "$settings"
-    fi
+  # Reconcile Claude plugins, marketplaces, MCP servers and hooks, Codex MCP
+  # servers and hooks, Pi packages, and every skill root to agent-tooling.json.
+  # Network or parse problems only warn, so a rebuild never fails on them.
+  home.activation.agentTooling = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+    dry_run=()
+    if [[ -v DRY_RUN ]]; then dry_run=(--dry-run); fi
+    PATH="${lib.makeBinPath [ pkgs.nodejs_24 pkgs.git ]}:$HOME/.local/bin:${lib.concatMapStrings (path: "${path}:") homebrewPath}$PATH" \
+      ${lib.getExe pkgs.python311} ${./scripts/agent-tooling-reconcile.py} \
+      --manifest ${./agent-tooling.json} "''${dry_run[@]}"
   '';
 
   # M87 stores plugin configuration with its existing queue in ~/.m87. Use its

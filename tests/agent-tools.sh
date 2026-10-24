@@ -73,7 +73,12 @@ for target in "${targets[@]}"; do
     "$(dirname "$pi_fff")/package.json" \
     || fail "$profile Pi extension path has the wrong package identity"
 
-  pi_packages=$(nix eval --raw "$repo#$prefix.home.activation.piPackageReconciliation.data")
+  agent_tooling=$(nix eval --raw "$repo#$prefix.home.activation.agentTooling.data")
+  home_files=$(nix build --no-link --print-out-paths "$repo#$prefix.home-files")
+  for name in typescript-best-practices principle-type-system-discipline; do
+    grep -q "^name: $name\$" "$home_files/.pi/agent/skills/$name/SKILL.md" \
+      || fail "$profile Pi-root skill $name is not the pinned pstack copy"
+  done
 
   models_source=$(nix eval --raw "$repo#$prefix.home.file.\".pi/agent/models.json\".source")
   [[ -L "$models_source" && "$(readlink "$models_source")" == */pi/models.json ]] \
@@ -152,44 +157,25 @@ set -e
 [[ "$failure_output" == *"simulated plugin list failure"* && "$failure_output" == *"plugin list failed"* ]] \
   || fail "M87 plugin-list failure diagnostics were hidden"
 
-mkdir -p "$pi_sandbox/.pi/agent"
-cat > "$pi_sandbox/.pi/agent/settings.json" <<'EOF'
-{
-  "theme": "captain-local",
-  "packages": [
-    "npm:pi-web-access@0.14.0",
-    "npm:@ryan_nookpi/pi-extension-codex-fast-mode@0.2.6",
-    "git:github.com/algal/pi-openai-server-compaction@c6d593087709e9481223dc6c6c2269b371b5e055",
-    "git:github.com/DietrichGebert/ponytail",
-    "npm:@ff-labs/pi-fff",
-    "npm:unrelated-local-extension@1.0.0"
-  ]
-}
-EOF
-chmod 600 "$pi_sandbox/.pi/agent/settings.json"
-printf 'keep me\n' > "$pi_sandbox/temp-symlink-target"
-ln -s "$pi_sandbox/temp-symlink-target" "$pi_sandbox/.pi/agent/settings.json.tmp"
-DRY_RUN_CMD='' HOME="$pi_sandbox" bash -euo pipefail -c "$pi_packages"
-settings="$pi_sandbox/.pi/agent/settings.json"
-[[ $(jq '[.packages[] | select(. == "npm:pi-autoresearch")] | length' "$settings") -eq 0 ]] \
-  || fail "Pi package reconciliation reinstalled the removed pi-autoresearch package"
-[[ $(jq '[.packages[] | select(. == "npm:@ff-labs/pi-fff")] | length' "$settings") -eq 0 ]] \
-  || fail "generated Pi settings retain the duplicate Nix-managed pi-fff package"
-[[ $(jq -r '.theme' "$settings") == captain-local ]] \
-  || fail "Pi package reconciliation discarded unrelated local settings"
-settings_mode=$(stat -f '%Lp' "$settings" 2>/dev/null || stat -c '%a' "$settings")
-[[ "$settings_mode" == 600 ]] \
-  || fail "Pi package reconciliation changed private settings mode to $settings_mode"
-[[ $(cat "$pi_sandbox/temp-symlink-target") == "keep me" ]] \
-  || fail "Pi package reconciliation followed a predictable temporary-file symlink"
-for package in \
-  'npm:pi-web-access@0.14.0' \
-  'npm:@ryan_nookpi/pi-extension-codex-fast-mode@0.2.6' \
-  'git:github.com/DietrichGebert/ponytail' \
-  'npm:unrelated-local-extension@1.0.0'; do
-  jq -e --arg package "$package" '.packages | index($package) != null' "$settings" >/dev/null \
-    || fail "Pi package reconciliation dropped $package"
-done
+# The activation runs the tracked reconciler on the tracked manifest. Its
+# behavior is covered by tests/agent-tooling.py; this proves the Nix wiring.
+read -r agent_python agent_script < <(grep -Eo '/nix/store/[^ ]+/bin/python3[.0-9]* /nix/store/[^ ]+-agent-tooling-reconcile.py' <<<"$agent_tooling")
+agent_manifest=$(grep -Eo '/nix/store/[^ ]+-agent-tooling.json' <<<"$agent_tooling")
+cmp -s "$agent_script" "$repo/scripts/agent-tooling-reconcile.py" || fail "activation runs a stale reconciler"
+cmp -s "$agent_manifest" "$repo/agent-tooling.json" || fail "activation reconciles a stale manifest"
+[[ "$agent_tooling" == *'[[ -v DRY_RUN ]]'*'--dry-run'* ]] || fail "activation ignores Home Manager dry runs"
+mkdir -p "$pi_sandbox/.pi/agent" "$pi_sandbox/.codex"
+printf '%s\n' '{"packages": ["npm:pi-autoresearch", "git:github.com/DietrichGebert/ponytail"]}' \
+  > "$pi_sandbox/.pi/agent/settings.json"
+printf '[mcp_servers.linear]\nurl = "https://mcp.linear.app/mcp"\n' > "$pi_sandbox/.codex/config.toml"
+before=$(cat "$pi_sandbox/.pi/agent/settings.json" "$pi_sandbox/.codex/config.toml")
+plan=$(env -i HOME="$pi_sandbox" PATH=/usr/bin:/bin "$agent_python" "$agent_script" --manifest "$agent_manifest" --dry-run)
+[[ "$plan" == *"would update $pi_sandbox/.pi/agent/settings.json: packages -['npm:pi-autoresearch']"* ]] \
+  || fail "activation does not plan the Pi package removal: $plan"
+[[ "$plan" == *"would update $pi_sandbox/.codex/config.toml: MCP servers -['linear']"* ]] \
+  || fail "activation Python cannot reconcile the Codex TOML config: $plan"
+[[ "$(cat "$pi_sandbox/.pi/agent/settings.json" "$pi_sandbox/.codex/config.toml")" == "$before" ]] \
+  || fail "activation dry run changed files"
 
 if [[ "$system" == aarch64-darwin ]]; then
   for profile in personal work; do
@@ -207,6 +193,9 @@ fi
 skills_home="$skills_sandbox/home"
 mkdir -p "$skills_sandbox/repo" "$skills_home"
 cp "$repo/justfile" "$skills_sandbox/repo/justfile"
+mkdir -p "$skills_sandbox/repo/scripts"
+cp "$repo/agent-tooling.json" "$skills_sandbox/repo/agent-tooling.json"
+cp "$repo/scripts/agent-tooling-reconcile.py" "$skills_sandbox/repo/scripts/agent-tooling-reconcile.py"
 HOME="$skills_home" just --justfile "$skills_sandbox/repo/justfile" update-skills >/dev/null
 for skill in no-mistakes vision teach show-me whathappened lavish codebase-design diagnosing-bugs \
   domain-modeling grill-me grill-with-docs grilling improve-codebase-architecture; do

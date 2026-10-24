@@ -1,11 +1,6 @@
 # Dotfiles maintenance tasks - run `just` (or `just --list`).
 
 skills-dir := ".agents/skills"
-skill-agents := "claude-code codex opencode pi"
-# Codex, OpenCode, and Pi share ~/.agents/skills; omitting claude-code keeps
-# these bundles out of Claude's budget-capped skill listing.
-skill-agents-shared := "codex opencode pi"
-mattpocock-skills := "teach codebase-design diagnosing-bugs domain-modeling grill-me grill-with-docs grilling improve-codebase-architecture"
 
 # AXI agent tools installed as npm globals (https://axi.md).
 # kubernetes-axi is intentionally absent: flake.nix pins and packages it through
@@ -60,23 +55,15 @@ check-skills:
     done
     if [[ $fail -eq 0 ]]; then echo "all skills OK"; else exit 1; fi
 
-# Refresh the sources listed in .agents/SKILLS.md,
-# then run `just check-skills` and review with `git diff` before committing.
+# Reinstall every skill source declared in agent-tooling.json (`just rebuild`
+# installs only missing ones and removes undeclared skills). Then run
+# `just check-skills`.
 update-skills:
     #!/usr/bin/env bash
     set -euo pipefail
 
-    echo "==> npx skills CLI (all maintained agents)"
-    npx -y skills add kunchenguid/no-mistakes -g -y --agent {{ skill-agents }} --copy
-    npx -y skills add kunchenguid/vision -g -y --agent {{ skill-agents }} --copy
-    npx -y skills add mattpocock/skills --skill {{ mattpocock-skills }} -g -y --agent {{ skill-agents }} --copy
-    npx -y skills add humanlayer/skills --skill show-me -g -y --agent {{ skill-agents }} --copy
-    npx -y skills add kunchenguid/whathappened -g -y --agent {{ skill-agents }} --copy
-    npx -y skills add kunchenguid/lavish-axi --skill lavish -g -y --agent {{ skill-agents }} --copy
-
-    echo "==> npx skills CLI (Codex, OpenCode, and Pi only)"
-    npx -y skills add kunchenguid/axi --skill axi -g -y --agent {{ skill-agents-shared }} --copy
-    npx -y skills add pbakaus/impeccable -g -y --agent {{ skill-agents-shared }} --copy
+    echo "==> npx skills CLI (sources declared in agent-tooling.json)"
+    python3 scripts/agent-tooling-reconcile.py --manifest agent-tooling.json --refresh-skills
 
     echo "==> wire shared skills into opencode (regenerated, not committed)"
     mkdir -p opencode/skills
@@ -175,6 +162,7 @@ check-regressions:
     ./tests/claude-launch.sh
     ./tests/terraform.sh
     ./tests/agent-tools.sh
+    ./tests/agent-tooling.py
     ./tests/pi-signed.sh
     ./tests/ponytail.sh
     ./tests/just-update.sh

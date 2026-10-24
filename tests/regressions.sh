@@ -372,6 +372,9 @@ skills_sandbox="$tmp/skills-sandbox"
 mkdir -p "$skills_sandbox/.agents/skills/shared" "$skills_sandbox/.agents/skills/fresh" \
   "$skills_sandbox/opencode/skills" "$skills_sandbox/home" "$skills_sandbox/bin"
 cp "$repo/justfile" "$skills_sandbox/justfile"
+mkdir -p "$skills_sandbox/scripts"
+cp "$repo/agent-tooling.json" "$skills_sandbox/agent-tooling.json"
+cp "$repo/scripts/agent-tooling-reconcile.py" "$skills_sandbox/scripts/agent-tooling-reconcile.py"
 ln -s /tool-managed/shared "$skills_sandbox/opencode/skills/shared"
 ln -s ../../.agents/skills/stale "$skills_sandbox/opencode/skills/stale"
 cat > "$skills_sandbox/bin/npx" <<'EOF'
