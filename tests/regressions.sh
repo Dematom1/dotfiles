@@ -491,7 +491,8 @@ ln -s "$(command -v just)" "$fake_bin/just"
 
 for recipe in setup-firstmate update-firstmate; do
   home="$tmp/${recipe}-home"
-  mkdir -p "$home"
+  mkdir -p "$home/.local/bin"
+  ln -s "$fake_bin/claude" "$home/.local/bin/claude"
   set +e
   output=$(cd "$repo" && HOME="$home" USER=regressions-test PATH="$fake_bin:/usr/bin:/bin" just "$recipe" 2>&1)
   status=$?
