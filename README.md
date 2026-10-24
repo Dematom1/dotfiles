@@ -88,6 +88,13 @@ the existing Homebrew installation through its Homebrew activation. Activation
 uses cleanup mode `zap`, so applications or formulae not declared in the shared
 or selected host configuration can be removed.
 
+On macOS, `home.nix` adds `/opt/homebrew/bin` to the Home Manager session path
+and to interactive and non-interactive zsh shells, including terminals launched
+from Rex. The ordering policy in [zsh/path-order.zsh](zsh/path-order.zsh) still
+puts protected directories, including protected Nix profiles and `/usr/bin`,
+ahead of user-writable Homebrew directories. Apply with `just rebuild` (which
+runs `darwin-rebuild switch`), then open a new shell.
+
 ## Fresh-machine bootstrap
 
 ```bash
