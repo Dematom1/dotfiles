@@ -14,6 +14,11 @@ personal_activation=$(nix build --no-link --print-out-paths \
   "$repo#darwinConfigurations.personal.config.home-manager.users.laszlohoranszky.home.activationPackage")
 av_bin="$personal_activation/home-path/bin/av"
 [[ -x "$av_bin" ]] || fail "configured Automic Vault scanner is unavailable"
+home_session_path=$(nix eval --json \
+  "$repo#darwinConfigurations.personal.config.home-manager.users.laszlohoranszky.home.sessionPath" \
+  | jq -r '.[0]')
+[[ "$home_session_path" == "/opt/homebrew/bin" ]] \
+  || fail "darwin session PATH does not put Homebrew ahead of /usr/bin"
 zsh_bin=$(command -v zsh) || fail "zsh is unavailable"
 scan_external_summary=
 canonical_root="$HOME/Code/dotfiles"

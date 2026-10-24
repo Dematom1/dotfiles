@@ -287,23 +287,6 @@ expected=$(printf '%s\n' "$protected_path" "$writable_path")
 [[ "$output" == "$expected" ]] \
   || fail "shell PATH ordering did not reject relative and replaceable read-only entries, put protected directories first, preserve safe class order, and deduplicate entries"
 
-managed_path=$(sed -n '/^      path=(/,/^      )/p' "$repo/home.nix")
-expected_managed_path=$(cat <<'EOF'
-      path=(
-        "$HOME/.opencode/bin"
-        "$HOME/.lmstudio/bin"
-        "/usr/local/zig"
-        "$HOME/.bun/bin"
-        "$HOME/go/bin"
-        "$HOME/.local/bin"
-        "/etc/profiles/per-user/$USER/bin"
-        $path
-      )
-EOF
-)
-[[ "$managed_path" == "$expected_managed_path" ]] \
-  || fail "managed shell PATH entries no longer preserve historical command precedence"
-
 output=$(cd "$repo" && just --summary)
 [[ " $output " == *" refresh-secrets "* ]] \
   || fail "the explicit 1Password refresh recipe is no longer available"
