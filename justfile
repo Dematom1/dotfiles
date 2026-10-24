@@ -279,7 +279,7 @@ setup-firstmate:
     curl -fsSL https://kunchenguid.github.io/treehouse/install.sh | sh
     curl -fsSL https://raw.githubusercontent.com/kunchenguid/no-mistakes/main/docs/install.sh | sh
     npm install -g {{ axi-tools }} {{ axi-tools-no-hooks }}
-    # each AXI tool installs its agent hooks via `setup hooks`; report per tool
+    # hook-enabled AXI tools install via `setup hooks`; report per tool
     # (a few legitimately have no such subcommand)
     echo "==> AXI setup hooks"
     for t in {{ axi-tools }}; do
