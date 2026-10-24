@@ -3,6 +3,7 @@
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -50,6 +51,27 @@ for root in roots:
     for skill in skills:
         (root / skill).mkdir(parents=True, exist_ok=True)
         (root / skill / "SKILL.md").write_text(f"---\nname: {skill}\ndescription: fixture\n---\n")
+'''
+
+# An AXI tool whose `setup hooks` replaces its own SessionStart hook in both agents.
+FAKE_AXI = r'''#!/usr/bin/env python3
+import json, os, pathlib, sys
+name = pathlib.Path(sys.argv[0]).name
+args = sys.argv[1:]
+with open(os.environ["FAKE_LOG"], "a") as log:
+    log.write(name + " " + " ".join(args) + "\n")
+if args == ["setup", "--help"]:
+    print(f"usage: {name} setup hooks")
+elif args == ["setup", "hooks"]:
+    for relative in [".claude/settings.json", ".codex/hooks.json"]:
+        path = pathlib.Path.home() / relative
+        settings = json.loads(path.read_text())
+        groups = settings.setdefault("hooks", {}).setdefault("SessionStart", [])
+        for group in groups:
+            group["hooks"] = [h for h in group["hooks"] if name not in h.get("command", "")]
+        groups[:] = [g for g in groups if g["hooks"]]
+        groups.append({"matcher": "", "hooks": [{"type": "command", "command": name, "timeout": 10}]})
+        path.write_text(json.dumps(settings, indent=2) + "\n")
 '''
 
 CODEX_CONFIG = '''# Codex config (fixture)
@@ -192,7 +214,6 @@ def build_home(root):
             if "claude-code" in source["agents"]:
                 skill(claude_root, name)
     # The self-referencing link the old relative install left behind.
-    import shutil
     shutil.rmtree(claude_root / "codebase-design")
     (claude_root / "codebase-design").symlink_to("../../.agents/skills/codebase-design")
     for name in ["rex", "synced", "design", "find-skills", "vercel-optimize"]:
@@ -215,6 +236,11 @@ def build_home(root):
     (opencode / "no-mistakes").symlink_to("../../.agents/skills/no-mistakes")
     (home / ".config").mkdir()
     (home / ".config/opencode").symlink_to(home / "Code/dotfiles/opencode")
+    # Installed AXI tools: two hook tools from `axi-tools` and the no-hook hey-axi.
+    (home / ".local/bin").mkdir(parents=True)
+    for name in ["gh-axi", "tasks-axi", "hey-axi"]:
+        (home / ".local/bin" / name).write_text(FAKE_AXI.replace("#!/usr/bin/env python3", f"#!{sys.executable}", 1))
+        os.chmod(home / ".local/bin" / name, 0o755)
     return home
 
 
@@ -224,6 +250,9 @@ def fake_bin(root):
     for name, body in [("claude", FAKE_CLAUDE), ("npx", FAKE_NPX)]:
         (bin_dir / name).write_text(body.replace("#!/usr/bin/env python3", f"#!{sys.executable}", 1))
         os.chmod(bin_dir / name, 0o755)
+    # The real justfile recipe runs the AXI hook setup; it needs just and node.
+    for name in ["just", "node"]:
+        (bin_dir / name).symlink_to(shutil.which(name))
     state = root / "claude-state.json"
     state.write_text(json.dumps({
         "plugins": [
@@ -273,7 +302,8 @@ def calls(log):
 
 
 def mutating(lines):
-    return [line for line in lines if not line.endswith("--json")]
+    """Plugin and skill installs; AXI `setup hooks` rerun every time and must converge."""
+    return [line for line in lines if line.startswith(("claude ", "npx ")) and not line.endswith("--json")]
 
 
 def hook_commands(settings, event):
@@ -312,11 +342,15 @@ with tempfile.TemporaryDirectory(prefix=".agent-tooling-") as directory:
     settings = json.loads((home / ".claude/settings.json").read_text())
     check(settings["effortLevel"] == "high" and settings["statusLine"]["command"] == "/fixture/statusline.sh",
           "unrelated Claude settings changed")
-    check(hook_commands(settings, "SessionStart") == [
-        '"$HOME/.local/bin/gh-axi"', "chrome-devtools-axi",
+    check(sorted(hook_commands(settings, "SessionStart")) == sorted([
+        '"$HOME/.local/bin/gh-axi"', "chrome-devtools-axi", "tasks-axi",
         "bash '/fixture/.claude/hooks/herdr-agent-state.sh' session",
         "/bin/sh -c 'rex __internal session-start --agent claude 2>/dev/null || true'",
-    ], f"Claude SessionStart hooks: {hook_commands(settings, 'SessionStart')}")
+    ]), f"Claude SessionStart hooks: {hook_commands(settings, 'SessionStart')}")
+    for tool in ["gh-axi", "tasks-axi"]:
+        check(f"{tool} setup hooks" in first_calls, f"{tool} hooks were not registered")
+    check(not any(line.startswith(("hey-axi", "lavish-axi")) for line in first_calls),
+          "a no-hook AXI tool was set up")
     check(hook_commands(settings, "PreToolUse") == ["rtk hook claude"], "Claude PreToolUse hooks")
     check(set(settings["hooks"]) == {"SessionStart", "PreToolUse"}, f"Claude hook events: {sorted(settings['hooks'])}")
     check("Xirp" not in json.dumps(settings), "Xirp hooks survived in Claude settings")
@@ -333,11 +367,11 @@ with tempfile.TemporaryDirectory(prefix=".agent-tooling-") as directory:
     check(codex_text.startswith("# Codex config (fixture)\n"), "Codex config comment was lost")
     check("FIXTURE-SECRET" not in codex_text, "removed Codex server env survived")
     codex_hooks = json.loads((home / ".codex/hooks.json").read_text())
-    check(hook_commands(codex_hooks, "SessionStart") == [
-        '"$HOME/.local/bin/gh-axi"', "chrome-devtools-axi",
+    check(sorted(hook_commands(codex_hooks, "SessionStart")) == sorted([
+        '"$HOME/.local/bin/gh-axi"', "chrome-devtools-axi", "tasks-axi",
         "bash '/fixture/.codex/herdr-agent-state.sh' session",
         "/bin/sh -c 'rex __internal session-start --agent codex 2>/dev/null || true'",
-    ], f"Codex SessionStart hooks: {hook_commands(codex_hooks, 'SessionStart')}")
+    ]), f"Codex SessionStart hooks: {hook_commands(codex_hooks, 'SessionStart')}")
     check(set(codex_hooks["hooks"]) == {"SessionStart"}, "Codex Xirp hook events survived")
 
     pi_settings = home / ".pi/agent/settings.json"
@@ -393,6 +427,7 @@ with tempfile.TemporaryDirectory(prefix=".agent-tooling-") as directory:
     check(backups(home) == taken, "second run created another backup")
     check(not mutating(calls(log)), f"second run ran mutating commands: {mutating(calls(log))}")
     check("updated" not in result.stdout and "removed" not in result.stdout, f"second run reported changes: {result.stdout}")
+    check("tasks-axi setup hooks" in calls(log), "second run did not re-register AXI hooks")
 
     # Unparsable files are left alone, and the other tools still converge.
     broken = root / "broken"
@@ -402,7 +437,12 @@ with tempfile.TemporaryDirectory(prefix=".agent-tooling-") as directory:
     write_json(broken_home / ".pi/agent/settings.json", {"packages": ["npm:pi-autoresearch"]})
     (broken_home / ".codex").mkdir()
     (broken_home / ".codex/config.toml").write_text("[mcp_servers.linear\n")
+    # Without just, the AXI lists are unknown, so no hook may be judged undeclared.
+    unread_hooks = json.dumps({"hooks": {"SessionStart": [hook_group("tasks-axi")]}})
+    (broken_home / ".codex/hooks.json").write_text(unread_hooks)
     result = reconcile(broken_home, root / "no-bin", state, broken / "calls.log")
+    check((broken_home / ".codex/hooks.json").read_text() == unread_hooks, "hooks were reconciled without the AXI lists")
+    check("cannot read the AXI tool lists" in result.stderr, "missing AXI lists gave no warning")
     check((broken_home / ".claude.json").read_text() == '{"mcpServers": {', "invalid ~/.claude.json was rewritten")
     check((broken_home / ".codex/config.toml").read_text() == "[mcp_servers.linear\n", "invalid Codex config was rewritten")
     check(".claude.json is not valid JSON" in result.stderr and "config.toml is not valid TOML" in result.stderr,

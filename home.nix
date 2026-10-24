@@ -172,14 +172,16 @@ in
   };
 
   # Reconcile Claude plugins, marketplaces, MCP servers and hooks, Codex MCP
-  # servers and hooks, Pi packages, and every skill root to agent-tooling.json.
-  # Network or parse problems only warn, so a rebuild never fails on them.
+  # servers and hooks, Pi packages, and every skill root to agent-tooling.json,
+  # and register the hooks of each installed hook-enabled AXI tool listed in
+  # the justfile. Network or parse problems only warn, so a rebuild never fails.
   home.activation.agentTooling = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
     dry_run=()
     if [[ -v DRY_RUN ]]; then dry_run=(--dry-run); fi
-    PATH="${lib.makeBinPath [ pkgs.nodejs_24 pkgs.git ]}:$HOME/.local/bin:${lib.concatMapStrings (path: "${path}:") homebrewPath}$PATH" \
+    PATH="${lib.makeBinPath [ pkgs.nodejs_24 pkgs.git pkgs.just pkgs.bash pkgs.gnugrep ]}:$HOME/.local/bin:${lib.concatMapStrings (path: "${path}:") homebrewPath}$PATH" \
       ${lib.getExe pkgs.python311} ${./scripts/agent-tooling-reconcile.py} \
-      --manifest ${./agent-tooling.json} "''${dry_run[@]}"
+      --manifest ${./agent-tooling.json} --justfile ${lib.escapeShellArg "${dotfiles}/justfile"} \
+      --profile ${lib.escapeShellArg profile} "''${dry_run[@]}"
   '';
 
   # M87 stores plugin configuration with its existing queue in ~/.m87. Use its

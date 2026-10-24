@@ -164,6 +164,8 @@ agent_manifest=$(grep -Eo '/nix/store/[^ ]+-agent-tooling.json' <<<"$agent_tooli
 cmp -s "$agent_script" "$repo/scripts/agent-tooling-reconcile.py" || fail "activation runs a stale reconciler"
 cmp -s "$agent_manifest" "$repo/agent-tooling.json" || fail "activation reconciles a stale manifest"
 [[ "$agent_tooling" == *'[[ -v DRY_RUN ]]'*'--dry-run'* ]] || fail "activation ignores Home Manager dry runs"
+[[ "$agent_tooling" == *"--justfile "*"/Code/dotfiles/justfile"*"--profile "* ]] \
+  || fail "activation does not read the AXI tool lists from the live justfile"
 mkdir -p "$pi_sandbox/.pi/agent" "$pi_sandbox/.codex"
 printf '%s\n' '{"packages": ["npm:pi-autoresearch", "git:github.com/DietrichGebert/ponytail"]}' \
   > "$pi_sandbox/.pi/agent/settings.json"

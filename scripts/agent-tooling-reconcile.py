@@ -8,6 +8,11 @@ time. Secrets are never read from the manifest: an MCP server's existing
 headers and env survive, and a server that needs auth is never created
 without it.
 
+AXI tools are the exception: their lists stay in the justfile (`axi-tools`,
+`axi-tools-work`, `axi-tools-git`; `axi-tools-no-hooks` get none). Each
+installed hook tool registers its own hooks through `just _setup-axi-hooks`,
+and those hooks are kept.
+
 Home Manager activation runs the full reconcile; `just update-skills` runs
 `--refresh-skills`, which only reinstalls every declared skill source.
 """
@@ -73,7 +78,7 @@ class Run:
             note(f"would update {path}: {summary}")
             return
         real = Path(os.path.realpath(path))
-        shutil.copy2(real, self.backup_target(path))
+        self.save_original(path, real.read_bytes())
         mode = real.stat().st_mode & 0o7777
         fd, tmp = tempfile.mkstemp(prefix=f".{real.name}.", dir=real.parent)
         try:
@@ -85,6 +90,13 @@ class Run:
             os.unlink(tmp)
             raise
         note(f"updated {path}: {summary}")
+
+    def save_original(self, path: Path, content: bytes) -> None:
+        """Back up `path` as it was before this run; a later edit keeps the first copy."""
+        target = self.backup_target(path)
+        if not target.exists():
+            target.write_bytes(content)
+            shutil.copymode(os.path.realpath(path), target)
 
     def move_away(self, path: Path, why: str) -> None:
         if self.dry_run:
@@ -407,6 +419,44 @@ def install_skills(run: Run, manifest: dict, refresh: bool) -> None:
         run.command(argv, "install skills" if missing else "refresh skills", INSTALL_TIMEOUT)
 
 
+HOOK_FILES = [HOME / ".claude/settings.json", HOME / ".codex/hooks.json"]
+
+
+def axi_hook_tools(justfile: Path | None, profile: str) -> list[str] | None:
+    """Hook-enabled AXI tools from the justfile, or None when they cannot be read."""
+    just = shutil.which("just")
+    if justfile is None or not justfile.is_file() or just is None:
+        warn("cannot read the AXI tool lists (no justfile or just); skipped AXI and hook reconciliation")
+        return None
+    names = ["axi-tools", "axi-tools-git"] + (["axi-tools-work"] if profile == "work" else [])
+    tools: list[str] = []
+    for name in names:
+        try:
+            value = subprocess.run([just, "--justfile", str(justfile), "--evaluate", name], cwd=HOME,
+                                   timeout=60, check=True, capture_output=True, text=True).stdout
+        except (OSError, subprocess.SubprocessError) as error:
+            warn(f"just --evaluate {name} failed ({error}); skipped AXI and hook reconciliation")
+            return None
+        # Git-sourced specs are owner/repo; the binary is the repo name.
+        tools += [spec.rsplit("/", 1)[-1] for spec in value.split()]
+    return tools
+
+
+def register_axi_hooks(run: Run, justfile: Path, tools: list[str]) -> None:
+    just = shutil.which("just")
+    before = {path: path.read_bytes() for path in HOOK_FILES if path.is_file()}
+    for tool in tools:
+        managed = HOME / ".local/bin" / tool
+        if not (os.access(managed, os.X_OK) or shutil.which(tool)):
+            note(f"{tool} is not installed; skipped its AXI hooks")
+            continue
+        run.command([just, "--justfile", str(justfile), "_setup-axi-hooks", tool], "register AXI hooks")
+    for path, content in before.items():
+        if path.is_file() and path.read_bytes() != content:
+            run.save_original(path, content)
+            note(f"AXI setup hooks updated {path}")
+
+
 def claude_json(claude: str, args: list[str]):
     try:
         output = subprocess.run([claude, *args, "--json"], cwd=HOME, timeout=120, check=True,
@@ -451,7 +501,11 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true", help="report changes without making them")
     parser.add_argument("--refresh-skills", action="store_true",
                         help="only reinstall every declared skill source")
+    parser.add_argument("--justfile", type=Path,
+                        help="justfile with the AXI tool lists (default: next to the manifest)")
+    parser.add_argument("--profile", default="personal", help="dotfiles profile (work adds axi-tools-work)")
     args = parser.parse_args()
+    justfile = args.justfile or args.manifest.parent / "justfile"
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
     run = Run(args.dry_run, stream=args.refresh_skills)
     if args.refresh_skills:
@@ -459,17 +513,26 @@ def main() -> int:
         # An explicit refresh fails loudly; activation below only warns.
         return 1 if warnings else 0
     else:
-        claude_hooks = manifest["claude"]["hooks"]
-        # Plugin CLI calls rewrite Claude's files, so they go first.
+        tools = axi_hook_tools(justfile, args.profile)
+
+        def hook_policy(agent: str, local: bool = False) -> dict:
+            policy = manifest[agent]["hooks"]
+            return {"ensure": [] if local else policy["ensure"], "keep": policy["keep"] + (tools or [])}
+
+        def hooks(path: Path, policy: dict) -> None:
+            if tools is not None:  # without the AXI lists, a kept AXI hook could look undeclared
+                reconcile_hook_file(run, path, policy)
+
+        # Plugin and AXI CLI calls rewrite the tools' files, so they go first.
         steps = [
             ("Claude plugins", lambda: reconcile_claude_plugins(run, manifest)),
+            ("AXI hooks", lambda: tools is not None and register_axi_hooks(run, justfile, tools)),
             ("Claude MCP servers", lambda: reconcile_claude_json(run, manifest)),
-            ("Claude hooks", lambda: reconcile_hook_file(run, HOME / ".claude/settings.json", claude_hooks)),
+            ("Claude hooks", lambda: hooks(HOME / ".claude/settings.json", hook_policy("claude"))),
             # Local settings only ever lose undeclared hooks; the declared ones live in settings.json.
-            ("Claude local hooks", lambda: reconcile_hook_file(
-                run, HOME / ".claude/settings.local.json", {**claude_hooks, "ensure": []})),
+            ("Claude local hooks", lambda: hooks(HOME / ".claude/settings.local.json", hook_policy("claude", True))),
             ("Codex MCP servers", lambda: reconcile_codex_config(run, manifest)),
-            ("Codex hooks", lambda: reconcile_hook_file(run, HOME / ".codex/hooks.json", manifest["codex"]["hooks"])),
+            ("Codex hooks", lambda: hooks(HOME / ".codex/hooks.json", hook_policy("codex"))),
             ("Pi packages", lambda: reconcile_pi_settings(run, manifest)),
             ("skill roots", lambda: reconcile_skill_roots(run, manifest)),
             ("skill installs", lambda: install_skills(run, manifest, refresh=False)),

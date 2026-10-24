@@ -157,6 +157,9 @@ existing non-symlink at that path.
 The npm-global AXI tool lists and hook policy live in [justfile](justfile)
 (`axi-tools`, `axi-tools-no-hooks`, and the work-only and Git-source lists).
 `just setup-firstmate` installs them; `just update-firstmate` refreshes them.
+`just rebuild` registers the session hooks of every installed hook-enabled tool
+and removes any hook a no-hook tool left behind (see
+[Declarative agent tooling](#declarative-agent-tooling)).
 
 Home Manager uses `mkOutOfStoreSymlink`, so edits to linked files apply without
 copying them into the Nix store or rebuilding. On first activation, an existing
@@ -230,7 +233,7 @@ brings each tool's own state to exactly that set:
 |---|---|---|
 | `claude.plugins`, `claude.marketplaces` | Claude's plugin registry | The `claude plugin` CLI uninstalls undeclared user-scope plugins, removes undeclared marketplaces, and adds and installs missing ones. |
 | `claude.mcpServers` | `~/.claude.json` `mcpServers` | Declared fields are set, existing `headers` and `env` are kept, and undeclared servers are removed. `retiredProjectMcpServers` are removed from every project scope; other project servers stay. |
-| `claude.hooks` | `~/.claude/settings.json` and `settings.local.json` hooks | `ensure` entries are written (replacing any hook that matches them), hooks matching a `keep` substring are left to their installers (rtk, herdr, rex), and every other hook is removed. `settings.local.json` only loses hooks. |
+| `claude.hooks` | `~/.claude/settings.json` and `settings.local.json` hooks | Each installed AXI tool in the justfile's `axi-tools`, Git-source, and (on the work profile) work lists first registers its own hooks with `just _setup-axi-hooks`. Then `ensure` entries are written (replacing any hook that matches them), hooks matching a `keep` substring or a hook-enabled AXI tool name are left to their installers (rtk, herdr, rex, AXI), and every other hook is removed, including those of `axi-tools-no-hooks`. `settings.local.json` only loses hooks. If the justfile lists cannot be read, hooks are left untouched with a warning. |
 | `codex.mcpServers` | `~/.codex/config.toml` `[mcp_servers.*]` | As for Claude. Every other table is preserved byte for byte. |
 | `codex.hooks` | `~/.codex/hooks.json` | As for Claude. |
 | `pi.packages` | `~/.pi/agent/settings.json` `packages` | Exactly the declared list. Pi installs a missing package on its next start. pi-fff is a Nix-linked extension, so it is not a package. |
@@ -262,7 +265,9 @@ remove one, delete its entry and rebuild.
 - **MCP server:** add the non-secret fields under `claude.mcpServers` or
   `codex.mcpServers`. A leading `~/` expands to the home directory.
 - **Hook:** add an `ensure` entry for a hook dotfiles defines, or a `keep`
-  substring for one an installer writes.
+  substring for one an installer writes. An AXI tool's hooks follow the
+  justfile: list it in `axi-tools` to register them, or in
+  `axi-tools-no-hooks` to remove them.
 - **Pi package:** add its source string to `pi.packages`.
 - **Skill:** add a `skills.sources` entry (`source`, `skills`, `agents`). A
   skill that a tool writes itself, such as `rex`, goes in `skills.keep`.
