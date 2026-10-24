@@ -151,6 +151,10 @@ existing non-symlink at that path.
    tool stack, installs Ponytail for Pi and for Claude Code where available,
    refreshes skills, and wires the generated skill directories.
 
+The npm-global AXI tool lists and hook policy live in [justfile](justfile)
+(`axi-tools`, `axi-tools-no-hooks`, and the work-only and Git-source lists).
+`just setup-firstmate` installs them; `just update-firstmate` refreshes them.
+
 Home Manager uses `mkOutOfStoreSymlink`, so edits to linked files apply without
 copying them into the Nix store or rebuilding. On first activation, an existing
 file in the way is renamed with a `.bak` suffix.
@@ -215,16 +219,12 @@ are not changed by this discovery configuration.
 
 ### Agent skills and Pi packages
 
-`just update-skills` declares the authoritative `kunchenguid/vision` source and
-installs it for the maintained agent surfaces with the skills CLI's `--copy`
-mode. This is deliberate: `~/.claude/skills` is a Home Manager symlink to the
-generated
-`.agents/skills` root, and a generated relative Vision link there can normalize
-back to itself. Physical generated copies make both actual runtime surfaces
-discoverable:
+`just update-skills` installs Vision for the maintained agent surfaces. See
+[the skill reference](.agents/SKILLS.md) for sources, discovery paths, and why
+installation uses physical copies. Invoke Vision as follows:
 
-- Pi registers `~/.pi/agent/skills/vision/SKILL.md` as `/skill:vision`;
-- Claude Code registers `~/.claude/skills/vision/SKILL.md` as `/vision`.
+- Pi: `/skill:vision`;
+- Claude Code: `/vision`.
 
 The same recipe installs only the approved `teach` skill from
 `mattpocock/skills` and `show-me` from `humanlayer/skills`, preserving the

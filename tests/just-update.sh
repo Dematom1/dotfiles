@@ -94,8 +94,8 @@ cat > "$bin/uname" <<'EOF'
 printf 'Linux\n'
 EOF
 chmod +x "$bin/stack" "$bin/rsync" "$bin/npx" "$bin/brew" "$bin/uname"
-for command in git pi claude herdr treehouse no-mistakes npm memtrace; do ln -s stack "$bin/$command"; done
-for command in gh-axi chrome-devtools-axi lavish-axi tasks-axi quota-axi pg-axi docker-axi npm-axi pypi-axi homebrew-axi linear-axi; do
+for command in git gh jq node curl pi claude herdr treehouse no-mistakes npm memtrace; do ln -s stack "$bin/$command"; done
+for command in gh-axi chrome-devtools-axi lavish-axi tasks-axi quota-axi pg-axi docker-axi npm-axi pypi-axi homebrew-axi jev-axi bun-axi hey-axi hetzner-axi linear-axi; do
   ln -s stack "$bin/$command"
 done
 ln -s "$just_bin" "$bin/just"
@@ -154,5 +154,27 @@ done
   || fail "test fixture unexpectedly logged recipe output"
 [[ "$(grep -Fc 'warning: unsupported agent' "$skills_log" || true)" -eq 0 ]] \
   || fail "unsupported-agent warnings entered the skills invocation log"
+
+for tool in jev-axi bun-axi hetzner-axi; do
+  [[ "$(grep -Fxc "$tool setup hooks" "$stack_log")" -eq 2 ]] \
+    || fail "update did not refresh $tool hooks"
+done
+[[ "$(grep -Ec '^npm update -g .* hey-axi( |$)' "$stack_log")" -eq 2 ]] \
+  || fail "update did not update hey-axi"
+[[ "$(grep -Ec '^hey-axi ' "$stack_log" || true)" -eq 0 ]] \
+  || fail "update invoked hey-axi instead of keeping it on-demand"
+
+: > "$stack_log"
+(cd "$sandbox" && \
+  HOME="$home" STACK_LOG="$stack_log" BREW_LOG="$brew_log" SKILLS_LOG="$skills_log" \
+  PATH="$bin:/usr/bin:/bin" just setup-firstmate >/dev/null)
+[[ "$(grep -Ec '^npm install -g .* hey-axi( |$)' "$stack_log")" -eq 1 ]] \
+  || fail "setup did not install hey-axi"
+[[ "$(grep -Ec '^hey-axi ' "$stack_log" || true)" -eq 0 ]] \
+  || fail "setup invoked hey-axi instead of keeping it on-demand"
+for tool in jev-axi bun-axi hetzner-axi; do
+  [[ "$(grep -Fxc "$tool setup hooks" "$stack_log")" -eq 1 ]] \
+    || fail "setup did not register $tool hooks"
+done
 
 printf '%s\n' "just update checks passed"

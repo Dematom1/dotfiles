@@ -6,7 +6,10 @@ skill-agents := "claude-code codex opencode pi"
 # AXI agent tools installed as npm globals (https://axi.md).
 # kubernetes-axi is intentionally absent: flake.nix pins and packages it through
 # Nix so both Macs and the Linux sandbox receive the same reproducible build.
-axi-tools := "gh-axi chrome-devtools-axi lavish-axi tasks-axi quota-axi pg-axi docker-axi npm-axi pypi-axi homebrew-axi"
+axi-tools := "gh-axi chrome-devtools-axi lavish-axi tasks-axi quota-axi pg-axi docker-axi npm-axi pypi-axi homebrew-axi jev-axi bun-axi hetzner-axi"
+
+# HEY stays on-demand so session-start hooks cannot inject private email.
+axi-tools-no-hooks := "hey-axi"
 
 # work-machine-only AXI tools - installed by setup/update-firstmate only when
 # ~/.config/dotfiles-profile says "work" (the same marker rebuild.sh reads).
@@ -275,8 +278,8 @@ setup-firstmate:
     echo "==> Treehouse + No Mistakes + AXI tools"
     curl -fsSL https://kunchenguid.github.io/treehouse/install.sh | sh
     curl -fsSL https://raw.githubusercontent.com/kunchenguid/no-mistakes/main/docs/install.sh | sh
-    npm install -g {{ axi-tools }}
-    # each AXI tool installs its agent hooks via `setup hooks`; report per tool
+    npm install -g {{ axi-tools }} {{ axi-tools-no-hooks }}
+    # hook-enabled AXI tools install via `setup hooks`; report per tool
     # (a few legitimately have no such subcommand)
     echo "==> AXI setup hooks"
     for t in {{ axi-tools }}; do
@@ -348,7 +351,7 @@ update-firstmate:
     just _update-herdr
     treehouse update
     no-mistakes update
-    npm update -g {{ axi-tools }} gnhf
+    npm update -g {{ axi-tools }} {{ axi-tools-no-hooks }} gnhf
     for t in {{ axi-tools }}; do just _setup-axi-hooks "$t"; done   # refresh hooks
     if [[ -f ~/.config/dotfiles-profile && "$(<~/.config/dotfiles-profile)" == work ]]; then
       npm update -g {{ axi-tools-work }}

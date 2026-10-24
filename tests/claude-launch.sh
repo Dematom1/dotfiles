@@ -50,7 +50,40 @@ output=$(
   HOME="$home" ZDOTDIR="$zdot" CLAUDE_MARKER="$tmp/claude" \
     HEADROOM_MARKER="$tmp/headroom" PATH="$tmp/bin:/usr/bin:/bin" \
     zsh -lic '
-      [[ "$(command -v claude)" == "$HOME/.local/bin/claude" ]] || exit 11
+      chain_is_protected() {
+        local ancestor=$1
+        while true; do
+          [[ -w "$ancestor" ]] && return 1
+          [[ "$ancestor" == / ]] && return 0
+          ancestor="${ancestor:h}"
+        done
+      }
+      directory_is_protected() {
+        local physical
+        physical=$(cd -q -- "$1" && pwd -P) || return 1
+        chain_is_protected "$1" && chain_is_protected "$physical"
+      }
+      candidates=("${(@f)$(whence -ap claude)}")
+      (( ${#candidates} )) || exit 10
+      protected=false
+      for candidate in "${candidates[@]}"; do
+        if directory_is_protected "${candidate:h}"; then
+          protected=true
+          break
+        fi
+      done
+      if $protected; then
+        directory_is_protected "${candidates[1]:h}" || exit 11
+      fi
+      launch_path=()
+      for entry in "${path[@]}"; do
+        if [[ "$entry" == "$HOME/.local/bin" || ! -x "$entry/claude" ]]; then
+          launch_path+=("$entry")
+        fi
+      done
+      path=("${launch_path[@]}")
+      source "$HOME/Code/dotfiles/zsh/path-order.zsh"
+      [[ "$(command -v claude)" == "$HOME/.local/bin/claude" ]] || exit 13
       claude --version
     ' 2>&1
 ) || fail "generated login shell could not start Claude: $output"

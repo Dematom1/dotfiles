@@ -5,7 +5,7 @@ The maintained agent surfaces discover those skills as follows:
 
 - Claude   -> `~/.claude/skills` resolves to `.agents/skills` (see `home.nix`)
 - Codex    -> reads `.agents/skills` directly
-- Pi        -> the skills CLI copies compatible skills into Pi's global discovery surface
+- Pi        -> reads the skills CLI's shared global copies in `~/.agents/skills`
 - opencode -> managed per-skill symlinks in `opencode/skills/` (created by `just update-skills`, without replacing tool-managed entries)
 
 Every `skills add` command targets only Claude Code, Codex, OpenCode, and Pi and
