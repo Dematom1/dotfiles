@@ -47,6 +47,10 @@ fi
 if [[ "$name" == *-axi && "$*" == "setup --help" ]]; then
   printf 'usage: %s setup hooks\n' "$name"
 fi
+if [[ "$name" == no-mistakes && "$*" == update ]]; then
+  [[ -z "${NO_MISTAKES_UPDATE_OUTPUT:-}" ]] || printf '%s\n' "$NO_MISTAKES_UPDATE_OUTPUT" >&2
+  exit "${NO_MISTAKES_UPDATE_STATUS:-0}"
+fi
 EOF
 cat > "$bin/npx" <<'EOF'
 #!/usr/bin/env bash
@@ -94,7 +98,7 @@ run_update() {
   local output status
   set +e
   output=$(cd "$sandbox" && \
-    HOME="$home" STACK_LOG="$stack_log" BREW_LOG="$brew_log" SKILLS_LOG="$skills_log" \
+    HOME="$home" USER=just-update-test STACK_LOG="$stack_log" BREW_LOG="$brew_log" SKILLS_LOG="$skills_log" \
     BREW_UPGRADE_STATUS="$expected_status" PATH="$bin:/usr/bin:/bin" just update 2>&1)
   status=$?
   set -e
@@ -135,8 +139,8 @@ done
   || fail "update used the old Firstmate workspace"
 [[ "$(grep -Fc 'memtrace ' "$stack_log" || true)" -eq 0 ]] \
   || fail "update invoked Memtrace"
-[[ "$(grep -Fc 'treehouse update' "$stack_log")" -eq 2 ]] \
-  || fail "successful update did not continue to Treehouse"
+[[ "$(grep -Fc 'treehouse update' "$stack_log" || true)" -eq 0 ]] \
+  || fail "update self-updated the Nix-pinned Treehouse"
 [[ "$(grep -Fc 'no-mistakes update' "$stack_log")" -eq 2 ]] \
   || fail "successful update did not continue to no-mistakes"
 [[ "$(grep -Fc 'FirstMate stack updated.' "$stack_log" || true)" -eq 0 ]] \
@@ -148,8 +152,8 @@ for tool in jev-axi bun-axi hetzner-axi; do
   [[ "$(grep -Fxc "$tool setup hooks" "$stack_log")" -eq 2 ]] \
     || fail "update did not refresh $tool hooks"
 done
-[[ "$(grep -Ec '^npm update -g .* lavish-axi( |$)' "$stack_log")" -eq 2 ]] \
-  || fail "update did not update lavish-axi"
+[[ "$(grep -Ec '^npm (update|install) .*-axi( |$)' "$stack_log" || true)" -eq 0 ]] \
+  || fail "update npm-installed an AXI tool that Nix pins"
 [[ "$(grep -Fxc 'lavish-axi setup hooks' "$stack_log" || true)" -eq 0 ]] \
   || fail "update re-registered the lavish-axi SessionStart hook"
 
@@ -170,22 +174,53 @@ for skill in teach codebase-design diagnosing-bugs domain-modeling grill-me gril
 done
 [[ "$(grep -E 'skills add (kunchenguid/axi|pbakaus/impeccable) ' "$skills_log" | grep -c claude-code || true)" -eq 0 ]] \
   || fail "Codex/Pi-only skill bundles were installed for Claude Code"
-[[ "$(grep -Ec '^npm update -g .* hey-axi( |$)' "$stack_log")" -eq 2 ]] \
-  || fail "update did not update hey-axi"
 [[ "$(grep -Ec '^hey-axi ' "$stack_log" || true)" -eq 0 ]] \
   || fail "update invoked hey-axi instead of keeping it on-demand"
 
 : > "$stack_log"
 (cd "$sandbox" && \
-  HOME="$home" STACK_LOG="$stack_log" BREW_LOG="$brew_log" SKILLS_LOG="$skills_log" \
+  HOME="$home" USER=just-update-test STACK_LOG="$stack_log" BREW_LOG="$brew_log" SKILLS_LOG="$skills_log" \
   PATH="$bin:/usr/bin:/bin" just setup-firstmate >/dev/null)
-[[ "$(grep -Ec '^npm install -g .* hey-axi( |$)' "$stack_log")" -eq 1 ]] \
-  || fail "setup did not install hey-axi"
+[[ "$(grep -Ec '^npm (update|install) .*-axi( |$)' "$stack_log" || true)" -eq 0 ]] \
+  || fail "setup npm-installed an AXI tool that Nix pins"
+[[ "$(grep -Fc 'kunchenguid.github.io/treehouse' "$stack_log" || true)" -eq 0 ]] \
+  || fail "setup curl-installed the Nix-pinned Treehouse"
 [[ "$(grep -Ec '^hey-axi ' "$stack_log" || true)" -eq 0 ]] \
   || fail "setup invoked hey-axi instead of keeping it on-demand"
 for tool in jev-axi bun-axi hetzner-axi; do
   [[ "$(grep -Fxc "$tool setup hooks" "$stack_log")" -eq 1 ]] \
     || fail "setup did not register $tool hooks"
 done
+
+# Active pipeline runs make `no-mistakes update` refuse; the rest of the stack
+# must still update and the refusal must stay visible.
+: > "$stack_log"
+nm_output=$(cd "$sandbox" && \
+  HOME="$home" USER=just-update-test STACK_LOG="$stack_log" BREW_LOG="$brew_log" SKILLS_LOG="$skills_log" \
+  NO_MISTAKES_UPDATE_STATUS=1 \
+  NO_MISTAKES_UPDATE_OUTPUT="Error: refusing update because 2 active pipeline runs are in progress; pass --force to stop/restart the daemon anyway" \
+  PATH="$bin:/usr/bin:/bin" just update-firstmate 2>&1) \
+  || fail "a refused no-mistakes update failed the FirstMate update"
+[[ "$nm_output" == *"refusing update because 2 active pipeline runs"* ]] \
+  || fail "the no-mistakes refusal output was hidden"
+[[ "$nm_output" == *"skipped no-mistakes update: 2 active pipeline runs"*"never --force"* ]] \
+  || fail "a refused no-mistakes update was not reported"
+[[ "$(grep -Fc -- '--force' "$stack_log" || true)" -eq 0 ]] || fail "update forced a no-mistakes update"
+[[ "$(grep -Fxc 'gh-axi setup hooks' "$stack_log")" -eq 1 ]] \
+  || fail "update stopped after the refused no-mistakes update"
+
+# Any other no-mistakes update failure must fail the update with its status.
+: > "$stack_log"
+nm_status=0
+nm_output=$(cd "$sandbox" && \
+  HOME="$home" USER=just-update-test STACK_LOG="$stack_log" BREW_LOG="$brew_log" SKILLS_LOG="$skills_log" \
+  NO_MISTAKES_UPDATE_STATUS=7 NO_MISTAKES_UPDATE_OUTPUT="Error: checksum mismatch for no-mistakes archive" \
+  PATH="$bin:/usr/bin:/bin" just update-firstmate 2>&1) || nm_status=$?
+[[ "$nm_status" -eq 7 ]] || fail "a failed no-mistakes update did not fail the FirstMate update with its status"
+[[ "$nm_output" == *"checksum mismatch"* ]] || fail "the no-mistakes failure output was hidden"
+[[ "$nm_output" != *"FirstMate stack updated."* && "$nm_output" != *"skipped no-mistakes update"* ]] \
+  || fail "a failed no-mistakes update reported success"
+[[ "$(grep -Fxc 'gh-axi setup hooks' "$stack_log" || true)" -eq 0 ]] \
+  || fail "update continued after a failed no-mistakes update"
 
 printf '%s\n' "just update checks passed"

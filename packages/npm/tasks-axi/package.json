@@ -1,0 +1,7 @@
+{
+  "name": "dotfiles-tasks-axi-package",
+  "private": true,
+  "dependencies": {
+    "tasks-axi": "0.2.6"
+  }
+}

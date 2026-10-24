@@ -9,9 +9,9 @@ headers and env survive, and a server that needs auth is never created
 without it.
 
 AXI tools are the exception: their lists stay in the justfile (`axi-tools`,
-`axi-tools-work`, `axi-tools-git`; `axi-tools-no-hooks` get none). Each
-installed hook tool registers its own hooks through `just _setup-axi-hooks`,
-and those hooks are kept.
+`axi-tools-work`; `axi-tools-no-hooks` get none). Each installed hook tool
+registers its own hooks through `just _setup-axi-hooks`, and those hooks are
+kept.
 
 Home Manager activation runs the full reconcile; `just update-skills` runs
 `--refresh-skills`, which only reinstalls every declared skill source.
@@ -19,6 +19,7 @@ Home Manager activation runs the full reconcile; `just update-skills` runs
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
 import os
 import re
@@ -497,7 +498,7 @@ def axi_hook_tools(justfile: Path | None, profile: str) -> list[str] | None:
     if justfile is None or not justfile.is_file() or just is None:
         warn("cannot read the AXI tool lists (no justfile or just); skipped AXI and hook reconciliation")
         return None
-    names = ["axi-tools", "axi-tools-git"] + (["axi-tools-work"] if profile == "work" else [])
+    names = ["axi-tools"] + (["axi-tools-work"] if profile == "work" else [])
     tools: list[str] = []
     for name in names:
         try:
@@ -506,8 +507,7 @@ def axi_hook_tools(justfile: Path | None, profile: str) -> list[str] | None:
         except (OSError, subprocess.SubprocessError) as error:
             warn(f"just --evaluate {name} failed ({error}); skipped AXI and hook reconciliation")
             return None
-        # Git-sourced specs are owner/repo; the binary is the repo name.
-        tools += [spec.rsplit("/", 1)[-1] for spec in value.split()]
+        tools += value.split()
     return tools
 
 
@@ -515,9 +515,10 @@ def register_axi_hooks(run: Run, justfile: Path, tools: list[str]) -> None:
     just = shutil.which("just")
     if any(load_json(path, create=True) is None for path in HOOK_FILES):
         return
+    # The Nix profiles `_setup-axi-hooks` prefers over PATH.
+    profiles = [Path("/etc/profiles/per-user") / getpass.getuser() / "bin", HOME / ".nix-profile/bin"]
     for tool in tools:
-        managed = HOME / ".local/bin" / tool
-        if not (os.access(managed, os.X_OK) or shutil.which(tool)):
+        if not (any(os.access(profile / tool, os.X_OK) for profile in profiles) or shutil.which(tool)):
             note(f"{tool} is not installed; its hooks register on the next rebuild once installed")
             continue
         run.command([just, "--justfile", str(justfile), "_setup-axi-hooks", tool], "register AXI hooks")

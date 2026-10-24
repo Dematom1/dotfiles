@@ -11,7 +11,8 @@ repo = Path(__file__).absolute().parent.parent
 with tempfile.TemporaryDirectory(prefix=".gh-hooks-", dir=repo) as directory:
     root = Path(directory)
     home = root / "home with spaces"
-    managed = home / ".local/bin/gh-axi"
+    # The Home Manager profile copy; USER below keeps the real /etc/profiles one out.
+    managed = home / ".nix-profile/bin/gh-axi"
     stale = root / "stale/gh-axi"
     targets = [home / ".claude/settings.json", home / ".codex/hooks.json"]
     unrelated = {"type": "command", "command": "echo unrelated", "timeout": 15}
@@ -46,7 +47,8 @@ else:
     stale.parent.mkdir()
     stale.write_text("#!/bin/sh\necho stale hook executed >&2\nexit 77\n")
     stale.chmod(0o755)
-    env = {**os.environ, "HOME": str(home), "PATH": f"{stale.parent}:{os.environ['PATH']}"}
+    env = {**os.environ, "HOME": str(home), "USER": "gh-axi-hooks-test",
+           "PATH": f"{stale.parent}:{os.environ['PATH']}"}
     for attempt in range(2):
         subprocess.run(["just", "_setup-axi-hooks", "gh-axi"], cwd=repo, env=env, check=True)
         for target in targets:

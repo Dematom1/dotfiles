@@ -1,0 +1,7 @@
+{
+  "name": "dotfiles-linear-axi-package",
+  "private": true,
+  "dependencies": {
+    "@nikolauska/linear-axi": "0.5.0"
+  }
+}

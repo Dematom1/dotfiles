@@ -12,6 +12,8 @@ jq -e '((.mcp // {}) | has("memtrace") | not)' \
   "$repo/opencode/opencode.json" >/dev/null \
   || fail "OpenCode configuration still registers a removed agent integration"
 
+bash "$repo/tests/claude-native-install.sh"
+
 system=$(nix eval --impure --raw --expr 'builtins.currentSystem')
 bash_bin=$(command -v bash)
 case "$system" in
@@ -27,18 +29,25 @@ case "$system" in
   *) fail "unsupported test host system '$system'" ;;
 esac
 
+# Renovate bumps packages/npm/<name>, so expected versions come from its lockfile.
+locked_version() {
+  jq -er --arg dependency "$2" '.packages["node_modules/" + $dependency].version' \
+    "$repo/packages/npm/$1/package-lock.json"
+}
+m87_version=$(locked_version m87 @kunchenguid/m87)
+
 nix build --no-link "$repo#checks.$system.agent-tools-layout"
 m87_package=$(nix build --no-link --print-out-paths "$repo#m87")
 backpass_package=$(nix build --no-link --print-out-paths "$repo#backpass")
 acpx_package=$(nix build --no-link --print-out-paths "$repo#acpx")
-node -e 'const p = require(process.argv[1]); if (p.name !== "@kunchenguid/m87" || p.version !== "0.1.10" || p.repository.url !== "git+https://github.com/kunchenguid/m87.git") process.exit(1)' \
-  "$m87_package/libexec/m87/node_modules/@kunchenguid/m87/package.json" \
+node -e 'const p = require(process.argv[1]); if (p.name !== "@kunchenguid/m87" || p.version !== process.argv[2] || p.repository.url !== "git+https://github.com/kunchenguid/m87.git") process.exit(1)' \
+  "$m87_package/libexec/m87/node_modules/@kunchenguid/m87/package.json" "$m87_version" \
   || fail "M87 package identity does not match the authoritative upstream"
-node -e 'const p = require(process.argv[1]); if (p.name !== "backpass" || p.version !== "0.1.24" || p.bin.backpass !== "./bin/backpass.js") process.exit(1)' \
-  "$backpass_package/libexec/backpass/node_modules/backpass/package.json" \
+node -e 'const p = require(process.argv[1]); if (p.name !== "backpass" || p.version !== process.argv[2] || p.bin.backpass !== "./bin/backpass.js") process.exit(1)' \
+  "$backpass_package/libexec/backpass/node_modules/backpass/package.json" "$(locked_version backpass backpass)" \
   || fail "backpass package identity does not match the authoritative upstream"
-node -e 'const p = require(process.argv[1]); if (p.name !== "acpx" || p.version !== "0.15.1" || p.bin.acpx !== "dist/cli.js") process.exit(1)' \
-  "$acpx_package/libexec/acpx/node_modules/acpx/package.json" \
+node -e 'const p = require(process.argv[1]); if (p.name !== "acpx" || p.version !== process.argv[2] || p.bin.acpx !== "dist/cli.js") process.exit(1)' \
+  "$acpx_package/libexec/acpx/node_modules/acpx/package.json" "$(locked_version acpx acpx)" \
   || fail "acpx package identity does not match the authoritative upstream"
 
 for target in "${targets[@]}"; do
@@ -59,9 +68,15 @@ for target in "${targets[@]}"; do
 
   home_path=$(nix build --no-link --print-out-paths "$repo#$prefix.home.path")
   [[ -x "$home_path/bin/m87" ]] || fail "$profile Home Manager path has no M87 executable"
-  [[ $("$home_path/bin/m87" --version) == 0.1.10 ]] \
+  [[ $("$home_path/bin/m87" --version) == "$m87_version" ]] \
     || fail "$profile M87 executable has the wrong version"
-  for command in backpass acpx; do
+  # Every AXI tool the justfile sets hooks up for, or keeps hook-free, is Nix-installed.
+  axi_commands=$(just --justfile "$repo/justfile" --evaluate axi-tools)
+  axi_commands+=" $(just --justfile "$repo/justfile" --evaluate axi-tools-no-hooks)"
+  if [[ "$profile" == work ]]; then
+    axi_commands+=" $(just --justfile "$repo/justfile" --evaluate axi-tools-work)"
+  fi
+  for command in backpass acpx treehouse kubernetes-axi $axi_commands; do
     [[ -x "$home_path/bin/$command" ]] || fail "$profile Home Manager path has no $command executable"
     [[ $(PATH="$home_path/bin" command -v "$command") == "$home_path/bin/$command" ]] \
       || fail "$profile Home Manager path does not resolve $command"
@@ -69,8 +84,8 @@ for target in "${targets[@]}"; do
 
   pi_fff=$(nix eval --raw "$repo#$prefix.home.file.\".pi/agent/extensions/pi-fff\".source")
   [[ -f "$pi_fff/index.ts" ]] || fail "$profile Pi extension path has no pi-fff entrypoint"
-  node -e 'const p = require(process.argv[1]); if (p.name !== "@ff-labs/pi-fff" || p.version !== "0.10.6" || p.pi.extensions[0] !== "./src/index.ts") process.exit(1)' \
-    "$(dirname "$pi_fff")/package.json" \
+  node -e 'const p = require(process.argv[1]); if (p.name !== "@ff-labs/pi-fff" || p.version !== process.argv[2] || p.pi.extensions[0] !== "./src/index.ts") process.exit(1)' \
+    "$(dirname "$pi_fff")/package.json" "$(locked_version pi-fff @ff-labs/pi-fff)" \
     || fail "$profile Pi extension path has the wrong package identity"
 
   agent_tooling=$(nix eval --raw "$repo#$prefix.home.activation.agentTooling.data")

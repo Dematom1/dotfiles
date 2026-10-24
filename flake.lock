@@ -17,6 +17,38 @@
         "type": "github"
       }
     },
+    "docker-axi": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1783574275,
+        "narHash": "sha256-1IfyWqZcvXb7f6Ni4sSozB956e/JYp/u1MYCsBu3CF4=",
+        "owner": "thatdudealso",
+        "repo": "docker-axi",
+        "rev": "dc01c8fad72a15cd9508eb7a5f173998b4fe8330",
+        "type": "github"
+      },
+      "original": {
+        "owner": "thatdudealso",
+        "repo": "docker-axi",
+        "type": "github"
+      }
+    },
+    "flake-compat": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1767039857,
+        "narHash": "sha256-vNpUSpF5Nuw8xvDLj2KCwwksIbjua2LZCqhV1LNRDns=",
+        "owner": "edolstra",
+        "repo": "flake-compat",
+        "rev": "5edf11c44bc78a0d334f6334cdaf7d60d732daab",
+        "type": "github"
+      },
+      "original": {
+        "owner": "edolstra",
+        "repo": "flake-compat",
+        "type": "github"
+      }
+    },
     "home-manager": {
       "inputs": {
         "nixpkgs": [
@@ -51,7 +83,6 @@
       "original": {
         "owner": "thatdudealso",
         "repo": "kubernetes-axi",
-        "rev": "c05c686e02cb0074ccf1ba5284d2941c05e9a54e",
         "type": "github"
       }
     },
@@ -126,14 +157,52 @@
         "type": "github"
       }
     },
+    "nixpkgs_2": {
+      "locked": {
+        "lastModified": 1791487292,
+        "narHash": "sha256-tqM7xDEsaeK1p6VvRygeZ9LkQRpUUkbRT02BHv6hnTM=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "8edc0c72e3a38faf5434e40d1f19431125fe4b30",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixpkgs-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
+        "docker-axi": "docker-axi",
         "home-manager": "home-manager",
         "kubernetes-axi": "kubernetes-axi",
         "nix-darwin": "nix-darwin",
         "nix-homebrew": "nix-homebrew",
         "nixpkgs": "nixpkgs",
-        "nixpkgs-unstable": "nixpkgs-unstable"
+        "nixpkgs-unstable": "nixpkgs-unstable",
+        "treehouse": "treehouse"
+      }
+    },
+    "treehouse": {
+      "inputs": {
+        "flake-compat": "flake-compat",
+        "nixpkgs": "nixpkgs_2"
+      },
+      "locked": {
+        "lastModified": 1792588769,
+        "narHash": "sha256-JJNVP3bO4FhzSTPCWlArMLBh5eJnxuq4qFlD9CBxqkg=",
+        "owner": "kunchenguid",
+        "repo": "treehouse",
+        "rev": "42b88127e55def0dd5d371296eacd287dafbf1ca",
+        "type": "github"
+      },
+      "original": {
+        "owner": "kunchenguid",
+        "ref": "v3.1.5",
+        "repo": "treehouse",
+        "type": "github"
       }
     }
   },

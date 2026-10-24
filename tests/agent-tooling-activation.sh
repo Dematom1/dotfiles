@@ -11,7 +11,6 @@ trap 'rm -rf "$activation_home"' EXIT
 mkdir -p "$activation_home/Code/dotfiles" "$activation_home/.local/bin" "$activation_home/.pi/agent"
 cat > "$activation_home/Code/dotfiles/justfile" <<'EOF'
 axi-tools := "review-common-axi"
-axi-tools-git := "owner/review-git-axi"
 axi-tools-work := "review-work-axi"
 EOF
 printf '#!/bin/sh\nexit 1\n' > "$activation_home/.local/bin/claude"
@@ -21,7 +20,7 @@ before=$(cat "$activation_home/.pi/agent/settings.json")
 plan=$(env -i HOME="$activation_home" PATH=/usr/bin:/bin DRY_RUN=1 \
   "$bash_bin" -euo pipefail -c "$agent_tooling" 2>&1)
 [[ "$plan" == *"packages -['npm:pi-autoresearch']"* ]] || fail "activation missed Pi removal: $plan"
-[[ "$plan" == *"review-common-axi is not installed"* && "$plan" == *"review-git-axi is not installed"* ]] \
+[[ "$plan" == *"review-common-axi is not installed"* ]] \
   || fail "activation did not use the fixture justfile: $plan"
 if [[ "$profile" == work ]]; then
   [[ "$plan" == *"review-work-axi is not installed"* ]] || fail "work activation omitted work tools"

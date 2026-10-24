@@ -1,0 +1,7 @@
+{
+  "name": "dotfiles-lavish-axi-package",
+  "private": true,
+  "dependencies": {
+    "lavish-axi": "0.1.92"
+  }
+}

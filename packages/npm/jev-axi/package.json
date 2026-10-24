@@ -1,0 +1,7 @@
+{
+  "name": "dotfiles-jev-axi-package",
+  "private": true,
+  "dependencies": {
+    "jev-axi": "0.7.3"
+  }
+}

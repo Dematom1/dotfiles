@@ -1,0 +1,35 @@
+# Builds both Macs' nix-darwin systems on Apple silicon. The main ruleset
+# requires the `darwin-build` check, so GitHub auto-merge lands an update PR
+# only when it builds. Keep the job name stable: the ruleset references it.
+name: darwin-build
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # flake-update.yml dispatches this for its PR, because pushes made with
+  # GITHUB_TOKEN do not trigger pull_request runs.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: darwin-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  darwin-build:
+    name: darwin-build
+    runs-on: macos-15
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+      - uses: DeterminateSystems/determinate-nix-action@v3
+      - name: Build the personal and work systems
+        run: >-
+          nix build --print-build-logs --no-link
+          .#darwinConfigurations.personal.system
+          .#darwinConfigurations.work.system
+      - name: Run flake checks
+        run: nix flake check --print-build-logs

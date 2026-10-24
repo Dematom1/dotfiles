@@ -1,0 +1,7 @@
+{
+  "name": "dotfiles-npm-axi-package",
+  "private": true,
+  "dependencies": {
+    "npm-axi": "0.1.1"
+  }
+}

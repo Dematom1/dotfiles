@@ -259,8 +259,8 @@ output=$(cd "$repo" && just _setup-axi-hooks "$tmp/quota-axi" 2>&1)
 
 axi_home="$tmp/axi-home"
 shadow_bin="$tmp/shadow-bin"
-mkdir -p "$axi_home/.local/bin" "$shadow_bin"
-for copy in "$axi_home/.local/bin" "$shadow_bin"; do
+mkdir -p "$axi_home/.nix-profile/bin" "$shadow_bin"
+for copy in "$axi_home/.nix-profile/bin" "$shadow_bin"; do
   cat > "$copy/shadowed-axi" <<EOF
 #!/usr/bin/env bash
 if [[ "\$*" == "setup --help" ]]; then
@@ -271,9 +271,9 @@ printf '%s\n' "$copy" >> "$tmp/shadowed-hooks"
 EOF
   chmod +x "$copy/shadowed-axi"
 done
-(cd "$repo" && HOME="$axi_home" PATH="$shadow_bin:$PATH" just _setup-axi-hooks shadowed-axi >/dev/null)
-[[ $(<"$tmp/shadowed-hooks") == "$axi_home/.local/bin" ]] \
-  || fail "a stale AXI copy earlier on PATH registered the hooks instead of the managed install"
+(cd "$repo" && HOME="$axi_home" USER=regressions-test PATH="$shadow_bin:$PATH" just _setup-axi-hooks shadowed-axi >/dev/null)
+[[ $(<"$tmp/shadowed-hooks") == "$axi_home/.nix-profile/bin" ]] \
+  || fail "a stale AXI copy earlier on PATH registered the hooks instead of the Nix-managed install"
 
 ! grep -q 'UIDOTSH_TOKEN' "$repo/zsh/secrets.tpl" || fail "UI token remains in credential automation"
 
@@ -491,9 +491,10 @@ ln -s "$(command -v just)" "$fake_bin/just"
 
 for recipe in setup-firstmate update-firstmate; do
   home="$tmp/${recipe}-home"
-  mkdir -p "$home"
+  mkdir -p "$home/.local/bin"
+  ln -s "$fake_bin/claude" "$home/.local/bin/claude"
   set +e
-  output=$(cd "$repo" && HOME="$home" PATH="$fake_bin:/usr/bin:/bin" just "$recipe" 2>&1)
+  output=$(cd "$repo" && HOME="$home" USER=regressions-test PATH="$fake_bin:/usr/bin:/bin" just "$recipe" 2>&1)
   status=$?
   set -e
   [[ $status -eq 23 ]] || fail "$recipe returned $status instead of the hook failure"

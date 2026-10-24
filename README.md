@@ -144,22 +144,28 @@ existing non-symlink at that path.
    Nix packages are selected in `home.nix`.
 4. **`home.nix`** owns user packages, zsh structure and aliases, and selected
    out-of-store links into this repository. It is shared across all platforms;
-   macOS-only modules are gated behind `pkgs.stdenv.isDarwin`. The shared
-   `kubernetes-axi` and M87 CLIs and pi-fff extension come from the pinned Nix
-   packages in `packages/`, not the npm-global bootstrap. Its `agentTooling`
-   activation reconciles agent plugins, MCP servers, hooks, Pi packages, and
-   skills to [agent-tooling.json](agent-tooling.json) (see
+   macOS-only modules are gated behind `pkgs.stdenv.isDarwin`. Treehouse, every
+   AXI tool, M87, backpass, acpx and the pi-fff extension come from the pinned
+   Nix packages described under [Automated tool updates](#automated-tool-updates).
+   Its `agentTooling` activation reconciles agent plugins, MCP servers, hooks,
+   Pi packages, and skills to [agent-tooling.json](agent-tooling.json) (see
    [Declarative agent tooling](#declarative-agent-tooling)).
-5. **`just bootstrap`** renders secrets, installs the FirstMate/Pi/Herdr and AXI
-   tool stack, installs Ponytail for Pi and for Claude Code where available,
+5. **`just bootstrap`** renders secrets, installs the self-updating
+   FirstMate/Pi/Herdr/No Mistakes/Claude Code stack, registers AXI session
+   hooks, installs Ponytail for Pi and for Claude Code where available,
    refreshes skills, and wires the generated skill directories.
 
-The npm-global AXI tool lists and hook policy live in [justfile](justfile)
-(`axi-tools`, `axi-tools-no-hooks`, and the work-only and Git-source lists).
-`just setup-firstmate` installs them; `just update-firstmate` refreshes them.
-`just rebuild` registers the session hooks of every installed hook-enabled tool
-and removes any hook a no-hook tool left behind (see
-[Declarative agent tooling](#declarative-agent-tooling)).
+The AXI hook policy lives in [justfile](justfile) (`axi-tools`,
+`axi-tools-no-hooks`, and the work-only list); `just setup-firstmate` and
+`just update-firstmate` remove superseded npm-global copies of the
+Nix-installed tools. `just rebuild` registers the session hooks of every
+installed hook-enabled tool and removes any hook a no-hook tool left behind
+(see [Declarative agent tooling](#declarative-agent-tooling)). Claude Code has
+one install, the native self-updating one in `~/.local/bin`; it is deliberately
+not a Homebrew cask.
+On macOS, attended `just rebuild` activation installs it when missing, skips
+installation during dry runs, and fails clearly if installation fails.
+`just setup-firstmate` uses the same installer.
 
 Home Manager uses `mkOutOfStoreSymlink`, so edits to linked files apply without
 copying them into the Nix store or rebuilding. On first activation, an existing
@@ -183,11 +189,41 @@ registries remain gitignored.
 
 ## Nix-managed agent tools
 
+### Automated tool updates
+
+Each npm CLI is one directory, `packages/npm/<name>`, whose `package.json`
+pins one dependency and whose `package-lock.json` pins its whole tree.
+`packages/npm-tool.nix` builds it with `importNpmLock`, which fetches every
+tarball by the lockfile's own integrity hash, so no `npmDepsHash` exists to
+drift. Adding a directory adds the package (`flake.nix` reads the directory).
+Treehouse is a flake input pinned to an upstream release tag, and
+`kubernetes-axi`/`docker-axi` (no releases, no npm) track their default
+branch through `flake.lock`.
+
+Updates arrive as pull requests:
+
+- Renovate (`renovate.json`) checks `packages/npm` daily, after a one-day
+  release soak, and merges its PRs through Renovate after all checks pass.
+  Native platform auto-merge is disabled while the main ruleset is pending.
+- `.github/workflows/flake-update.yml` runs `scripts/flake-update.sh` daily:
+  it moves tag-pinned inputs to upstream's latest stable release once it is a
+  day old, refreshes the branch-tracked inputs, opens or refreshes one PR, and
+  enables GitHub auto-merge only when main requires `darwin-build`.
+- `.github/workflows/darwin-build.yml` builds both Macs' systems and runs
+  `nix flake check` on `macos-15` (Apple silicon) for every PR. The main
+  ruleset requiring its `darwin-build` check is pending in infrastructure
+  Terraform; flake update PRs remain unmerged automatically until it exists.
+
+Merged updates are not activated automatically: run `just rebuild`. Roll back
+with a revert PR, or locally with `sudo darwin-rebuild --rollback`. Do not use
+the tools' own updaters (`treehouse update`, `lavish-axi update`, ...) on these
+installs; they would fight the pins.
+
 ### M87 GitHub discovery
 
-M87 `0.1.10` is installed from the exact `@kunchenguid/m87` npm identity,
+M87 is installed from the exact `@kunchenguid/m87` npm identity,
 whose authoritative upstream is <https://github.com/kunchenguid/m87>, with
-integrity hashes pinned in `packages/m87-npm/package-lock.json`. Upstream
+integrity hashes pinned in `packages/npm/m87/package-lock.json`. Upstream
 requires Node 22.13 or newer and publishes no license declaration, so the Nix
 package uses Node 24 and is marked unfree. On the managed Mac profiles, Home
 Manager puts the executable at `/etc/profiles/per-user/$USER/bin/m87`; the
@@ -234,7 +270,7 @@ brings each tool's own state to exactly that set:
 |---|---|---|
 | `claude.plugins`, `claude.marketplaces` | Claude's plugin registry | The `claude plugin` CLI uninstalls undeclared user-scope plugins and retired project plugins, removes undeclared marketplaces, and adds and installs missing ones. |
 | `claude.mcpServers` | `~/.claude.json` `mcpServers` | Declared fields are set and undeclared servers are removed; see the credential preservation rules below. `retiredProjectMcpServers` are removed from every project scope; other project servers stay. |
-| `claude.hooks` | `~/.claude/settings.json` and `settings.local.json` hooks | Each installed AXI tool in the justfile's `axi-tools`, Git-source, and (on the work profile) work lists first registers its own hooks with `just _setup-axi-hooks`. Then `ensure` entries are written (replacing any hook that matches them), hooks matching a `keep` substring or a hook-enabled AXI tool name are left to their installers (rtk, herdr, rex, AXI), and every other hook is removed, including those of `axi-tools-no-hooks`. `settings.local.json` only loses hooks. If the justfile lists cannot be read, hooks are left untouched with a warning. |
+| `claude.hooks` | `~/.claude/settings.json` and `settings.local.json` hooks | Each installed AXI tool in the justfile's `axi-tools` and (on the work profile) work lists first registers its own hooks with `just _setup-axi-hooks`. Then `ensure` entries are written (replacing any hook that matches them), hooks matching a `keep` substring or a hook-enabled AXI tool name are left to their installers (rtk, herdr, rex, AXI), and every other hook is removed, including those of `axi-tools-no-hooks`. `settings.local.json` only loses hooks. If the justfile lists cannot be read, hooks are left untouched with a warning. |
 | `codex.mcpServers` | `~/.codex/config.toml` `[mcp_servers.*]` | As for Claude. Every other table is preserved byte for byte. |
 | `codex.hooks` | `~/.codex/hooks.json` | As for Claude. |
 | `pi.packages` | `~/.pi/agent/settings.json` `packages` | Only declared package sources remain; existing per-package options and ordering are preserved. Pi installs a missing package on its next start. pi-fff and terminal-status-title are Nix-linked extensions, so they are not packages. |
@@ -326,8 +362,8 @@ tool registries are never committed.
 every other plugin and Pi package. Do not edit Claude's generated plugin
 registry by hand.
 
-The exact npm package `@ff-labs/pi-fff@0.10.6` is pinned with npm integrity
-hashes and linked at Pi's native extension path
+The exact npm package `@ff-labs/pi-fff` is pinned with npm integrity
+hashes in `packages/npm/pi-fff/package-lock.json` and linked at Pi's native extension path
 `~/.pi/agent/extensions/pi-fff/index.ts`. This registers the `fffind`,
 `ffgrep`, and `fff-multi-grep` tools. It is not a declared Pi package, so the
 `agentTooling` activation removes a duplicate `npm:@ff-labs/pi-fff`
@@ -472,8 +508,8 @@ SketchyBar cwd hook) behind `$OSTYPE`, so it loads cleanly on Linux. Like the
 Macs, the sandbox links live files from a `~/Code/dotfiles` checkout via
 `mkOutOfStoreSymlink`, so clone the repo there.
 
-`kubernetes-axi` is built from the exact upstream commit pinned by `flake.nix`
-and `flake.lock`. It is in the shared Home Manager package list, so the
+`kubernetes-axi` is built from the exact upstream commit pinned by
+`flake.lock`. It is in the shared Home Manager package list, so the
 applicable local Mac profiles and every Linux sandbox profile get the same
 executable on `PATH`. The package build runs upstream's unit suite. The flake
 also exposes `packages.<system>.kubernetes-axi` and a bounded

@@ -1,0 +1,7 @@
+{
+  "name": "dotfiles-notion-axi-package",
+  "private": true,
+  "dependencies": {
+    "notion-axi": "2.1.0"
+  }
+}

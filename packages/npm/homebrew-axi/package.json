@@ -1,0 +1,7 @@
+{
+  "name": "dotfiles-homebrew-axi-package",
+  "private": true,
+  "dependencies": {
+    "homebrew-axi": "0.1.1"
+  }
+}

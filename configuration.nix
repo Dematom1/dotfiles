@@ -7,6 +7,23 @@ in
   # Determinate already manages the Nix daemon, so nix-darwin shouldn't.
   nix.enable = false;
 
+  # Determinate owns /etc/nix/nix.conf and includes this file for local
+  # settings. Cap local builds at 4 jobs x 2 cores = 8 threads, under the 10
+  # performance cores of a 14-core Mac, so agent-driven builds leave headroom
+  # for interactive work. Substitution (most of a rebuild) is not limited by
+  # these settings. The hashes are the Determinate installer's stub, which the
+  # first rebuild replaces.
+  environment.etc."nix/nix.custom.conf" = {
+    text = ''
+      max-jobs = 4
+      cores = 2
+    '';
+    knownSha256Hashes = [
+      "6787fade1cf934f82db554e78e1fc788705c2c5257fddf9b59bdd963ca6fec63"
+      "3bd68ef979a42070a44f8d82c205cfd8e8cca425d91253ec2c10a88179bb34aa"
+    ];
+  };
+
   nixpkgs.config.allowUnfree = true;
   nixpkgs.hostPlatform = "aarch64-darwin";
   system.stateVersion = 6;
@@ -76,7 +93,9 @@ in
     ];
     casks = [
       "wezterm"
-      "claude-code"
+      # Claude Code is deliberately not a cask: its native install in
+      # ~/.local/bin (`just setup-firstmate`) updates itself, and a second copy
+      # on PATH went stale behind it.
       "ghostty"
       "1password-cli"
       "ngrok"

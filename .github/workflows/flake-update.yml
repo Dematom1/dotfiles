@@ -1,0 +1,67 @@
+# Daily: move the self-updated flake inputs (scripts/flake-update.sh) forward,
+# open or refresh one PR, and enable GitHub auto-merge. The main ruleset makes
+# that merge wait for the required `darwin-build` check. Renovate does the same
+# for packages/npm (renovate.json). Activation stays an attended `just rebuild`.
+name: flake-update
+
+on:
+  schedule:
+    - cron: "23 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: flake-update
+
+jobs:
+  flake-update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BRANCH: flake-update/tools
+    steps:
+      - uses: actions/checkout@v7
+      - uses: DeterminateSystems/determinate-nix-action@v3
+      - name: Update flake inputs
+        run: scripts/flake-update.sh . > "$RUNNER_TEMP/changes.md"
+      - name: Open or refresh the pull request
+        run: |
+          if git diff --quiet; then
+            echo "Flake inputs are current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git commit -am "chore(deps): update flake inputs"
+          git push --force origin "$BRANCH"
+
+          {
+            echo "Daily flake input update from \`scripts/flake-update.sh\`:"
+            echo
+            cat "$RUNNER_TEMP/changes.md"
+            echo
+            echo "Auto-merges once \`darwin-build\` passes. Activate with \`just rebuild\`."
+          } > "$RUNNER_TEMP/body.md"
+          if pr=$(gh pr view "$BRANCH" --json number,state --jq 'select(.state == "OPEN") | .number') && [[ -n "$pr" ]]; then
+            gh pr edit "$pr" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh pr create --base main --head "$BRANCH" \
+              --title "chore(deps): update flake inputs" --body-file "$RUNNER_TEMP/body.md"
+          fi
+
+          # Without a ruleset requiring darwin-build, auto-merge could land an
+          # unbuilt update, so leave the PR for a human instead.
+          if gh api "repos/$GITHUB_REPOSITORY/rules/branches/main" \
+            --jq '[.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context] | index("darwin-build") != null' \
+            | grep -qx true; then
+            gh pr merge "$BRANCH" --auto --squash
+          else
+            echo "::warning::main does not require darwin-build; auto-merge not enabled"
+          fi
+          gh workflow run darwin-build.yml --ref "$BRANCH"

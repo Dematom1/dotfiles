@@ -1,0 +1,7 @@
+{
+  "name": "dotfiles-slack-axi-package",
+  "private": true,
+  "dependencies": {
+    "slack-axi": "1.2.0"
+  }
+}
