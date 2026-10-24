@@ -277,10 +277,10 @@ def build_home(root):
     (home / ".config").mkdir()
     (home / ".config/opencode").symlink_to(home / "Code/dotfiles/opencode")
     # Installed AXI tools: two hook tools from `axi-tools` and the no-hook hey-axi.
-    (home / ".local/bin").mkdir(parents=True)
+    (home / ".nix-profile/bin").mkdir(parents=True)
     for name in ["gh-axi", "tasks-axi", "hey-axi"]:
-        (home / ".local/bin" / name).write_text(FAKE_AXI.replace("#!/usr/bin/env python3", f"#!{sys.executable}", 1))
-        os.chmod(home / ".local/bin" / name, 0o755)
+        (home / ".nix-profile/bin" / name).write_text(FAKE_AXI.replace("#!/usr/bin/env python3", f"#!{sys.executable}", 1))
+        os.chmod(home / ".nix-profile/bin" / name, 0o755)
     return home
 
 
@@ -324,7 +324,8 @@ def fake_bin(root):
 
 
 def reconcile(home, bin_dir, state, log, *extra, manifest_file=manifest_path):
-    env = {"HOME": str(home), "PATH": f"{bin_dir}:/usr/bin:/bin", "FAKE_CLAUDE_STATE": str(state),
+    # USER keeps the real /etc/profiles Nix profile out of the AXI tool lookup.
+    env = {"HOME": str(home), "USER": "agent-tooling-test", "PATH": f"{bin_dir}:/usr/bin:/bin", "FAKE_CLAUDE_STATE": str(state),
            "FAKE_LOG": str(log)}
     result = subprocess.run([sys.executable, script, "--manifest", manifest_file, *extra],
                             env=env, capture_output=True, text=True, umask=0o022)
@@ -406,7 +407,7 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
     check(settings["effortLevel"] == "high" and settings["statusLine"]["command"] == "/fixture/statusline.sh",
           "unrelated Claude settings changed")
     check(sorted(hook_commands(settings, "SessionStart")) == sorted([
-        '"$HOME/.local/bin/gh-axi"', "chrome-devtools-axi", "tasks-axi",
+        json.dumps(str(home / ".nix-profile/bin/gh-axi")), "chrome-devtools-axi", "tasks-axi",
         "bash '/fixture/.claude/hooks/herdr-agent-state.sh' session",
         "/bin/sh -c 'rex __internal session-start --agent claude 2>/dev/null || true'",
     ]), f"Claude SessionStart hooks: {hook_commands(settings, 'SessionStart')}")
@@ -431,7 +432,7 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
     check("FIXTURE-SECRET" not in codex_text, "removed Codex server env survived")
     codex_hooks = json.loads((home / ".codex/hooks.json").read_text())
     check(sorted(hook_commands(codex_hooks, "SessionStart")) == sorted([
-        '"$HOME/.local/bin/gh-axi"', "chrome-devtools-axi", "tasks-axi",
+        json.dumps(str(home / ".nix-profile/bin/gh-axi")), "chrome-devtools-axi", "tasks-axi",
         "bash '/fixture/.codex/herdr-agent-state.sh' session",
         "/bin/sh -c 'rex __internal session-start --agent codex 2>/dev/null || true'",
     ]), f"Codex SessionStart hooks: {hook_commands(codex_hooks, 'SessionStart')}")

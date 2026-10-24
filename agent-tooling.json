@@ -17,8 +17,6 @@
     "projectPaths": ["~/Code/firstmate", "~/Code/dotfiles", "~/Code/bytebytego-ebook"],
     "hooks": {
       "ensure": [
-        {"event": "SessionStart", "matcher": "", "match": "gh-axi",
-         "hook": {"type": "command", "command": "\"$HOME/.local/bin/gh-axi\"", "timeout": 10}},
         {"event": "SessionStart", "matcher": "", "match": "chrome-devtools-axi",
          "hook": {"type": "command", "command": "chrome-devtools-axi", "timeout": 10}}
       ],
@@ -29,8 +27,6 @@
     "mcpServers": {},
     "hooks": {
       "ensure": [
-        {"event": "SessionStart", "matcher": "", "match": "gh-axi",
-         "hook": {"type": "command", "command": "\"$HOME/.local/bin/gh-axi\"", "timeout": 10}},
         {"event": "SessionStart", "matcher": "", "match": "chrome-devtools-axi",
          "hook": {"type": "command", "command": "chrome-devtools-axi", "timeout": 10}}
       ],

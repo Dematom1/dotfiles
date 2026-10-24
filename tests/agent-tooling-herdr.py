@@ -40,7 +40,6 @@ with tempfile.TemporaryDirectory(prefix=".test-herdr-", dir=repo) as temporary:
         hooks = json.loads((home / relative).read_text())["hooks"]["SessionStart"]
         commands = [hook["command"] for group in hooks for hook in group["hooks"]]
         assert any("herdr-agent-state.sh" in command for command in commands), commands
-        assert any("gh-axi" in command for command in commands), commands
     first = snapshot()
     backup_root = home / ".local/state/dotfiles/agent-tooling-backups"
     backups = sorted(backup_root.glob("*"))
