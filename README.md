@@ -362,8 +362,8 @@ tool registries are never committed.
 every other plugin and Pi package. Do not edit Claude's generated plugin
 registry by hand.
 
-The exact npm package `@ff-labs/pi-fff@0.10.6` is pinned with npm integrity
-hashes and linked at Pi's native extension path
+The exact npm package `@ff-labs/pi-fff` is pinned with npm integrity
+hashes in `packages/npm/pi-fff/package-lock.json` and linked at Pi's native extension path
 `~/.pi/agent/extensions/pi-fff/index.ts`. This registers the `fffind`,
 `ffgrep`, and `fff-multi-grep` tools. It is not a declared Pi package, so the
 `agentTooling` activation removes a duplicate `npm:@ff-labs/pi-fff`
