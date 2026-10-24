@@ -46,32 +46,49 @@ exit 99
 EOF
 chmod +x "$home/.local/bin/claude" "$home/.local/bin/headroom"
 
-# zsh/path-order.zsh puts protected directories ahead of user-writable ones,
-# so the user-writable launcher must never shadow a protected claude. Check
-# every candidate the generated login shell sees, in resolution order.
-user_claude="$home/.local/bin/claude"
-candidates=$(
-  HOME="$home" ZDOTDIR="$zdot" PATH="$tmp/bin:/usr/bin:/bin" \
-    zsh -lic 'whence -ap claude' 2>/dev/null
-) || fail "generated login shell could not resolve claude"
-first=$(head -n 1 <<<"$candidates")
+output=$(
+  HOME="$home" ZDOTDIR="$zdot" CLAUDE_MARKER="$tmp/claude" \
+    HEADROOM_MARKER="$tmp/headroom" PATH="$tmp/bin:/usr/bin:/bin" \
+    zsh -lic '
+      chain_is_protected() {
+        local ancestor=$1
+        while true; do
+          [[ -w "$ancestor" ]] && return 1
+          [[ "$ancestor" == / ]] && return 0
+          ancestor="${ancestor:h}"
+        done
+      }
+      directory_is_protected() {
+        local physical
+        physical=$(cd -q -- "$1" && pwd -P) || return 1
+        chain_is_protected "$1" && chain_is_protected "$physical"
+      }
+      candidates=("${(@f)$(whence -ap claude)}")
+      (( ${#candidates} )) || exit 10
+      protected=false
+      for candidate in "${candidates[@]}"; do
+        if directory_is_protected "${candidate:h}"; then
+          protected=true
+          break
+        fi
+      done
+      if $protected; then
+        directory_is_protected "${candidates[1]:h}" || exit 11
+      fi
+      launch_path=()
+      for entry in "${path[@]}"; do
+        if [[ "$entry" == "$HOME/.local/bin" || ! -x "$entry/claude" ]]; then
+          launch_path+=("$entry")
+        fi
+      done
+      path=("${launch_path[@]}")
+      source "$HOME/Code/dotfiles/zsh/path-order.zsh"
+      [[ "$(command -v claude)" == "$HOME/.local/bin/claude" ]] || exit 13
+      claude --version
+    ' 2>&1
+) || fail "generated login shell could not start Claude: $output"
+[[ $output == *2.1.test* ]] || fail "generated login shell did not start Claude"
+[[ -s "$tmp/claude" ]] || fail "generated login shell did not execute the Claude launcher"
+[[ ! -e "$tmp/headroom" ]] || fail "generated login shell invoked Headroom"
 
-if grep -vxF "$user_claude" <<<"$candidates" | grep -q .; then
-  [[ "$first" != "$user_claude" ]] \
-    || fail "user-writable ~/.local/bin/claude shadows a protected claude"
-  echo "Claude launch regression OK (protected claude resolves first)"
-else
-  # No protected claude is installed (for example on Linux), so the launcher
-  # itself must start directly without Headroom.
-  [[ "$first" == "$user_claude" ]] \
-    || fail "generated login shell did not resolve the Claude launcher"
-  output=$(
-    HOME="$home" ZDOTDIR="$zdot" CLAUDE_MARKER="$tmp/claude" \
-      HEADROOM_MARKER="$tmp/headroom" PATH="$tmp/bin:/usr/bin:/bin" \
-      zsh -lic 'claude --version' 2>&1
-  ) || fail "generated login shell could not start Claude: $output"
-  [[ $output == *2.1.test* ]] || fail "generated login shell did not start Claude"
-  [[ -s "$tmp/claude" ]] || fail "generated login shell did not execute the Claude launcher"
-  [[ ! -e "$tmp/headroom" ]] || fail "generated login shell invoked Headroom"
-  echo "Claude launch regression OK"
-fi
+echo "Claude launch regression OK"
