@@ -6,7 +6,7 @@ skill-agents := "claude-code codex opencode pi"
 # AXI agent tools installed as npm globals (https://axi.md).
 # kubernetes-axi is intentionally absent: flake.nix pins and packages it through
 # Nix so both Macs and the Linux sandbox receive the same reproducible build.
-axi-tools := "gh-axi chrome-devtools-axi lavish-axi tasks-axi quota-axi pg-axi docker-axi npm-axi pypi-axi homebrew-axi"
+axi-tools := "gh-axi chrome-devtools-axi lavish-axi tasks-axi quota-axi pg-axi docker-axi npm-axi pypi-axi homebrew-axi jev-axi bun-axi hey-axi hetzner-axi"
 
 # work-machine-only AXI tools - installed by setup/update-firstmate only when
 # ~/.config/dotfiles-profile says "work" (the same marker rebuild.sh reads).

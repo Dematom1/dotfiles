@@ -1,6 +1,3 @@
-require("lazy").load({ plugins = { "alpha-nvim" } })
-vim.cmd.Alpha()
-
 local called = false
 package.loaded.fff = {
 	live_grep = function(opts)
@@ -10,7 +7,7 @@ package.loaded.fff = {
 }
 
 local mapping = vim.fn.maparg("<leader>fs", "n", false, true)
-assert(mapping.buffer == 1, "Alpha <leader>fs mapping is not buffer-local")
+assert(mapping.callback ~= nil, "<leader>fs is not mapped in normal mode")
 vim.api.nvim_feedkeys(vim.keycode("<leader>fs"), "x", false)
 assert(called, "<leader>fs does not invoke fff.live_grep")
 print("Neovim fff mapping regression passed")

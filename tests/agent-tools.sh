@@ -34,10 +34,10 @@ acpx_package=$(nix build --no-link --print-out-paths "$repo#acpx")
 node -e 'const p = require(process.argv[1]); if (p.name !== "@kunchenguid/m87" || p.version !== "0.1.10" || p.repository.url !== "git+https://github.com/kunchenguid/m87.git") process.exit(1)' \
   "$m87_package/libexec/m87/node_modules/@kunchenguid/m87/package.json" \
   || fail "M87 package identity does not match the authoritative upstream"
-node -e 'const p = require(process.argv[1]); if (p.name !== "backpass" || p.version !== "0.1.15" || p.bin.backpass !== "./bin/backpass.js") process.exit(1)' \
+node -e 'const p = require(process.argv[1]); if (p.name !== "backpass" || p.version !== "0.1.24" || p.bin.backpass !== "./bin/backpass.js") process.exit(1)' \
   "$backpass_package/libexec/backpass/node_modules/backpass/package.json" \
   || fail "backpass package identity does not match the authoritative upstream"
-node -e 'const p = require(process.argv[1]); if (p.name !== "acpx" || p.version !== "0.13.2" || p.bin.acpx !== "dist/cli.js") process.exit(1)' \
+node -e 'const p = require(process.argv[1]); if (p.name !== "acpx" || p.version !== "0.15.1" || p.bin.acpx !== "dist/cli.js") process.exit(1)' \
   "$acpx_package/libexec/acpx/node_modules/acpx/package.json" \
   || fail "acpx package identity does not match the authoritative upstream"
 
@@ -210,12 +210,12 @@ HOME="$skills_sandbox" npx -y skills add humanlayer/skills --skill show-me -g -y
 for skill in vision teach show-me; do
   [[ -f "$skills_sandbox/.claude/skills/$skill/SKILL.md" ]] \
     || fail "sandboxed Claude runtime cannot discover $skill"
+  # The skills CLI installs once to the shared .agents/skills directory, which
+  # Codex, OpenCode, and Pi all read; Claude Code gets its own copy.
   [[ -f "$skills_sandbox/.agents/skills/$skill/SKILL.md" ]] \
-    || fail "sandboxed Codex and OpenCode runtimes cannot discover $skill"
-  [[ -f "$skills_sandbox/.pi/agent/skills/$skill/SKILL.md" ]] \
-    || fail "sandboxed Pi runtime cannot discover $skill"
+    || fail "sandboxed Codex, OpenCode, and Pi runtimes cannot discover $skill"
   [[ $(find "$skills_sandbox" -path '*/node_modules' -prune -o \
-    -path "*/skills/$skill/SKILL.md" -print | wc -l | tr -d ' ') -eq 3 ]] \
+    -path "*/skills/$skill/SKILL.md" -print | wc -l | tr -d ' ') -eq 2 ]] \
     || fail "sandboxed skills CLI installed $skill for Eve or PromptScript"
 done
 

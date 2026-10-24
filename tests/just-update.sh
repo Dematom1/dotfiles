@@ -95,7 +95,7 @@ printf 'Linux\n'
 EOF
 chmod +x "$bin/stack" "$bin/rsync" "$bin/npx" "$bin/brew" "$bin/uname"
 for command in git pi claude herdr treehouse no-mistakes npm memtrace; do ln -s stack "$bin/$command"; done
-for command in gh-axi chrome-devtools-axi lavish-axi tasks-axi quota-axi pg-axi docker-axi npm-axi pypi-axi homebrew-axi linear-axi; do
+for command in gh-axi chrome-devtools-axi lavish-axi tasks-axi quota-axi pg-axi docker-axi npm-axi pypi-axi homebrew-axi jev-axi bun-axi hey-axi hetzner-axi linear-axi; do
   ln -s stack "$bin/$command"
 done
 ln -s "$just_bin" "$bin/just"

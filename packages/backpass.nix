@@ -7,10 +7,10 @@
 
 buildNpmPackage {
   pname = "backpass";
-  version = "0.1.15";
+  version = "0.1.24";
 
   src = ./backpass-npm;
-  npmDepsHash = "sha256-0kNVfe2iqs4y9cCOGOYmbeXLEtWD3ivz517QiWdfAq8=";
+  npmDepsHash = "sha256-e2qlRUsh960qr6VxDAWH2wZWf5ufzVidFGUu3fN8cMM=";
   nodejs = nodejs_24;
   dontNpmBuild = true;
 
@@ -19,7 +19,7 @@ buildNpmPackage {
   doCheck = true;
   checkPhase = ''
     runHook preCheck
-    node -e 'const p = require("./node_modules/backpass/package.json"); if (p.name !== "backpass" || p.version !== "0.1.15" || p.bin.backpass !== "./bin/backpass.js") process.exit(1)'
+    node -e 'const p = require("./node_modules/backpass/package.json"); if (p.name !== "backpass" || p.version !== "0.1.24" || p.bin.backpass !== "./bin/backpass.js") process.exit(1)'
     runHook postCheck
   '';
 
