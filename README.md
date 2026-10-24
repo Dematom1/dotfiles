@@ -238,7 +238,7 @@ brings each tool's own state to exactly that set:
 | `codex.mcpServers` | `~/.codex/config.toml` `[mcp_servers.*]` | As for Claude. Every other table is preserved byte for byte. |
 | `codex.hooks` | `~/.codex/hooks.json` | As for Claude. |
 | `pi.packages` | `~/.pi/agent/settings.json` `packages` | Only declared package sources remain; existing per-package options and ordering are preserved. Pi installs a missing package on its next start. pi-fff and terminal-status-title are Nix-linked extensions, so they are not packages. |
-| `pi.skills` | `~/.pi/agent/skills` | Home Manager links each one from the pinned `pstack-claude` source in `home.nix`. |
+| `pi.skills` | `~/.pi/agent/skills` | Pi-root skills allowed to stay; everything else there is removed. None are declared: the pstack skills come with the kept `pstack-claude` Pi package and Claude plugin. |
 | `skills.sources`, `skills.keep` | `~/.claude/skills`, `~/.agents/skills`, `~/.codex/skills`, `~/.pi/agent/skills` | Non-hidden undeclared entries and broken links are removed, stale skill-lock entries are dropped, and missing declared skills are installed with the skills CLI. See [the skill reference](.agents/SKILLS.md). |
 
 Activation invokes `rtk init -g --hook-only --auto-patch` and

@@ -21,13 +21,6 @@ let
   # The kept agent tooling; the agentTooling activation below reconciles every
   # tool to it. See README.md "Declarative agent tooling".
   agentTooling = lib.importJSON ./agent-tooling.json;
-  # Source of the Pi-root skills kept from the retired pstack-claude package.
-  pstackClaude = pkgs.fetchFromGitHub {
-    owner = "michael-denyer";
-    repo = "pstack-claude";
-    rev = "356c6e0f978df729eb16f227d795f34d221c5aad";
-    hash = "sha256-PxD5vgXMTtwgxGP3wFyiSO8TcXh0xTJaym2+VpVf4LE=";
-  };
   piSignedExecutable = "/Applications/Pi Launcher.app/Contents/MacOS/pi-launcher";
   avProjectPolicy = pkgs.writeShellScriptBin "av" ''
     unset AV_VENDOR_CLI
@@ -155,9 +148,6 @@ in
     ".pi/agent/extensions/terminal-status-title.js".source = ./pi/extensions/terminal-status-title.js;
     ".pi/agent/models.json".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/pi/models.json";
   }
-  // lib.listToAttrs (map (name: lib.nameValuePair ".pi/agent/skills/${name}" {
-    source = "${pstackClaude}/plugins/pstack/skills/${name}";
-  }) agentTooling.pi.skills)
   # macOS-only: configs for GUI apps (window manager, terminals, status bar,
   # keyboard remapper) that don't exist on the headless Linux sandbox.
   // lib.optionalAttrs pkgs.stdenv.isDarwin {

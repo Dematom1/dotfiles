@@ -74,24 +74,6 @@ for target in "${targets[@]}"; do
     || fail "$profile Pi extension path has the wrong package identity"
 
   agent_tooling=$(nix eval --raw "$repo#$prefix.home.activation.agentTooling.data")
-  home_files=$(nix build --no-link --print-out-paths "$repo#$prefix.home-files")
-  for name in typescript-best-practices principle-type-system-discipline; do
-    skill_source=$(nix eval --raw "$repo#$prefix.home.file.\".pi/agent/skills/$name\".source")
-    [[ -f "$home_files/.pi/agent/skills/$name/SKILL.md" ]] || fail "$profile Pi skill $name is missing"
-    skill_store=${skill_source%%/plugins/*}
-    nix derivation show "$skill_store" | node -e '
-      let text = "";
-      process.stdin.on("data", chunk => text += chunk);
-      process.stdin.on("end", () => {
-        const derivations = Object.values(JSON.parse(text));
-        const urls = derivations.flatMap(d => (d.env.urls || "").split(/\s+/)).filter(Boolean);
-        if (!urls.some(value => {
-          const url = new URL(value);
-          return url.hostname === "github.com" && url.pathname ===
-            "/michael-denyer/pstack-claude/archive/356c6e0f978df729eb16f227d795f34d221c5aad.tar.gz";
-        })) process.exit(1);
-      });' || fail "$profile Pi skill $name has the wrong source identity"
-  done
 
   activation_file=$(mktemp "$repo/.agent-activation-shell.XXXXXX")
   printf '%s\n' "$agent_tooling" > "$activation_file"

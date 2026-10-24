@@ -25,7 +25,7 @@ tool writes itself and that must survive: `rex` (the Rex app), `synced`
 exceptions and the Impeccable migration.
 
 See [Declarative agent tooling](../README.md#declarative-agent-tooling) for
-rebuild reconciliation, backup guarantees, and the Nix-linked Pi-root skills.
+rebuild reconciliation, backup guarantees, and the Pi-root skill policy.
 
 Reproduce on a fresh machine:
 

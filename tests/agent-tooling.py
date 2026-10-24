@@ -267,6 +267,7 @@ def build_home(root):
     pi_root = home / ".pi/agent/skills"
     for name in ["memtrace-first", "vision", "teach"]:
         skill(pi_root, name)
+    # A Pi-root copy of a skill the kept pstack-claude package already provides.
     skill(root / "store", "typescript-best-practices")
     (pi_root / "typescript-best-practices").symlink_to(root / "store/typescript-best-practices")
     opencode = home / "Code/dotfiles/opencode/skills"
@@ -308,11 +309,13 @@ def fake_bin(root):
             {"id": "posthog@claude-plugins-official", "scope": "user", "projectPath": None, "enabled": True},
             {"id": "playground@claude-plugins-official", "scope": "user", "projectPath": None, "enabled": True},
             {"id": "playground@claude-plugins-official", "scope": "project", "projectPath": str(project), "enabled": True},
+            {"id": "pstack@pstack-claude", "scope": "user", "projectPath": None, "enabled": True},
         ],
         "marketplaces": [
             {"name": "ai-agentic-academy", "repo": "dematom1/AIAgenticAcademy"},
             {"name": "claude-plugins-official", "repo": "anthropics/claude-plugins-official"},
             {"name": "memtrace", "url": "https://github.com/syncable-dev/memtrace-public.git"},
+            {"name": "pstack-claude", "repo": "michael-denyer/pstack-claude"},
         ],
     }))
     for name in ["installed_plugins.json", "known_marketplaces.json"]:
@@ -452,7 +455,7 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
     check(not shared_names & {"seo-audit", "frontend-design", "seo-sprint", "adapt"}, "removed shared skills survived")
     check({"rex", "axi", "impeccable", "lavish"} <= shared_names, "kept shared skills were removed")
     check({p.name for p in (home / ".codex/skills").iterdir()} == {".system"}, "Codex-only skills")
-    check({p.name for p in (home / ".pi/agent/skills").iterdir()} == {"typescript-best-practices"},
+    check({p.name for p in (home / ".pi/agent/skills").iterdir()} == set(),
           "Pi-root skills")
     check(sorted(p.name for p in (home / "Code/dotfiles/opencode/skills").iterdir()) == ["no-mistakes"],
           "dangling OpenCode skill links")
@@ -461,7 +464,7 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
 
     plugin_state = json.loads(state.read_text())
     check({(p["id"], p["scope"]) for p in plugin_state["plugins"]} == {
-        ("ponytail@ponytail", "user")},
+        ("ponytail@ponytail", "user"), ("pstack@pstack-claude", "user")},
         f"Claude plugins: {plugin_state['plugins']}")
     check({m["name"] for m in plugin_state["marketplaces"]} == set(manifest["claude"]["marketplaces"]),
           f"Claude marketplaces: {plugin_state['marketplaces']}")

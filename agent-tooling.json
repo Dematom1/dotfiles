@@ -2,9 +2,10 @@
   "$comment": "Declared agent tooling. `just rebuild` reconciles each tool's own state to exactly this set (scripts/agent-tooling-reconcile.py); see README.md 'Declarative agent tooling'.",
   "claude": {
     "marketplaces": {
-      "ponytail": "DietrichGebert/ponytail"
+      "ponytail": "DietrichGebert/ponytail",
+      "pstack-claude": "michael-denyer/pstack-claude"
     },
-    "plugins": ["ponytail@ponytail"],
+    "plugins": ["ponytail@ponytail", "pstack@pstack-claude"],
     "mcpServers": {
       "fff": {"type": "stdio", "command": "~/.local/bin/fff-mcp", "args": []},
       "superlogical": {"type": "http", "url": "https://www.superlogical.com/rex/community-mcp"},
@@ -41,9 +42,10 @@
       "npm:pi-web-access@0.14.0",
       "npm:@ryan_nookpi/pi-extension-codex-fast-mode@0.2.6",
       "git:github.com/algal/pi-openai-server-compaction@c6d593087709e9481223dc6c6c2269b371b5e055",
-      "git:github.com/DietrichGebert/ponytail"
+      "git:github.com/DietrichGebert/ponytail",
+      "git:github.com/michael-denyer/pstack-claude"
     ],
-    "skills": ["typescript-best-practices", "principle-type-system-discipline"]
+    "skills": []
   },
   "skills": {
     "sources": [
