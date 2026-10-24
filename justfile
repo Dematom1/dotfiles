@@ -221,8 +221,7 @@ _setup-axi-hooks tool:
     #!/usr/bin/env bash
     set -euo pipefail
     tool='{{ tool }}'
-    # Prefer the copy these recipes install: a stale global earlier on PATH
-    # (e.g. /opt/homebrew/bin) would register its own path as the hook command.
+    # Prefer the copy these recipes install over a stale global earlier on PATH.
     managed="$HOME/.local/bin/$tool"
     [[ "$tool" == */* || ! -x "$managed" ]] || tool=$managed
     if help=$("$tool" setup --help 2>&1); then
@@ -255,6 +254,26 @@ _setup-axi-hooks tool:
       exit 1
     fi
     if output=$("$tool" setup hooks 2>&1); then
+      if [[ "$tool" == "$HOME/.local/bin/gh-axi" ]]; then
+        # gh-axi setup persists a bare command even when invoked by absolute path.
+        node -e '
+          const fs = require("node:fs");
+          for (const relative of [".claude/settings.json", ".codex/hooks.json"]) {
+            const path = `${process.env.HOME}/${relative}`;
+            const settings = JSON.parse(fs.readFileSync(path, "utf8"));
+            let changed = false;
+            for (const group of settings.hooks?.SessionStart ?? []) {
+              for (const hook of group.hooks ?? []) {
+                if (hook.type === "command" && hook.command === "gh-axi") {
+                  hook.command = "\"$HOME/.local/bin/gh-axi\"";
+                  changed = true;
+                }
+              }
+            }
+            if (changed) fs.writeFileSync(path, JSON.stringify(settings, null, 2) + "\n");
+          }
+        '
+      fi
       echo "    ✓ $tool"
     else
       status=$?

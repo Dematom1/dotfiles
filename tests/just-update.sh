@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
+python3 "$repo/tests/gh-axi-hooks.py"
 just_bin=$(command -v just)
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
