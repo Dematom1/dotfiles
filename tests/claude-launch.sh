@@ -46,16 +46,32 @@ exit 99
 EOF
 chmod +x "$home/.local/bin/claude" "$home/.local/bin/headroom"
 
-output=$(
-  HOME="$home" ZDOTDIR="$zdot" CLAUDE_MARKER="$tmp/claude" \
-    HEADROOM_MARKER="$tmp/headroom" PATH="$tmp/bin:/usr/bin:/bin" \
-    zsh -lic '
-      [[ "$(command -v claude)" == "$HOME/.local/bin/claude" ]] || exit 11
-      claude --version
-    ' 2>&1
-) || fail "generated login shell could not start Claude: $output"
-[[ $output == *2.1.test* ]] || fail "generated login shell did not start Claude"
-[[ -s "$tmp/claude" ]] || fail "generated login shell did not execute the Claude launcher"
-[[ ! -e "$tmp/headroom" ]] || fail "generated login shell invoked Headroom"
+# zsh/path-order.zsh puts protected directories ahead of user-writable ones,
+# so the user-writable launcher must never shadow a protected claude. Check
+# every candidate the generated login shell sees, in resolution order.
+user_claude="$home/.local/bin/claude"
+candidates=$(
+  HOME="$home" ZDOTDIR="$zdot" PATH="$tmp/bin:/usr/bin:/bin" \
+    zsh -lic 'whence -ap claude' 2>/dev/null
+) || fail "generated login shell could not resolve claude"
+first=$(head -n 1 <<<"$candidates")
 
-echo "Claude launch regression OK"
+if grep -vxF "$user_claude" <<<"$candidates" | grep -q .; then
+  [[ "$first" != "$user_claude" ]] \
+    || fail "user-writable ~/.local/bin/claude shadows a protected claude"
+  echo "Claude launch regression OK (protected claude resolves first)"
+else
+  # No protected claude is installed (for example on Linux), so the launcher
+  # itself must start directly without Headroom.
+  [[ "$first" == "$user_claude" ]] \
+    || fail "generated login shell did not resolve the Claude launcher"
+  output=$(
+    HOME="$home" ZDOTDIR="$zdot" CLAUDE_MARKER="$tmp/claude" \
+      HEADROOM_MARKER="$tmp/headroom" PATH="$tmp/bin:/usr/bin:/bin" \
+      zsh -lic 'claude --version' 2>&1
+  ) || fail "generated login shell could not start Claude: $output"
+  [[ $output == *2.1.test* ]] || fail "generated login shell did not start Claude"
+  [[ -s "$tmp/claude" ]] || fail "generated login shell did not execute the Claude launcher"
+  [[ ! -e "$tmp/headroom" ]] || fail "generated login shell invoked Headroom"
+  echo "Claude launch regression OK"
+fi
