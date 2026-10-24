@@ -324,7 +324,7 @@ def reconcile(home, bin_dir, state, log, *extra, manifest_file=manifest_path):
     env = {"HOME": str(home), "PATH": f"{bin_dir}:/usr/bin:/bin", "FAKE_CLAUDE_STATE": str(state),
            "FAKE_LOG": str(log)}
     result = subprocess.run([sys.executable, script, "--manifest", manifest_file, *extra],
-                            env=env, capture_output=True, text=True)
+                            env=env, capture_output=True, text=True, umask=0o022)
     check(result.returncode == 0, f"reconciler exited {result.returncode}: {result.stderr}")
     return result
 
@@ -366,6 +366,15 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
     bin_dir, state = fake_bin(root)
     log = root / "calls.log"
     (home / ".agents/skills/teach/SKILL.md").write_text("locally customized sibling skill\n")
+    (home / ".codex").chmod(0o700)
+    (home / ".codex/config.toml").chmod(0o644)
+    nested_skill = home / ".agents/skills/teach/references/nested"
+    nested_skill.mkdir(parents=True)
+    nested_skill.parent.chmod(0o755)
+    nested_skill.chmod(0o755)
+    (nested_skill / "private.txt").write_text("private fixture\n")
+    (nested_skill / "private.txt").chmod(0o600)
+    (nested_skill / "reference").symlink_to("private.txt")
     initial = snapshot(home)
 
     # Dry run: reports, changes nothing, calls nothing that mutates.
@@ -462,6 +471,21 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
 
     taken = backups(home)
     check(len(taken) == 1, f"expected one backup directory, got {taken}")
+    backup_root = taken[0]
+    for directory in [backup_root, *backup_root.rglob("*")]:
+        if directory.is_dir() and not directory.is_symlink():
+            check(directory.stat().st_mode & 0o777 == 0o700,
+                  f"backup directory is not private: {directory}")
+    config_backup = backup_root / ".codex/config.toml"
+    check(config_backup.stat().st_mode & 0o777 == 0o644, "backup changed source file permissions")
+    check(all(parent.stat().st_mode & 0o077 == 0
+              for parent in [backup_root, config_backup.parent]),
+          "other users can traverse to the copied Codex credentials")
+    private_backup = backup_root / ".agents/skills/teach/references/nested/private.txt"
+    check(private_backup.read_text() == "private fixture\n", "nested private backup lost content")
+    check(private_backup.stat().st_mode & 0o077 == 0, "private copied file is readable by others")
+    check(os.readlink(private_backup.parent / "reference") == "private.txt", "backup changed a nested symlink")
+    check(nested_skill.stat().st_mode & 0o777 == 0o755, "backup changed source directory permissions")
     for relative in [".claude.json", ".claude/settings.json", ".codex/config.toml", ".codex/hooks.json",
                      ".pi/agent/settings.json", ".agents/.skill-lock.json",
                      ".claude/plugins/installed_plugins.json", ".claude/plugins/known_marketplaces.json"]:

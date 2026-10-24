@@ -78,7 +78,7 @@ class Run:
             elif path.is_symlink():
                 self.backup_target(path).symlink_to(os.readlink(path))
             elif path.is_dir():
-                shutil.copytree(path, self.backup_target(path), symlinks=True)
+                copy_private_tree(path, self.backup_target(path))
         self.prepared = True
 
     def finish(self) -> None:
@@ -94,7 +94,7 @@ class Run:
             candidate, n = base / stamp, 1
             while candidate.exists():
                 candidate, n = base / f"{stamp}-{n}", n + 1
-            candidate.mkdir(parents=True)
+            candidate.mkdir(mode=0o700, parents=True)
             self.backup_root = candidate
             note(f"backups in {candidate}")
         return self.backup_root
@@ -105,9 +105,11 @@ class Run:
             relative = absolute.relative_to(HOME)
         except ValueError:
             relative = absolute.relative_to(absolute.anchor)
-        target = self.backup_dir() / relative
-        target.parent.mkdir(parents=True, exist_ok=True)
-        return target
+        parent = self.backup_dir()
+        for part in relative.parts[:-1]:
+            parent = parent / part
+            parent.mkdir(mode=0o700, exist_ok=True)
+        return parent / relative.name
 
     def write_text(self, path: Path, text: str, summary: str) -> None:
         if self.dry_run:
@@ -156,6 +158,18 @@ class Run:
             warn(f"{' '.join(argv)} exited {result.returncode}: {(result.stdout or '').strip()[-500:]}")
             return False
         return True
+
+
+def copy_private_tree(source: Path, target: Path) -> None:
+    target.mkdir(mode=0o700)
+    for entry in source.iterdir():
+        destination = target / entry.name
+        if entry.is_symlink():
+            destination.symlink_to(os.readlink(entry))
+        elif entry.is_dir():
+            copy_private_tree(entry, destination)
+        else:
+            shutil.copy2(entry, destination)
 
 
 def fingerprint(path: Path):
