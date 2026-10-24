@@ -73,7 +73,12 @@ for target in "${targets[@]}"; do
     "$(dirname "$pi_fff")/package.json" \
     || fail "$profile Pi extension path has the wrong package identity"
 
-  pi_packages=$(nix eval --raw "$repo#$prefix.home.activation.piPackageReconciliation.data")
+  agent_tooling=$(nix eval --raw "$repo#$prefix.home.activation.agentTooling.data")
+
+  activation_file=$(mktemp "$repo/.agent-activation-shell.XXXXXX")
+  printf '%s\n' "$agent_tooling" > "$activation_file"
+  bash "$repo/tests/agent-tooling-activation.sh" "$profile" "$activation_file"
+  rm -f "$activation_file"
 
   models_source=$(nix eval --raw "$repo#$prefix.home.file.\".pi/agent/models.json\".source")
   [[ -L "$models_source" && "$(readlink "$models_source")" == */pi/models.json ]] \
@@ -102,9 +107,8 @@ done
 
 m87_sandbox=$(mktemp -d "$repo/.agent-tools-m87.XXXXXX")
 awkless_sandbox=$(mktemp -d "$repo/.agent-tools-m87-awkless.XXXXXX")
-pi_sandbox=$(mktemp -d "$repo/.agent-tools-pi.XXXXXX")
 skills_sandbox=$(mktemp -d "$repo/.agent-tools-skills.XXXXXX")
-trap 'rm -rf "$m87_sandbox" "$awkless_sandbox" "$pi_sandbox" "$skills_sandbox"' EXIT
+trap 'rm -rf "$m87_sandbox" "$awkless_sandbox" "$skills_sandbox"' EXIT
 M87_STATE_DIR="$m87_sandbox/state" "$m87_package/bin/m87" \
   init --yes --plugin skip --no-install-service >/dev/null
 DRY_RUN_CMD='' M87_STATE_DIR="$m87_sandbox/state" HOME="$m87_sandbox/home" \
@@ -152,45 +156,6 @@ set -e
 [[ "$failure_output" == *"simulated plugin list failure"* && "$failure_output" == *"plugin list failed"* ]] \
   || fail "M87 plugin-list failure diagnostics were hidden"
 
-mkdir -p "$pi_sandbox/.pi/agent"
-cat > "$pi_sandbox/.pi/agent/settings.json" <<'EOF'
-{
-  "theme": "captain-local",
-  "packages": [
-    "npm:pi-web-access@0.14.0",
-    "npm:@ryan_nookpi/pi-extension-codex-fast-mode@0.2.6",
-    "git:github.com/algal/pi-openai-server-compaction@c6d593087709e9481223dc6c6c2269b371b5e055",
-    "git:github.com/DietrichGebert/ponytail",
-    "npm:@ff-labs/pi-fff",
-    "npm:unrelated-local-extension@1.0.0"
-  ]
-}
-EOF
-chmod 600 "$pi_sandbox/.pi/agent/settings.json"
-printf 'keep me\n' > "$pi_sandbox/temp-symlink-target"
-ln -s "$pi_sandbox/temp-symlink-target" "$pi_sandbox/.pi/agent/settings.json.tmp"
-DRY_RUN_CMD='' HOME="$pi_sandbox" bash -euo pipefail -c "$pi_packages"
-settings="$pi_sandbox/.pi/agent/settings.json"
-[[ $(jq '[.packages[] | select(. == "npm:pi-autoresearch")] | length' "$settings") -eq 0 ]] \
-  || fail "Pi package reconciliation reinstalled the removed pi-autoresearch package"
-[[ $(jq '[.packages[] | select(. == "npm:@ff-labs/pi-fff")] | length' "$settings") -eq 0 ]] \
-  || fail "generated Pi settings retain the duplicate Nix-managed pi-fff package"
-[[ $(jq -r '.theme' "$settings") == captain-local ]] \
-  || fail "Pi package reconciliation discarded unrelated local settings"
-settings_mode=$(stat -f '%Lp' "$settings" 2>/dev/null || stat -c '%a' "$settings")
-[[ "$settings_mode" == 600 ]] \
-  || fail "Pi package reconciliation changed private settings mode to $settings_mode"
-[[ $(cat "$pi_sandbox/temp-symlink-target") == "keep me" ]] \
-  || fail "Pi package reconciliation followed a predictable temporary-file symlink"
-for package in \
-  'npm:pi-web-access@0.14.0' \
-  'npm:@ryan_nookpi/pi-extension-codex-fast-mode@0.2.6' \
-  'git:github.com/DietrichGebert/ponytail' \
-  'npm:unrelated-local-extension@1.0.0'; do
-  jq -e --arg package "$package" '.packages | index($package) != null' "$settings" >/dev/null \
-    || fail "Pi package reconciliation dropped $package"
-done
-
 if [[ "$system" == aarch64-darwin ]]; then
   for profile in personal work; do
     casks=$(nix eval --raw "$repo#darwinConfigurations.$profile.config.homebrew.casks" \
@@ -207,6 +172,9 @@ fi
 skills_home="$skills_sandbox/home"
 mkdir -p "$skills_sandbox/repo" "$skills_home"
 cp "$repo/justfile" "$skills_sandbox/repo/justfile"
+mkdir -p "$skills_sandbox/repo/scripts"
+cp "$repo/agent-tooling.json" "$skills_sandbox/repo/agent-tooling.json"
+cp "$repo/scripts/agent-tooling-reconcile.py" "$skills_sandbox/repo/scripts/agent-tooling-reconcile.py"
 HOME="$skills_home" just --justfile "$skills_sandbox/repo/justfile" update-skills >/dev/null
 for skill in no-mistakes vision teach show-me whathappened lavish codebase-design diagnosing-bugs \
   domain-modeling grill-me grill-with-docs grilling improve-codebase-architecture; do

@@ -1,0 +1,69 @@
+{
+  "$comment": "Declared agent tooling. `just rebuild` reconciles each tool's own state to exactly this set (scripts/agent-tooling-reconcile.py); see README.md 'Declarative agent tooling'.",
+  "claude": {
+    "marketplaces": {
+      "ponytail": "DietrichGebert/ponytail",
+      "pstack-claude": "michael-denyer/pstack-claude"
+    },
+    "plugins": ["ponytail@ponytail", "pstack@pstack-claude"],
+    "mcpServers": {
+      "fff": {"type": "stdio", "command": "~/.local/bin/fff-mcp", "args": []},
+      "superlogical": {"type": "http", "url": "https://www.superlogical.com/rex/community-mcp"},
+      "uidotsh": {"type": "http", "url": "https://ui.sh/mcp?agent=claude", "requiredHeaders": ["Authorization"]}
+    },
+    "retiredProjectMcpServers": ["linear-server"],
+    "retiredProjectPlugins": ["playground@claude-plugins-official"],
+    "retiredProjectHooks": ["headroom"],
+    "projectPaths": ["~/Code/firstmate", "~/Code/dotfiles", "~/Code/bytebytego-ebook"],
+    "hooks": {
+      "ensure": [
+        {"event": "SessionStart", "matcher": "", "match": "gh-axi",
+         "hook": {"type": "command", "command": "\"$HOME/.local/bin/gh-axi\"", "timeout": 10}},
+        {"event": "SessionStart", "matcher": "", "match": "chrome-devtools-axi",
+         "hook": {"type": "command", "command": "chrome-devtools-axi", "timeout": 10}}
+      ],
+      "keep": ["rtk hook claude", "herdr-agent-state.sh", "rex __internal session-start"]
+    }
+  },
+  "codex": {
+    "mcpServers": {},
+    "hooks": {
+      "ensure": [
+        {"event": "SessionStart", "matcher": "", "match": "gh-axi",
+         "hook": {"type": "command", "command": "\"$HOME/.local/bin/gh-axi\"", "timeout": 10}},
+        {"event": "SessionStart", "matcher": "", "match": "chrome-devtools-axi",
+         "hook": {"type": "command", "command": "chrome-devtools-axi", "timeout": 10}}
+      ],
+      "keep": ["herdr-agent-state.sh", "rex __internal session-start"]
+    }
+  },
+  "pi": {
+    "packages": [
+      "npm:pi-web-access@0.14.0",
+      "npm:@ryan_nookpi/pi-extension-codex-fast-mode@0.2.6",
+      "git:github.com/algal/pi-openai-server-compaction@c6d593087709e9481223dc6c6c2269b371b5e055",
+      "git:github.com/DietrichGebert/ponytail",
+      "git:github.com/michael-denyer/pstack-claude"
+    ],
+    "skills": []
+  },
+  "skills": {
+    "sources": [
+      {"source": "kunchenguid/no-mistakes", "skills": ["no-mistakes"], "agents": ["claude-code", "codex", "opencode", "pi"]},
+      {"source": "kunchenguid/vision", "skills": ["vision"], "agents": ["claude-code", "codex", "opencode", "pi"]},
+      {"source": "mattpocock/skills",
+       "skills": ["teach", "codebase-design", "diagnosing-bugs", "domain-modeling", "grill-me", "grill-with-docs", "grilling", "improve-codebase-architecture"],
+       "agents": ["claude-code", "codex", "opencode", "pi"]},
+      {"source": "humanlayer/skills", "skills": ["show-me"], "agents": ["claude-code", "codex", "opencode", "pi"]},
+      {"source": "kunchenguid/whathappened", "skills": ["whathappened"], "agents": ["claude-code", "codex", "opencode", "pi"]},
+      {"source": "kunchenguid/lavish-axi", "skills": ["lavish"], "agents": ["claude-code", "codex", "opencode", "pi"]},
+      {"source": "kunchenguid/axi", "skills": ["axi"], "agents": ["codex", "opencode", "pi"]},
+      {"source": "pbakaus/impeccable", "skills": ["impeccable"], "agents": ["codex", "opencode", "pi"]}
+    ],
+    "keep": {
+      "claude": ["rex", "synced"],
+      "shared": ["rex"],
+      "codex": []
+    }
+  }
+}

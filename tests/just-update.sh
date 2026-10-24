@@ -32,6 +32,9 @@ brew_log="$sandbox/brew.log"
 skills_log="$sandbox/skills.log"
 mkdir -p "$bin" "$home/agent-workspace/.git" "$sandbox/.agents/skills" "$sandbox/opencode/skills"
 cp "$repo/justfile" "$sandbox/justfile"
+mkdir -p "$sandbox/scripts"
+cp "$repo/agent-tooling.json" "$sandbox/agent-tooling.json"
+cp "$repo/scripts/agent-tooling-reconcile.py" "$sandbox/scripts/agent-tooling-reconcile.py"
 
 cat > "$bin/stack" <<'EOF'
 #!/usr/bin/env bash
