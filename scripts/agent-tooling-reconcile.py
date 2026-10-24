@@ -524,8 +524,26 @@ def register_axi_hooks(run: Run, justfile: Path, tools: list[str]) -> None:
 
 def claude_json(claude: str, args: list[str]):
     try:
-        output = subprocess.run([claude, *args, "--json"], cwd=HOME, timeout=120, check=True,
-                                stdin=subprocess.DEVNULL, capture_output=True, text=True).stdout
+        # Even inventory commands initialize and migrate Claude's configuration.
+        # Query copies so preview and pre-backup discovery leave the real home intact.
+        with tempfile.TemporaryDirectory(prefix="agent-tooling-inventory-") as temporary:
+            home = Path(temporary)
+            for relative in [".claude.json", ".claude/settings.json", ".claude/settings.local.json",
+                             ".claude/plugins/installed_plugins.json",
+                             ".claude/plugins/known_marketplaces.json"]:
+                source = HOME / relative
+                if source.is_file():
+                    target = home / relative
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(source, target)
+            env = {**os.environ, "HOME": str(home),
+                   "XDG_CONFIG_HOME": str(home / ".config"),
+                   "XDG_CACHE_HOME": str(home / ".cache"),
+                   "XDG_STATE_HOME": str(home / ".state")}
+            env.pop("CLAUDE_CONFIG_DIR", None)
+            output = subprocess.run([claude, *args, "--json"], cwd=home, env=env,
+                                    timeout=120, check=True, stdin=subprocess.DEVNULL,
+                                    capture_output=True, text=True).stdout
         return json.loads(output)
     except (OSError, subprocess.SubprocessError, json.JSONDecodeError) as error:
         warn(f"claude {' '.join(args)} --json failed ({error}); skipped Claude plugins")
