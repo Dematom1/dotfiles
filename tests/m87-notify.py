@@ -75,7 +75,9 @@ with (root / "notifications").open("a") as out:
         self.assertEqual(len(self.notes()), 1)
         summary = self.notes()[0][-1]
         self.assertIn("m87: 2 new PRs to review:", summary)
-        self.assertIn("Review the changes and CI before merging.", summary)
+        self.assertEqual(summary, "m87: 2 new PRs to review: "
+                         "https://github.com/example/project/pull/1 - recommended: review ; "
+                         "https://github.com/example/project/pull/2 - recommended: review")
         self.assertEqual(json.loads((self.root / "notifications").read_text()), summary)
         state = self.root / ".local/state/m87-notify/seen.json"
         self.assertEqual(json.loads(state.read_text()), ["github:pr:one", "github:pr:two"])
@@ -93,17 +95,23 @@ with (root / "notifications").open("a") as out:
         ]}))
         self.assertEqual(self.notes(), [])
 
-    def test_infrastructure_review_only_and_redaction(self):
+    def test_only_trusted_fields_reach_note_and_notification(self):
         self.poll(json.dumps({"inbox": [
             {"item_id": "infra", "local_state": "recommended",
              "url": "https://github.com/dematom-labs/infrastructure/pull/1", "summary": "Merge now with password=hunter2"},
             {"item_id": "other", "local_state": "recommended", "url": "https://github.com/a/b/pull/2",
-             "summary": 'Check CI\n token=small-secret bearer private-value ghp_shortsecret https://example.com/secret ABCDEFGHIJKLMNOPQRSTUVWXYZ123456 password="two words"'},
+             "summary": 'Remove Authorization: Basic dXNlcjpwYXNz from the configuration\n token=small-secret bearer private-value ghp_shortsecret https://example.com/secret ABCDEFGHIJKLMNOPQRSTUVWXYZ123456 password="two words"',
+             "verdict": "merge with password=hunter2", "title": "private-value"},
+            {"item_id": "structured", "local_state": "recommended", "url": "https://github.com/a/b/pull/3",
+             "summary": {"password": "hunter2"}},
         ]}))
         summary = self.notes()[0][-1]
-        self.assertIn("Review requested only; infrastructure requires a separate decision.", summary)
-        for secret in ["hunter2", "small-secret", "private-value", "ghp_shortsecret", "example.com", "ABCDEFGHIJKLMNOPQRSTUVWXYZ123456", "two words", "Merge now", "\n"]:
-            self.assertNotIn(secret, summary)
+        self.assertEqual(summary, "m87: 3 new PRs to review: "
+                         "https://github.com/dematom-labs/infrastructure/pull/1 - "
+                         "Review requested only; infrastructure requires a separate decision. ; "
+                         "https://github.com/a/b/pull/2 - recommended: review ; "
+                         "https://github.com/a/b/pull/3 - recommended: review")
+        self.assertEqual(json.loads((self.root / "notifications").read_text()), summary)
 
     def test_note_failure_retries_same_request(self):
         inbox = json.dumps({"inbox": [{"item_id": "one", "local_state": "recommended", "url": "https://github.com/a/b/pull/1"}]})

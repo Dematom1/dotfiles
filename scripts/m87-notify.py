@@ -18,14 +18,7 @@ FIRSTMATE_HOME = "/Users/laszlohoranszky/agent-workspace"
 def recommendation(item):
     if item["url"].lower().startswith("https://github.com/dematom-labs/infrastructure/"):
         return "Review requested only; infrastructure requires a separate decision."
-    text = item.get("summary") or "Review diff and CI before deciding."
-    if not isinstance(text, str):
-        raise ValueError("invalid recommendation summary")
-    text = "".join(char for char in " ".join(text.split()) if char.isprintable())
-    # Strip credential assignments, embedded URLs, and opaque/token-like strings.
-    text = re.sub(r"(?i)\b(?:bearer\s+\S+|(?:\w*(?:token|secret|password|api[_-]?key)\w*[\"']?)\s*[:=]\s*(?:\"[^\"]*\"|'[^']*'|\S+))", "[redacted]", text)
-    text = re.sub(r"https?://\S+|\b(?:gh[pousr]_|github_pat_|sk-|AKIA|ASIA)\S+|[A-Za-z0-9_+/=\-]{24,}", "[redacted]", text)
-    return text[:400]
+    return "recommended: review"
 
 
 def run(args):
@@ -66,7 +59,6 @@ def run(args):
         subprocess.run([args.inbox, "note", "--request-id", f"m87-{digest}", "--", summary],
                        env={**os.environ, "FM_HOME": FIRSTMATE_HOME},
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=60)
-        # argv avoids interpolating untrusted recommendation text into AppleScript.
         script = 'on run argv\ndisplay notification (item 1 of argv) with title "m87"\nend run'
         try:
             subprocess.run([args.osascript, "-e", script, summary], capture_output=True, check=True, timeout=30)
