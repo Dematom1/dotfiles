@@ -165,8 +165,8 @@ in
     ".local/bin/tailscale".source = tailscaleAppCli;
   };
 
-  # ByHost preferences need -currentHost, not CustomUserPreferences. Log out
-  # or restart SystemUIServer after rebuilding to apply the new spacing.
+  # ByHost preferences need -currentHost, not CustomUserPreferences.
+  # See README.md "Menu bar" for applying the spacing after a rebuild.
   home.activation.menuBarSpacing = lib.mkIf pkgs.stdenv.isDarwin (
     lib.hm.dag.entryAfter [ "writeBoundary" ] ''
       $DRY_RUN_CMD /usr/bin/defaults -currentHost write -g NSStatusItemSpacing -int 6

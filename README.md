@@ -55,6 +55,15 @@ The app must already be installed; its installation method is unchanged.
 Apply the wrapper with `just rebuild`, then use `type -a tailscale` to check
 command resolution. Non-Darwin profiles continue to use the nixpkgs package.
 
+### Menu bar
+
+Both Mac profiles install Ice through the `jordanbaird-ice` Homebrew cask and
+launch it at login. Apply with `just rebuild`.
+
+Home Manager also persists current-host global menu bar preferences through
+`home.activation.menuBarSpacing` in `home.nix`. Log out and back in, or restart
+SystemUIServer after rebuilding, to apply the spacing.
+
 ## Included configuration
 
 | Tool | Purpose |
@@ -87,9 +96,8 @@ command resolution. Non-Darwin profiles continue to use the nixpkgs package.
 the existing Homebrew installation through its Homebrew activation. Activation
 uses cleanup mode `none` for both Mac profiles, so applications and formulae not
 declared in the shared or selected host configuration are preserved. It never
-uses `uninstall` or `zap` for cleanup: a cask's
-zap stanza trashes paths it may share with other installs, as the claude-code
-cask did with native Claude Code's `~/.local/bin/claude` and `~/.claude.json`.
+uses `uninstall` or `zap` for cleanup: a cask's zap stanza trashes paths it may
+share with other installs, as the claude-code cask did with native Claude Code's `~/.local/bin/claude` and `~/.claude.json`.
 
 On macOS, `home.nix` adds `/opt/homebrew/bin` to the Home Manager session path
 and to interactive and non-interactive zsh shells, including terminals launched
@@ -801,13 +809,14 @@ authentication.
    repository automation removes it.
 
 Rollback is to stop using `av inject` and continue with the preserved GitHub CLI
-authentication. To uninstall the application declaratively, remove its cask
-entry and the Vault `postActivation` synchronization block from
-`configuration.nix`, then rebuild the selected profile. The copied
-`/usr/local/bin/av` is not automatically removed; remove it separately when
-uninstalling. That does not delete the `GH_TOKEN` Keychain item. If desired, the
-captain can remove that item interactively in Automic Vault after confirming
-the fallback works.
+authentication. To stop managing the application, remove its cask entry and
+the Vault `postActivation` synchronization block from `configuration.nix`,
+then rebuild the selected profile. To uninstall it, run
+`brew uninstall --cask automic-vault` separately; see the
+[Homebrew cleanup policy](#prerequisites). The copied `/usr/local/bin/av` is not
+automatically removed; remove it separately when uninstalling. That does not
+delete the `GH_TOKEN` Keychain item. If desired, the captain can remove that
+item interactively in Automic Vault after confirming the fallback works.
 
 The security boundary is local to this Mac. Keychain storage plus per-target
 and launcher authorization reduce ambient secret exposure to local agents, but
