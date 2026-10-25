@@ -203,7 +203,8 @@ in
   # Stop the npm worker before touching its package or loading its replacement.
   home.activation.m87RemoveNpmDaemon = lib.mkIf pkgs.stdenv.isDarwin (
     lib.hm.dag.entryBetween [ "m87GithubDiscovery" "setupLaunchAgents" ] [ "writeBoundary" ] ''
-      ${lib.getExe pkgs.python311} ${./scripts/m87-remove-npm-daemon.py}
+      ${lib.getExe pkgs.python311} ${./scripts/m87-remove-npm-daemon.py} \
+        ${pkgs.m87}/libexec/m87/node_modules/@kunchenguid/m87
     ''
   );
 

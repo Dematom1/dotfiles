@@ -122,18 +122,10 @@ for target in "${targets[@]}"; do
     || fail "$profile does not expose the generated Claude skill root"
 
   m87_config=$(nix eval --raw "$repo#$prefix.home.activation.m87GithubDiscovery.data")
-  [[ "$m87_config" == *'init --yes --plugin github'* && "$m87_config" == *'--github-repo dematom-labs/agent-sandbox-runtime'* ]] \
-    || fail "$profile M87 discovery does not use the native headless initializer"
-  [[ "$m87_config" != *' plugin sync '* && "$m87_config" != *'m87 status'* ]] \
-    || fail "$profile M87 activation performs post-activation verification"
-  [[ "$m87_config" == *'owned_repos=true'* ]] \
-    || fail "$profile M87 discovery dropped personal repositories"
-  [[ "$m87_config" == *'authored_external=true'* ]] \
-    || fail "$profile M87 discovery omits Dematom1-authored external PRs"
-  [[ "$m87_config" == *'explicit_repos=dematom-labs/agent-sandbox-runtime,dematom-labs/alteran,dematom-labs/conference-directory,dematom-labs/infrastructure,dematom-labs/seo-scout,dematom-labs/truediyer'* ]] \
-    || fail "$profile M87 discovery has the wrong Dematom Labs allowlist"
-  [[ "$m87_config" != *TOKEN* && "$m87_config" != *username=dematom-labs* ]] \
-    || fail "$profile M87 discovery embeds credentials or changes viewer identity"
+  activation_file=$(mktemp "$repo/.m87-activation-shell.XXXXXX")
+  printf '%s\n' "$m87_config" > "$activation_file"
+  python3 "$repo/tests/m87-discovery.py" "$m87_package" "$activation_file"
+  rm -f "$activation_file"
 done
 
 m87_sandbox=$(mktemp -d "$repo/.agent-tools-m87.XXXXXX")

@@ -237,7 +237,7 @@ history, and operator state remain in place.
 
 For fresh state, Home Manager uses M87's native headless initializer,
 `m87 init --yes --plugin github --github-repo ... --no-install-service`, with
-the declarative six-repository list. Upstream has no organization-discovery
+the declarative four-repository list. Upstream has no organization-discovery
 flag, so none is invented. For existing state, Home Manager preserves the queue
 and reapplies M87's official full-replacement plugin configuration with all
 intended selectors:
@@ -245,20 +245,21 @@ intended selectors:
 - `owned_repos=true` preserves Dematom1-owned repository discovery;
 - `authored_external=true` adds Dematom1-authored issues and PRs in other repos
   within M87's upstream lookback window;
-- `explicit_repos` adds only the six declared Dematom Labs repositories:
-  `agent-sandbox-runtime`, `alteran`,
-  `conference-directory`, `infrastructure`, `seo-scout`, and `truediyer`.
+- `explicit_repos` adds only the four declared Dematom Labs repositories:
+  `alteran`, `data-first-jobs`, `infrastructure`, and `hekera`.
 
 The configuration deliberately omits `username=dematom-labs`: M87 must continue
 to derive the viewer as Dematom1. It also adds no credential. M87 continues to
 use the existing `gh` authentication selected by its upstream plugin.
 
 This change does not activate or restart the live installation. After merging,
-the personal-machine operator runs `just rebuild personal`; if
-`m87 daemon status` still reports a service whose executable is outside
-`/etc/profiles/per-user/$USER/bin`, run
-`m87 daemon install` once to repoint the managed service without replacing
-`~/.m87`. Then run `m87 plugin doctor` and `m87 plugin sync github`; do not
+the personal-machine operator runs `just rebuild personal`. Home Manager stops
+and removes the legacy npm agent, repoints installed plugin executables to Nix,
+and removes the npm package without replacing `~/.m87`. It then loads its own
+Nix-backed launchd agent. If activation fails, fix the reported error and rerun
+`just rebuild personal`. Do not run `m87 daemon install`: that creates a competing
+service outside Home Manager. Then run `m87 plugin doctor` and
+`m87 plugin sync github`; do not
 approve any recommendation merely to test discovery. Review/merge actions,
 credentials, and repository action policy are separate operator concerns and
 are not changed by this discovery configuration.

@@ -3,6 +3,7 @@
 import importlib.util
 from pathlib import Path
 import plistlib
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -18,6 +19,11 @@ spec.loader.exec_module(migration)
 
 
 class MigrationTest(unittest.TestCase):
+    def setUp(self):
+        environment = patch.dict(migration.os.environ, {"M87_STATE_DIR": ""})
+        environment.start()
+        self.addCleanup(environment.stop)
+
     def test_migration(self):
         with tempfile.TemporaryDirectory() as directory:
             home = Path(directory)
@@ -30,7 +36,20 @@ class MigrationTest(unittest.TestCase):
             shim.symlink_to(cli)
             queue = home / ".m87/m87.sqlite"
             queue.parent.mkdir()
-            queue.write_bytes(b"preserved queue")
+            nix_package = home / "nix-m87"
+            binaries = ["plugins/github/m87-src-github.js", "plugins/gmail/m87-src-gmail.js"]
+            for binary in binaries:
+                target = nix_package / binary
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("replacement")
+            with sqlite3.connect(queue) as db:
+                db.execute("create table plugins (id text primary key, binary_path text, config_json text)")
+                db.executemany("insert into plugins values (?, ?, ?)", [
+                    (str(i), str(package / binary), '{"retained":true}')
+                    for i, binary in enumerate(binaries)
+                ] + [("custom", "/custom/plugin.js", "{}")])
+                db.execute("create table queue (payload text)")
+                db.execute("insert into queue values ('preserved queue')")
             agents = home / "Library/LaunchAgents"
             agents.mkdir(parents=True)
             legacy = agents / "com.m87.daemon.legacy.plist"
@@ -44,22 +63,33 @@ class MigrationTest(unittest.TestCase):
                 "ProgramArguments": ["/nix/store/m87/bin/m87", "daemon", "run"],
             }))
             with patch.object(migration.subprocess, "run") as run:
-                migration.migrate(home, dry_run=True)
+                migration.migrate(home, nix_package, dry_run=True)
                 run.assert_not_called()
+                with sqlite3.connect(queue) as db:
+                    self.assertEqual(db.execute("select binary_path from plugins where id='0'").fetchone(),
+                                     (str(package / binaries[0]),))
                 self.assertTrue(legacy.exists() and cli.exists() and shim.exists())
                 run.return_value = subprocess.CompletedProcess([], 1, stderr="permission denied")
                 with self.assertRaises(RuntimeError):
-                    migration.migrate(home)
+                    migration.migrate(home, nix_package)
                 self.assertTrue(legacy.exists() and cli.exists() and shim.exists())
                 run.return_value = subprocess.CompletedProcess([], 0, stderr="")
-                migration.migrate(home)
+                (nix_package / binaries[1]).unlink()
+                with self.assertRaises(RuntimeError):
+                    migration.migrate(home, nix_package)
+                self.assertTrue(cli.exists() and shim.exists())
+                with sqlite3.connect(queue) as db:
+                    self.assertEqual(db.execute("select binary_path from plugins where id='0'").fetchone(),
+                                     (str(package / binaries[0]),))
+                (nix_package / binaries[1]).write_text("replacement")
+                migration.migrate(home, nix_package)
                 self.assertEqual(run.call_args.args[0], [
                     "/bin/launchctl", "bootout", "--wait",
                     f"gui/{migration.os.getuid()}/com.m87.daemon.legacy",
                 ])
                 self.assertFalse(legacy.exists() or package.exists() or shim.is_symlink())
                 run.reset_mock()
-                migration.migrate(home)
+                migration.migrate(home, nix_package)
                 run.assert_not_called()
             # An already-unloaded legacy job is safe to clean up. A replacement
             # bin link must not be removed, even if its target is currently absent.
@@ -70,11 +100,16 @@ class MigrationTest(unittest.TestCase):
             shim.symlink_to(home / "replacement/bin/m87")
             with patch.object(migration.subprocess, "run", return_value=
                               subprocess.CompletedProcess([], 3, stderr="No such process")):
-                migration.migrate(home)
+                migration.migrate(home, nix_package)
             self.assertFalse(legacy.exists())
             self.assertTrue(shim.is_symlink())
             self.assertTrue(managed.exists())
-            self.assertEqual(queue.read_bytes(), b"preserved queue")
+            with sqlite3.connect(queue) as db:
+                self.assertEqual(db.execute("select * from queue").fetchall(), [("preserved queue",)])
+                self.assertEqual(db.execute("select * from plugins order by id").fetchall(), [
+                    (str(i), str(nix_package / binary), '{"retained":true}')
+                    for i, binary in enumerate(binaries)
+                ] + [("custom", "/custom/plugin.js", "{}")])
 
 
 if __name__ == "__main__":
