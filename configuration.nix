@@ -51,6 +51,11 @@ in
     finder.CreateDesktop = false;          # clean desktop
     trackpad.Clicking = true;              # tap to click
   };
+  launchd.user.agents.ice.serviceConfig = {
+    ProgramArguments = [ "/usr/bin/open" "-a" "/Applications/Ice.app" ];
+    RunAtLoad = true;
+  };
+
   launchd.user.agents.ai-tool-update-digest = {
     serviceConfig = {
       ProgramArguments = [
@@ -79,11 +84,8 @@ in
     # nix-homebrew is imported but intentionally not enabled, so this drives an
     # EXISTING Homebrew install (a prerequisite on a fresh Mac) via `brew bundle`.
     enable = true;
-    # Remove anything not listed here, but never with "zap": a cask's zap
-    # stanza trashes shared paths (dropping the claude-code cask trashed the
-    # native ~/.local/bin/claude and ~/.claude.json). Leftover app data from a
-    # removed cask is cheap; `brew uninstall --zap <cask>` clears it on purpose.
-    onActivation.cleanup = "uninstall";
+    # Preserve undeclared apps, formulae, and their data during activation.
+    onActivation.cleanup = "none";
     onActivation.autoUpdate = true;
     onActivation.extraFlags = [ "--force" ];
     brews = [
@@ -101,6 +103,7 @@ in
       # ~/.local/bin (`just setup-firstmate`) updates itself, and a second copy
       # on PATH went stale behind it.
       "ghostty"
+      "jordanbaird-ice"
       "1password-cli"
       "ngrok"
       "postico"
