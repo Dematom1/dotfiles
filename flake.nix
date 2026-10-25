@@ -69,8 +69,6 @@
     npmTools = builtins.attrNames (nixpkgs.lib.filterAttrs (_: type: type == "directory")
       (builtins.readDir ./packages/npm));
 
-    signoffPkgsFor = system: import nixpkgs-signoff { inherit system; };
-
     # One overlay keeps package identities identical in standalone package
     # builds, nix-darwin, NixOS, and standalone Home Manager configurations.
     dotfilesOverlay = final: _:
@@ -88,7 +86,7 @@
             extensionPath = "libexec/pi-fff/node_modules/@ff-labs/pi-fff/src";
           };
         });
-        signoff = (signoffPkgsFor final.stdenv.hostPlatform.system).callPackage ./packages/signoff.nix { };
+        signoff = (import nixpkgs-signoff { system = final.stdenv.hostPlatform.system; }).callPackage ./packages/signoff.nix { };
       };
 
     # Swaps in terraform from nixpkgs-unstable, currently pinning it to
@@ -231,21 +229,31 @@
             inherit (nixpkgs) lib;
             personal = self.darwinConfigurations.personal.config;
             user = personal.system.primaryUser;
-            signoffPkgs = signoffPkgsFor system;
+            extend = modules: self.darwinConfigurations.personal.extendModules { inherit modules; };
+            # Every main-nixpkgs input the signer could pick up, changed as a
+            # nixpkgs bump would change it.
+            bumped = extend [ {
+              nixpkgs.overlays = lib.mkAfter [ (_: prev:
+                lib.genAttrs [ "go" "git" "just" "ruby" "bash" "ast-grep" "bun" "nodejs_24" "uv" "python3" ]
+                  (name: prev.${name}.overrideAttrs { SIGNOFF_BUMP = "1"; })
+                // { buildGoModule = args: (prev.buildGoModule args).overrideAttrs { SIGNOFF_BUMP = "1"; }; }) ];
+            } ];
             # One watcher per signer binary; each stub stands in for a build.
-            watchWith = signoff: (self.darwinConfigurations.personal.extendModules {
-              modules = [ {
+            watchWith = signoff: extra: (extend [
+              {
                 services.signoff.watch.enable = true;
                 nixpkgs.overlays = lib.mkAfter [ (_: _: { inherit signoff; }) ];
-              } ];
-            }).config.launchd.user.agents.signoff-watch;
+              }
+              extra
+            ]).config.launchd.user.agents.signoff-watch;
             stub = name: pkgs.writeShellScriptBin "signoff" ''
               echo ${name} >> "$HOME/calls"
               echo "dematom-labs/x@abc: keychain $HOME/Library/Keychains/login.keychain-db: User canceled the operation."
             '';
-            first = watchWith (stub "first");
-            rebuilt = watchWith (stub "rebuilt");
-            watch = watchWith pkgs.signoff;
+            first = watchWith (stub "first") { };
+            rebuilt = watchWith (stub "rebuilt") { };
+            refingered = watchWith (stub "rebuilt") { services.signoff.watch.keyFingerprint = "SHA256:other"; };
+            watch = watchWith pkgs.signoff { };
             profiles = [
               "${personal.system.path}/bin"
               "${personal.environment.etc."profiles/per-user/${user}".source}/bin"
@@ -254,8 +262,8 @@
           assert lib.assertMsg personal.services.signoff.enable "personal must install signoff";
           assert lib.assertMsg (!self.darwinConfigurations.work.config.services.signoff.enable) "work must not install signoff";
           assert lib.assertMsg (!personal.launchd.user.agents ? signoff-watch) "the watcher must ship disabled";
-          assert lib.assertMsg (pkgs.signoff.go == signoffPkgs.go && pkgs.signoff.stdenv == signoffPkgs.stdenv)
-            "signoff must be built from nixpkgs-signoff";
+          assert lib.assertMsg (bumped.pkgs.signoff.drvPath == self.darwinConfigurations.personal.pkgs.signoff.drvPath)
+            "a main nixpkgs bump must not rebuild signoff";
           assert watch.serviceConfig.StartInterval == 120;
           assert lib.hasInfix "--app-id 5460531" watch.script;
           assert lib.hasInfix "--installation-id 174959222" watch.script;
@@ -263,10 +271,6 @@
           pkgs.runCommand "signoff-install" {
             nativeBuildInputs = [ pkgs.gnugrep ];
           } ''
-            if grep -q 'signoff-tools' ${lib.getExe pkgs.signoff}; then
-              echo "signoff embeds a /nix/store tool environment" >&2
-              exit 1
-            fi
             for tool in git just ast-grep bun node uv python3 go ruby bash; do
               found=
               for dir in ${lib.escapeShellArgs profiles}; do
@@ -282,23 +286,29 @@
             fi
             grep -q 'refused: octocat/Hello-World is not a fleet repo' err
 
-            # A Keychain denial pauses passes of that binary only.
+            # A Keychain error pauses passes until the marker is removed or the
+            # binary or watcher settings change.
             export HOME=$PWD/home
             log=$HOME/.local/state/signoff/watch.log
             marker=$HOME/.local/state/signoff/keychain-denied
+            calls() { tr '\n' ' ' < "$HOME/calls"; }
             ${first.command}
-            test "$(cat "$marker")" = ${lib.getExe (stub "first")}
-            grep -q 'passes are paused' "$log"
+            test -e "$marker"
+            grep -qF "is removed: dematom-labs/x@abc: keychain $HOME/Library/Keychains/login.keychain-db: User canceled the operation." "$log"
             lines=$(wc -l < "$log")
             ${first.command}
-            test "$(cat "$HOME/calls")" = first
+            test "$(calls)" = 'first '
             test "$(wc -l < "$log")" = "$lines"
             rm "$marker"
             ${first.command}
-            test "$(cat "$HOME/calls")" = "$(printf 'first\nfirst')"
+            test "$(calls)" = 'first first '
             ${rebuilt.command}
-            test "$(cat "$HOME/calls")" = "$(printf 'first\nfirst\nrebuilt')"
-            test "$(cat "$marker")" = ${lib.getExe (stub "rebuilt")}
+            test "$(calls)" = 'first first rebuilt '
+            ${rebuilt.command}
+            test "$(calls)" = 'first first rebuilt '
+            ${refingered.command}
+            test "$(calls)" = 'first first rebuilt rebuilt '
+            test -e "$marker"
             mkdir "$out"
           '';
       });

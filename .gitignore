@@ -14,3 +14,7 @@
 /profile.json.gz
 /opencode/plugin/
 /opencode/plugins/
+
+# nix build output links.
+/result
+/result-*

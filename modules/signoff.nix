@@ -7,6 +7,12 @@ let
   cfg = config.services.signoff;
   home = config.users.users.${config.system.primaryUser}.home;
   signoff = lib.getExe pkgs.signoff;
+  watchArgs = [
+    "watch"
+    "--app-id" (toString cfg.watch.appId)
+    "--installation-id" (toString cfg.watch.installationId)
+    "--key-fingerprint" cfg.watch.keyFingerprint
+  ];
 in
 {
   options.services.signoff = {
@@ -48,9 +54,9 @@ in
     # StandardOutPath before the job runs and does not create its directory,
     # so the script creates it and redirects its own output.
     #
-    # A Keychain denial (a build not on the key's access list) would prompt on
-    # every pass, so it pauses passes until the marker is removed or the binary
-    # changes.
+    # A Keychain error (a build not on the key's access list, or no matching
+    # key) would repeat on every pass, so it pauses passes until the marker is
+    # removed or the binary or watcher settings change.
     launchd.user.agents.signoff-watch = lib.mkIf cfg.watch.enable {
       # gh supplies the read-only token (`gh auth token`). The checks themselves
       # see only the signer's trusted PATH.
@@ -61,22 +67,20 @@ in
       script = ''
         state="$HOME/.local/state/signoff"
         marker="$state/keychain-denied"
+        pass=${lib.escapeShellArg "${signoff} ${toString watchArgs}"}
         mkdir -p "$state"
         exec >>"$state/watch.log" 2>&1
         if [ -e "$marker" ]; then
-          [ "$(cat "$marker")" = ${signoff} ] && exit 0
+          [ "$(cat "$marker")" = "$pass" ] && exit 0
           rm -f "$marker"
         fi
-        ${signoff} watch \
-          --app-id ${toString cfg.watch.appId} \
-          --installation-id ${toString cfg.watch.installationId} \
-          --key-fingerprint ${lib.escapeShellArg cfg.watch.keyFingerprint} \
-          >"$state/pass.log" 2>&1
+        ${signoff} ${lib.escapeShellArgs watchArgs} >"$state/pass.log" 2>&1
         status=$?
         cat "$state/pass.log"
-        if grep -q 'keychain .*/login\.keychain-db:' "$state/pass.log"; then
-          echo ${signoff} >"$marker"
-          echo "signoff: Keychain denied ${signoff}; passes are paused until it is on the App key's access list and $marker is removed"
+        error=$(grep -m 1 'keychain .*/login\.keychain-db:' "$state/pass.log")
+        if [ -n "$error" ]; then
+          printf '%s\n' "$pass" >"$marker"
+          printf 'signoff: passes are paused after a Keychain error until the signer or its watcher settings change or %s is removed: %s\n' "$marker" "$error"
         fi
         exit $status
       '';

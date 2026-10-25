@@ -488,11 +488,14 @@ launchd agent.
   so launchd schedules passes instead of keeping a process alive, and never
   runs two at once. Output goes to `~/.local/state/signoff/watch.log`, and each
   signed head's full log to `~/.local/state/signoff/<owner>/<repo>/<sha>.log`.
-- **Keychain denial:** when a pass fails with a `keychain
-  .../login.keychain-db:` error, the watcher writes the binary's path to
-  `~/.local/state/signoff/keychain-denied`, logs one line, and skips every
-  later pass of that binary. A rebuilt binary removes the marker and runs
-  normally. After adding the binary to the access list (below), clear it with
+- **Keychain errors:** when a pass fails with any `keychain
+  .../login.keychain-db:` error, such as an access list denial or no key
+  matching the fingerprint, the watcher writes the binary path and watcher
+  settings to `~/.local/state/signoff/keychain-denied`, logs one line that
+  quotes the error, and skips later passes. A rebuild that changes the binary
+  or a watcher setting (for example a corrected `keyFingerprint`) removes the
+  marker and runs normally. After fixing the cause without a rebuild, such as
+  adding the binary to the access list (below), clear it with
   `rm ~/.local/state/signoff/keychain-denied`.
 
 Before turning the watcher on, add the installed binary to the App key's access
@@ -542,12 +545,12 @@ tail -f ~/.local/state/signoff/watch.log
 ```
 
 `nix flake check` runs the `signoff-install` check. It verifies that only the
-personal Mac installs the signer, that it is built from `nixpkgs-signoff`
-without a baked-in tool environment, that every versioned tool and `bash` is in
-the personal system or per-user profile, that the watcher ships off with the
-settings above, that the binary refuses a repository outside `dematom-labs`,
-and that a stubbed Keychain denial pauses the watcher until the marker is
-removed or the binary changes.
+personal Mac installs the signer, that changing the main nixpkgs Go toolchain
+or any tool leaves the signer's derivation unchanged, that every versioned tool
+and `bash` is in the personal system or per-user profile, that the watcher
+ships off with the settings above, that the binary refuses a repository outside `dematom-labs`,
+and that a stubbed Keychain error pauses the watcher until the marker is
+removed or the binary or watcher settings change.
 
 ## Linux sandbox server
 
