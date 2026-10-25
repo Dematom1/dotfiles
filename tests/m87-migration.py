@@ -156,7 +156,7 @@ class HandoffTest(unittest.TestCase):
             name = Path(args[0]).parent.name
             stdout = json.dumps({"plugin": {"id": name}})
         elif args[0] == "/bin/ps":
-            stdout = str(self.nix_package / "dist/cli.js") + " daemon run"
+            stdout = str(self.nix_root / "bin/m87") + " daemon run"
             if self.failure == "identity":
                 stdout = "wrong daemon run"
         elif args[-2:] == ["daemon", "status"]:

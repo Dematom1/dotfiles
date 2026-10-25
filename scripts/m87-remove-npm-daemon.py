@@ -84,8 +84,8 @@ def verify_worker(home, nix_root, launchctl, env, version, timeout=30):
             if not pid or int((home / ".m87/daemon.pid").read_text()) != pid:
                 raise RuntimeError("Managed PID does not own M87 state")
             command = run(["/bin/ps", "-p", str(pid), "-o", "command="])
-            cli = nix_root / "libexec/m87/node_modules/@kunchenguid/m87/dist/cli.js"
-            if str(cli) not in command or "daemon run" not in command:
+            cli = nix_root / "bin/m87"
+            if command.split()[-3:] != [str(cli), "daemon", "run"]:
                 raise RuntimeError("Managed PID is not the Nix daemon")
             with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as control:
                 control.settimeout(3)
