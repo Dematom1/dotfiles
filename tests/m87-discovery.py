@@ -13,7 +13,7 @@ m87 = str(package / "bin/m87")
 expected = {
     "owned_repos": True,
     "authored_external": True,
-    "explicit_repos": "dematom-labs/alteran,dematom-labs/data-first-jobs,dematom-labs/infrastructure,dematom-labs/hekera",
+    "explicit_repos": "dematom-labs/alteran,dematom-labs/data-first-jobs,dematom-labs/infrastructure",
 }
 with tempfile.TemporaryDirectory() as directory:
     home = Path(directory)

@@ -14,7 +14,6 @@ let
     "dematom-labs/alteran"
     "dematom-labs/data-first-jobs"
     "dematom-labs/infrastructure"
-    "dematom-labs/hekera"
   ];
   # The kept agent tooling; the agentTooling activation below reconciles every
   # tool to it. See README.md "Declarative agent tooling".
