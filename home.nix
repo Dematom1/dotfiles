@@ -11,12 +11,9 @@ let
     text = builtins.readFile ./scripts/chrome-devtools-mcp.js;
   };
   m87GithubRepos = [
-    "dematom-labs/agent-sandbox-runtime"
     "dematom-labs/alteran"
-    "dematom-labs/conference-directory"
+    "dematom-labs/data-first-jobs"
     "dematom-labs/infrastructure"
-    "dematom-labs/seo-scout"
-    "dematom-labs/truediyer"
   ];
   # The kept agent tooling; the agentTooling activation below reconciles every
   # tool to it. See README.md "Declarative agent tooling".
@@ -198,11 +195,37 @@ in
       --profile ${lib.escapeShellArg profile} "''${dry_run[@]}"
   '';
 
+  launchd.agents.m87 = lib.mkIf pkgs.stdenv.isDarwin {
+    enable = true;
+    config = {
+      ProgramArguments = [ "${pkgs.m87}/bin/m87" "daemon" "run" ];
+      EnvironmentVariables = {
+        M87_DAEMON = "1";
+        M87_STATE_DIR = "${config.home.homeDirectory}/.m87";
+        M87_SKIP_SHELLENV = "1";
+        PATH = "${lib.makeBinPath [ pkgs.gh pkgs.git pkgs.acpx ]}:${config.home.homeDirectory}/.local/bin:${config.home.homeDirectory}/.opencode/bin:/usr/bin:/bin:/usr/sbin:/sbin";
+      };
+      RunAtLoad = true;
+      KeepAlive = true;
+      StandardOutPath = "${config.home.homeDirectory}/.m87/daemon.log";
+      StandardErrorPath = "${config.home.homeDirectory}/.m87/daemon.log";
+    };
+  };
+
+  # Retain the npm worker's files until exclusive takeover and sync succeed.
+  # Installing the exact generated plist lets setupLaunchAgents skip this job.
+  home.activation.m87DaemonHandoff = lib.mkIf pkgs.stdenv.isDarwin (
+    lib.hm.dag.entryBetween [ "setupLaunchAgents" ] [ "writeBoundary" "m87GithubDiscovery" ] ''
+      ${lib.getExe pkgs.python311} ${./scripts/m87-remove-npm-daemon.py} \
+        ${pkgs.m87} "$newGenPath/LaunchAgents/org.nix-community.home.m87.plist"
+    ''
+  );
+
   # M87 stores plugin configuration with its existing queue in ~/.m87. Use its
   # native non-interactive initializer only for a fresh state, without starting
   # a daemon mid-activation. Then apply the full replacement config so existing
   # owned sources survive alongside authored work and the explicit org allowlist.
-  home.activation.m87GithubDiscovery = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+  home.activation.m87GithubDiscovery = lib.hm.dag.entryBetween [ "setupLaunchAgents" ] [ "writeBoundary" ] ''
     state_dir="''${M87_STATE_DIR:-$HOME/.m87}"
     if [[ ! -f "$state_dir/m87.sqlite" ]]; then
       $DRY_RUN_CMD ${lib.getExe pkgs.m87} init --yes --plugin github \
