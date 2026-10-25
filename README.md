@@ -313,9 +313,10 @@ python3 scripts/agent-tooling-reconcile.py --manifest agent-tooling.json --dry-r
 
 The manifest holds no secrets. A declared field replaces the live value;
 existing fields omitted from the declaration, including `headers` and `env`,
-survive. A server that lists `requiredHeaders` (uidotsh) is never created without them: when it is absent or
-lacks its header, the run restores it from the newest backup snapshot that still holds the header (for
-example after `~/.claude.json` is lost). Without one, the run warns, and you add it once through ui.sh's own setup.
+survive. A server that lists `requiredHeaders` (uidotsh) is created without credentials when absent, for
+example after `~/.claude.json` is lost. While it lacks its header, each run warns that it needs
+re-authentication and prints the `claude mcp add` command that adds the header. Tokens are never copied back
+from backup snapshots, so a token you remove stays removed.
 Never put the token in this repository.
 
 To add a tool, declare it in `agent-tooling.json` and run `just rebuild`. To

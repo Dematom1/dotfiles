@@ -564,7 +564,7 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
     fresh_home.mkdir(parents=True)
     result = reconcile(fresh_home, bin_dir, state, root / "fresh/calls.log", manifest_file=variant_path,
                        *["--justfile", str(repo / "justfile")])
-    check(set(json.loads((fresh_home / ".claude.json").read_text())["mcpServers"]) == {"fff", "superlogical"},
+    check(set(json.loads((fresh_home / ".claude.json").read_text())["mcpServers"]) == {"fff", "superlogical", "uidotsh"},
           "fresh Claude MCP configuration missing")
     check(json.loads((fresh_home / ".pi/agent/settings.json").read_text())["packages"] == manifest["pi"]["packages"],
           "fresh Pi packages missing")
@@ -573,24 +573,25 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
     check(set(tomllib.loads((fresh_home / ".codex/config.toml").read_text())["mcp_servers"]) == {"docs", "local"},
           "fresh Codex MCP configuration missing")
 
-    # A wiped ~/.claude.json gets uidotsh back from the newest backup holding its auth.
+    # A wiped ~/.claude.json gets uidotsh back without credentials, never the token from a backup.
     wiped_home = root / "wiped/home"
-    wiped_backups = wiped_home / ".local/state/dotfiles/agent-tooling-backups"
-    uidotsh = {"type": "http", "url": "https://ui.sh/mcp?agent=claude",
-               "headers": {"Authorization": "Bearer FIXTURE-SECRET"}}
-    write_json(wiped_backups / "20260101T000000Z/.claude.json",
-               {"mcpServers": {"uidotsh": {**uidotsh, "headers": {"Authorization": "Bearer OLD"}}}})
-    write_json(wiped_backups / "20260102T000000Z/.claude.json", {"mcpServers": {"uidotsh": uidotsh}})
-    write_json(wiped_backups / "20260103T000000Z/.claude.json", {"mcpServers": {}})
+    write_json(wiped_home / ".local/state/dotfiles/agent-tooling-backups/20260101T000000Z/.claude.json",
+               {"mcpServers": {"uidotsh": {"type": "http", "url": "https://ui.sh/mcp?agent=claude",
+                                           "headers": {"Authorization": "Bearer FIXTURE-SECRET"}}}})
     write_json(wiped_home / ".claude.json", {"mcpServers": {"fff": {"type": "stdio", "command": "fff-mcp"}}})
+    reauth = ("uidotsh needs re-authentication (lacks Authorization); run `claude mcp remove -s user uidotsh && "
+              "claude mcp add -s user -t http uidotsh 'https://ui.sh/mcp?agent=claude' -H 'Authorization: Bearer <token>'`")
     result = reconcile(wiped_home, root / "no-bin", state, root / "wiped/calls.log")
-    restored = json.loads((wiped_home / ".claude.json").read_text())["mcpServers"]
-    check(restored.get("uidotsh") == uidotsh, f"uidotsh was not restored from its backup: {restored}")
+    wiped_text = (wiped_home / ".claude.json").read_text()
+    restored = json.loads(wiped_text)["mcpServers"]
+    check(restored.get("uidotsh") == {"type": "http", "url": "https://ui.sh/mcp?agent=claude"},
+          f"uidotsh was not recreated without credentials: {restored}")
     check(set(restored) == {"fff", "superlogical", "uidotsh"}, f"wiped Claude MCP servers: {restored}")
-    check("uidotsh is declared but absent" not in result.stderr, result.stderr)
-    restored_text = (wiped_home / ".claude.json").read_text()
-    reconcile(wiped_home, root / "no-bin", state, root / "wiped/calls.log")
-    check((wiped_home / ".claude.json").read_text() == restored_text, "uidotsh restore is not idempotent")
+    check("FIXTURE-SECRET" not in wiped_text, "a backed-up token was copied into ~/.claude.json")
+    check(result.stderr.count(reauth) == 1, f"missing re-authentication notice: {result.stderr}")
+    result = reconcile(wiped_home, root / "no-bin", state, root / "wiped/calls.log")
+    check((wiped_home / ".claude.json").read_text() == wiped_text, "uidotsh recreation is not idempotent")
+    check(result.stderr.count(reauth) == 1, f"re-authentication notice not repeated: {result.stderr}")
 
     integrations = root / "integrations"
     integration_home = integrations / "home"

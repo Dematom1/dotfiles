@@ -36,11 +36,6 @@ INSTALL_TIMEOUT = 600
 warnings: list[str] = []
 
 
-def backup_base() -> Path:
-    state = Path(os.environ.get("XDG_STATE_HOME") or HOME / ".local/state")
-    return state / "dotfiles/agent-tooling-backups"
-
-
 def warn(message: str) -> None:
     warnings.append(message)
     print(f"agent-tooling: WARNING: {message}", file=sys.stderr)
@@ -94,7 +89,8 @@ class Run:
 
     def backup_dir(self) -> Path:
         if self.backup_root is None:
-            base = backup_base()
+            state = Path(os.environ.get("XDG_STATE_HOME") or HOME / ".local/state")
+            base = state / "dotfiles/agent-tooling-backups"
             stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
             candidate, n = base / stamp, 1
             while candidate.exists():
@@ -225,54 +221,23 @@ def expand(value):
 
 
 def desired_servers(current: dict, declared: dict, where: str) -> dict:
-    """Declared fields win; fields the manifest leaves out (headers, env) survive."""
-    result = {}
-    for name, spec in current.items():
-        if name not in declared:
-            continue
-        merged = {**spec, **{k: expand(v) for k, v in declared[name].items() if k != "requiredHeaders"}}
-        missing = [h for h in declared[name].get("requiredHeaders", []) if h not in merged.get("headers", {})]
-        if missing:
-            warn(f"{where} MCP server {name} lacks {', '.join(missing)}; re-run its auth setup")
-        result[name] = merged
-    for name, spec in declared.items():
-        if name in result:
-            continue
-        if spec.get("requiredHeaders"):
-            warn(f"{where} MCP server {name} is declared but absent; add it with its own auth flow "
-                 f"(see README 'Declarative agent tooling')")
-            continue
-        result[name] = {k: expand(v) for k, v in spec.items()}
-    return result
+    """Declared fields win; fields the manifest leaves out (headers, env) survive.
 
-
-def restored_auth(current: dict, declared: dict) -> dict:
-    """Restore each declared server lacking its required headers from the newest backup that has them.
-
-    The manifest never holds secrets, so when ~/.claude.json is lost (a Homebrew
-    zap once trashed it) the reconcile's own earlier snapshots are the only local copy.
+    A server with requiredHeaders is created without credentials; secrets only come from its own auth flow.
     """
-    needed = {name: spec["requiredHeaders"] for name, spec in declared.items()
-              if spec.get("requiredHeaders")
-              and not all(h in (current.get(name) or {}).get("headers", {}) for h in spec["requiredHeaders"])}
-    restored = {}
-    # Snapshot directories are UTC timestamps, so name order is age order.
-    for backup in sorted(backup_base().glob("*/.claude.json"), reverse=True):
-        if not needed:
-            break
-        try:
-            servers = json.loads(backup.read_text(encoding="utf-8")).get("mcpServers") or {}
-        except (OSError, ValueError, AttributeError):
-            continue
-        for name, required in list(needed.items()):
-            spec = servers.get(name)
-            headers = spec.get("headers") if isinstance(spec, dict) else None
-            if isinstance(headers, dict) and all(h in headers for h in required):
-                live = current.get(name) or {}
-                restored[name] = {**spec, **live, "headers": {**headers, **live.get("headers", {})}}
-                note(f"restored Claude MCP server {name} auth from {backup}")
-                del needed[name]
-    return restored
+    result = {}
+    for name, spec in declared.items():
+        fields = {k: expand(v) for k, v in spec.items() if k != "requiredHeaders"}
+        merged = {**current[name], **fields} if name in current else fields
+        missing = [h for h in spec.get("requiredHeaders", []) if h not in merged.get("headers", {})]
+        if missing:
+            headers = " ".join(f"-H '{h}: Bearer <token>'" for h in missing)
+            fix = (f"run `claude mcp remove -s user {name} && claude mcp add -s user -t {merged.get('type', 'http')} "
+                   f"{name} '{merged['url']}' {headers}`"
+                   if where == "Claude" and "url" in merged else "re-run its auth setup")
+            warn(f"{where} MCP server {name} needs re-authentication (lacks {', '.join(missing)}); {fix}")
+        result[name] = merged
+    return result
 
 
 def reconcile_claude_json(run: Run, manifest: dict) -> None:
@@ -284,8 +249,7 @@ def reconcile_claude_json(run: Run, manifest: dict) -> None:
     claude = manifest["claude"]
     changes = []
     current = data.get("mcpServers") or {}
-    known = {**current, **restored_auth(current, claude["mcpServers"])}
-    desired = desired_servers(known, claude["mcpServers"], "Claude")
+    desired = desired_servers(current, claude["mcpServers"], "Claude")
     if desired != current:
         removed = sorted(set(current) - set(desired))
         added = sorted(set(desired) - set(current))
