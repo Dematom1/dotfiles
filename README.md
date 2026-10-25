@@ -558,9 +558,11 @@ The flake builds a headless Linux AI sandbox server that `captain` SSHes into.
 It is provider-agnostic: no cloud-vendor assumptions, so it applies to any
 provisioned x86_64-linux box (bare metal, a droplet, an EC2/GCE instance, a
 local VM). The `nixpkgs` pin carries the full Linux/NixOS package set, so it
-alone drives both the Darwin hosts and this sandbox. A second, narrowly scoped
-`nixpkgs-unstable` input exists only so an overlay can pull a fresher
-`terraform` (see `flake.nix`); it isn't a general-purpose second package set.
+alone drives both the Darwin hosts and this sandbox. Two narrowly scoped
+inputs sit beside it: `nixpkgs-unstable` exists only so an overlay can pull a
+fresher `terraform` (see `flake.nix`), and `nixpkgs-signoff` builds only the
+Mac signer ([Local signoff](#local-signoff)). Neither is a general-purpose
+second package set.
 
 Several Linux outputs, so it works on NixOS and on any other distro:
 
