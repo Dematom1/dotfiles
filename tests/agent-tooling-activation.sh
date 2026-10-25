@@ -17,7 +17,8 @@ printf '#!/bin/sh\nexit 1\n' > "$activation_home/.local/bin/claude"
 chmod +x "$activation_home/.local/bin/claude"
 printf '%s\n' '{"packages":["npm:pi-autoresearch"]}' > "$activation_home/.pi/agent/settings.json"
 before=$(cat "$activation_home/.pi/agent/settings.json")
-plan=$(env -i HOME="$activation_home" PATH=/usr/bin:/bin DRY_RUN=1 \
+# Activation inherits only a few Nix store tools, never /usr/bin.
+plan=$(env -i HOME="$activation_home" PATH= DRY_RUN=1 \
   "$bash_bin" -euo pipefail -c "$agent_tooling" 2>&1)
 [[ "$plan" == *"packages -['npm:pi-autoresearch']"* ]] || fail "activation missed Pi removal: $plan"
 [[ "$plan" == *"review-common-axi is not installed"* ]] \

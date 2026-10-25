@@ -165,9 +165,12 @@ in
     ".local/bin/tailscale".source = tailscaleAppCli;
   };
 
+  # Activation's PATH holds only a few Nix store tools, so name curl and the
+  # installer's other tools explicitly; macOS's own dirs supply shasum and sysctl.
   home.activation.claudeNativeInstall = lib.mkIf pkgs.stdenv.isDarwin (
     lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      DRY_RUN="''${DRY_RUN+1}" ${pkgs.bash}/bin/bash ${./scripts/install-claude-native.sh}
+      PATH="${lib.makeBinPath [ pkgs.curl pkgs.coreutils pkgs.gnused ]}:/usr/bin:/bin:/usr/sbin:/sbin" \
+        DRY_RUN="''${DRY_RUN+1}" ${pkgs.bash}/bin/bash ${./scripts/install-claude-native.sh}
     ''
   );
 
@@ -178,7 +181,7 @@ in
   home.activation.agentTooling = lib.hm.dag.entryAfter [ "linkGeneration" "claudeNativeInstall" ] ''
     dry_run=()
     if [[ -v DRY_RUN ]]; then dry_run=(--dry-run); fi
-    PATH="${lib.makeBinPath [ pkgs.nodejs_24 pkgs.git pkgs.just pkgs.bash pkgs.gnugrep ]}:$HOME/.local/bin:${lib.concatMapStrings (path: "${path}:") homebrewPath}$PATH" \
+    PATH="${lib.makeBinPath [ pkgs.nodejs_24 pkgs.git pkgs.just pkgs.bash pkgs.coreutils pkgs.gnugrep ]}:$HOME/.local/bin:${lib.concatMapStrings (path: "${path}:") homebrewPath}$PATH" \
       ${lib.getExe pkgs.python311} ${./scripts/agent-tooling-reconcile.py} \
       --manifest ${./agent-tooling.json} --justfile "$HOME/Code/dotfiles/justfile" \
       --profile ${lib.escapeShellArg profile} "''${dry_run[@]}"

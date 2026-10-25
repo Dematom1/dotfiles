@@ -85,8 +85,10 @@ command resolution. Non-Darwin profiles continue to use the nixpkgs package.
 
 `nix-homebrew` is imported, but intentionally not enabled. nix-darwin manages
 the existing Homebrew installation through its Homebrew activation. Activation
-uses cleanup mode `zap`, so applications or formulae not declared in the shared
-or selected host configuration can be removed.
+uses cleanup mode `uninstall`, so applications or formulae not declared in the
+shared or selected host configuration are removed. It never uses `zap`: a cask's
+zap stanza trashes paths it may share with other installs, as the claude-code
+cask did with native Claude Code's `~/.local/bin/claude` and `~/.claude.json`.
 
 On macOS, `home.nix` adds `/opt/homebrew/bin` to the Home Manager session path
 and to interactive and non-interactive zsh shells, including terminals launched
@@ -163,8 +165,9 @@ installed hook-enabled tool and removes any hook a no-hook tool left behind
 (see [Declarative agent tooling](#declarative-agent-tooling)). Claude Code has
 one install, the native self-updating one in `~/.local/bin`; it is deliberately
 not a Homebrew cask.
-On macOS, attended `just rebuild` activation installs it when missing, skips
-installation during dry runs, and fails clearly if installation fails.
+On macOS, attended `just rebuild` activation installs it when missing or not
+working, and skips installation during dry runs. A failed installation only
+warns with the manual install command, so the rebuild still completes.
 `just setup-firstmate` uses the same installer.
 
 Home Manager uses `mkOutOfStoreSymlink`, so edits to linked files apply without
@@ -311,7 +314,8 @@ python3 scripts/agent-tooling-reconcile.py --manifest agent-tooling.json --dry-r
 The manifest holds no secrets. A declared field replaces the live value;
 existing fields omitted from the declaration, including `headers` and `env`,
 survive. A server that lists `requiredHeaders` (uidotsh) is never created without them: when it is absent or
-lacks its header, the run warns, and you add it once through ui.sh's own setup.
+lacks its header, the run restores it from the newest backup snapshot that still holds the header (for
+example after `~/.claude.json` is lost). Without one, the run warns, and you add it once through ui.sh's own setup.
 Never put the token in this repository.
 
 To add a tool, declare it in `agent-tooling.json` and run `just rebuild`. To

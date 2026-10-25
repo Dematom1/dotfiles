@@ -573,6 +573,25 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
     check(set(tomllib.loads((fresh_home / ".codex/config.toml").read_text())["mcp_servers"]) == {"docs", "local"},
           "fresh Codex MCP configuration missing")
 
+    # A wiped ~/.claude.json gets uidotsh back from the newest backup holding its auth.
+    wiped_home = root / "wiped/home"
+    wiped_backups = wiped_home / ".local/state/dotfiles/agent-tooling-backups"
+    uidotsh = {"type": "http", "url": "https://ui.sh/mcp?agent=claude",
+               "headers": {"Authorization": "Bearer FIXTURE-SECRET"}}
+    write_json(wiped_backups / "20260101T000000Z/.claude.json",
+               {"mcpServers": {"uidotsh": {**uidotsh, "headers": {"Authorization": "Bearer OLD"}}}})
+    write_json(wiped_backups / "20260102T000000Z/.claude.json", {"mcpServers": {"uidotsh": uidotsh}})
+    write_json(wiped_backups / "20260103T000000Z/.claude.json", {"mcpServers": {}})
+    write_json(wiped_home / ".claude.json", {"mcpServers": {"fff": {"type": "stdio", "command": "fff-mcp"}}})
+    result = reconcile(wiped_home, root / "no-bin", state, root / "wiped/calls.log")
+    restored = json.loads((wiped_home / ".claude.json").read_text())["mcpServers"]
+    check(restored.get("uidotsh") == uidotsh, f"uidotsh was not restored from its backup: {restored}")
+    check(set(restored) == {"fff", "superlogical", "uidotsh"}, f"wiped Claude MCP servers: {restored}")
+    check("uidotsh is declared but absent" not in result.stderr, result.stderr)
+    restored_text = (wiped_home / ".claude.json").read_text()
+    reconcile(wiped_home, root / "no-bin", state, root / "wiped/calls.log")
+    check((wiped_home / ".claude.json").read_text() == restored_text, "uidotsh restore is not idempotent")
+
     integrations = root / "integrations"
     integration_home = integrations / "home"
     integration_home.mkdir(parents=True)

@@ -36,6 +36,11 @@ INSTALL_TIMEOUT = 600
 warnings: list[str] = []
 
 
+def backup_base() -> Path:
+    state = Path(os.environ.get("XDG_STATE_HOME") or HOME / ".local/state")
+    return state / "dotfiles/agent-tooling-backups"
+
+
 def warn(message: str) -> None:
     warnings.append(message)
     print(f"agent-tooling: WARNING: {message}", file=sys.stderr)
@@ -89,8 +94,7 @@ class Run:
 
     def backup_dir(self) -> Path:
         if self.backup_root is None:
-            state = Path(os.environ.get("XDG_STATE_HOME") or HOME / ".local/state")
-            base = state / "dotfiles/agent-tooling-backups"
+            base = backup_base()
             stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
             candidate, n = base / stamp, 1
             while candidate.exists():
@@ -242,6 +246,35 @@ def desired_servers(current: dict, declared: dict, where: str) -> dict:
     return result
 
 
+def restored_auth(current: dict, declared: dict) -> dict:
+    """Restore each declared server lacking its required headers from the newest backup that has them.
+
+    The manifest never holds secrets, so when ~/.claude.json is lost (a Homebrew
+    zap once trashed it) the reconcile's own earlier snapshots are the only local copy.
+    """
+    needed = {name: spec["requiredHeaders"] for name, spec in declared.items()
+              if spec.get("requiredHeaders")
+              and not all(h in (current.get(name) or {}).get("headers", {}) for h in spec["requiredHeaders"])}
+    restored = {}
+    # Snapshot directories are UTC timestamps, so name order is age order.
+    for backup in sorted(backup_base().glob("*/.claude.json"), reverse=True):
+        if not needed:
+            break
+        try:
+            servers = json.loads(backup.read_text(encoding="utf-8")).get("mcpServers") or {}
+        except (OSError, ValueError, AttributeError):
+            continue
+        for name, required in list(needed.items()):
+            spec = servers.get(name)
+            headers = spec.get("headers") if isinstance(spec, dict) else None
+            if isinstance(headers, dict) and all(h in headers for h in required):
+                live = current.get(name) or {}
+                restored[name] = {**spec, **live, "headers": {**headers, **live.get("headers", {})}}
+                note(f"restored Claude MCP server {name} auth from {backup}")
+                del needed[name]
+    return restored
+
+
 def reconcile_claude_json(run: Run, manifest: dict) -> None:
     path = HOME / ".claude.json"
     loaded = load_json(path, create=True)
@@ -251,7 +284,8 @@ def reconcile_claude_json(run: Run, manifest: dict) -> None:
     claude = manifest["claude"]
     changes = []
     current = data.get("mcpServers") or {}
-    desired = desired_servers(current, claude["mcpServers"], "Claude")
+    known = {**current, **restored_auth(current, claude["mcpServers"])}
+    desired = desired_servers(known, claude["mcpServers"], "Claude")
     if desired != current:
         removed = sorted(set(current) - set(desired))
         added = sorted(set(desired) - set(current))

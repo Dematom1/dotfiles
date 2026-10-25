@@ -13,7 +13,7 @@
       "databricks"
     ];
     # databricks ships from the databricks/tap tap, not homebrew-core;
-    # declaring it here keeps it tapped across zap rebuilds.
+    # declaring it here keeps it tapped across cleanup rebuilds.
     taps = [
       "databricks/tap"
     ];
