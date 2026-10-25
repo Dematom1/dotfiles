@@ -13,4 +13,9 @@
       # personal-only apps, e.g. "spotify"
     ];
   };
+
+  # The App key lives in this Mac's login Keychain. The watcher stays off until
+  # the captain adds the binary to the key's access list (README.md "Local
+  # signoff").
+  services.signoff.enable = true;
 }

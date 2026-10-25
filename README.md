@@ -139,7 +139,8 @@ existing non-symlink at that path.
 2. **`configuration.nix`** owns macOS system defaults, the selected macOS user,
    shared Homebrew packages, and shared system configuration. Darwin only.
 3. **`hosts/personal.nix` and `hosts/work.nix`** append machine-specific
-   Homebrew packages. **`hosts/sandbox.nix`** is the standalone NixOS module for
+   Homebrew packages; `hosts/personal.nix` also enables
+   [Local signoff](#local-signoff). **`hosts/sandbox.nix`** is the standalone NixOS module for
    the Linux sandbox (SSH, `captain`, Docker + gVisor, firewall). Profile-specific
    Nix packages are selected in `home.nix`.
 4. **`home.nix`** owns user packages, zsh structure and aliases, and selected
@@ -452,15 +453,116 @@ just report-pi-signed-drift
 ./tests/pi-signed.sh
 ```
 
+### Local signoff
+
+The personal Mac installs `signoff`, the signer that posts the App-signed
+`local-signoff` check run. It runs a repository's trusted `just signoff` recipe
+on a fresh checkout of a pull request head; see
+[packages/signoff-src/README.md](packages/signoff-src/README.md) for what it
+does and its trust model. [modules/signoff.nix](modules/signoff.nix) installs
+it at `/run/current-system/sw/bin/signoff` and declares the `signoff watch`
+launchd agent.
+
+- **Source:** `dematom-labs/workflows` is private, so CI and the root-run
+  `darwin-rebuild` cannot fetch it as a flake input. `packages/signoff-src` is
+  its `signoff/` directory at the `rev` pinned in
+  [packages/signoff.nix](packages/signoff.nix). To move to another commit, run
+  `scripts/vendor-signoff.sh <sha>`, then `nix build .#signoff`, which runs the
+  signer's tests.
+- **Build:** the signer is built from its own `nixpkgs-signoff` input, pinned
+  to one nixpkgs commit in [flake.nix](flake.nix). `nix flake update`,
+  Renovate, and `scripts/flake-update.sh` never move it, so routine nixpkgs
+  bumps leave the binary, and its Keychain access list entry, unchanged.
+- **Trusted PATH:** the signer's default, `/run/current-system/sw/bin`, then
+  `/etc/profiles/per-user/<user>/bin`, then `/usr/bin:/bin`. These are the only
+  places `git`, `just`, and a recipe can resolve tools. `home.packages`
+  supplies `git`, `just`, `bun`, `node`, `uv`, `python3`, and `go`;
+  [modules/signoff.nix](modules/signoff.nix) adds `ast-grep`, `ruby`, and
+  `bash` to the system profile. Add a package to one of them when a
+  repository's recipe needs another tool. Tool updates do not rebuild the
+  signer.
+- **Watcher:** `services.signoff.watch.enable` is off by default. When on, a
+  user agent runs one `signoff watch` pass every 120 seconds with App ID
+  `5460531`, installation `174959222`, and key fingerprint
+  `SHA256:tlF5N8zgxWi5AR2FZdYPcRdbm8C1Dk4LkwsMp77A4Uk=`. A pass exits when done,
+  so launchd schedules passes instead of keeping a process alive, and never
+  runs two at once. Output goes to `~/.local/state/signoff/watch.log`, and each
+  signed head's full log to `~/.local/state/signoff/<owner>/<repo>/<sha>.log`.
+- **Keychain errors:** when a pass fails with any `keychain
+  .../login.keychain-db:` error, such as an access list denial or no key
+  matching the fingerprint, the watcher writes the binary path and watcher
+  settings to `~/.local/state/signoff/keychain-denied`, logs one line that
+  quotes the error, and skips later passes. A rebuild that changes the binary
+  or a watcher setting (for example a corrected `keyFingerprint`) removes the
+  marker and runs normally. After fixing the cause without a rebuild, such as
+  adding the binary to the access list (below), clear it with
+  `rm ~/.local/state/signoff/keychain-denied`.
+
+Before turning the watcher on, add the installed binary to the App key's access
+list. Until then, every signature raises a Keychain prompt.
+
+1. After `just rebuild personal`, print the binary's store path and copy it:
+
+   ```bash
+   readlink -f /run/current-system/sw/bin/signoff
+   ```
+
+2. Open Keychain Access:
+
+   ```bash
+   open "/System/Library/CoreServices/Applications/Keychain Access.app"
+   ```
+
+3. Select the **login** keychain and the **Keys** category. Double-click the
+   private key imported for the `dematom-local-signoff` App (kind
+   **private key**, RSA 2048-bit). Its name depends on how it was imported.
+4. On the **Access Control** tab, select **Confirm before allowing access**.
+   Under **Always allow access by these applications**, click **+**, press
+   **Cmd-Shift-G**, paste the store path from step 1, press **Return**, and
+   click **Add**. Select every other entry in the list and click **-**.
+5. Click **Save Changes** and enter the login password.
+
+Each signoff build has a new store path and code signature, so repeat these
+steps whenever that path changes: after `scripts/vendor-signoff.sh` or a bump
+of `nixpkgs-signoff`. To bump `nixpkgs-signoff`:
+
+1. Set the commit in its `url` in [flake.nix](flake.nix), then run
+   `nix flake update nixpkgs-signoff`.
+2. Run `nix build .#signoff`, which runs the signer's tests.
+3. Run `just rebuild personal`.
+4. Repeat the access list steps above with the new store path, and remove the
+   old entry.
+5. If the watcher paused on the new binary, run
+   `rm ~/.local/state/signoff/keychain-denied`.
+
+To turn the watcher on, set `services.signoff.watch.enable = true;` in
+[hosts/personal.nix](hosts/personal.nix) and run `just rebuild personal`. Then
+check that it is loaded and signing:
+
+```bash
+launchctl print "gui/$(id -u)/org.nixos.signoff-watch"
+tail -f ~/.local/state/signoff/watch.log
+```
+
+`nix flake check` runs the `signoff-install` check. It verifies that only the
+personal Mac installs the signer, that changing the main nixpkgs Go toolchain
+or any tool leaves the signer's derivation unchanged, that every versioned tool
+and `bash` is in the personal system or per-user profile, that the watcher
+ships off with the settings above, that the binary refuses a repository outside `dematom-labs`,
+and that a stubbed Keychain error pauses the watcher until the marker is
+removed or the binary or watcher settings change.
+
 ## Linux sandbox server
 
 The flake builds a headless Linux AI sandbox server that `captain` SSHes into.
 It is provider-agnostic: no cloud-vendor assumptions, so it applies to any
 provisioned x86_64-linux box (bare metal, a droplet, an EC2/GCE instance, a
 local VM). The `nixpkgs` pin carries the full Linux/NixOS package set, so it
-alone drives both the Darwin hosts and this sandbox. A second, narrowly scoped
-`nixpkgs-unstable` input exists only so an overlay can pull a fresher
-`terraform` (see `flake.nix`); it isn't a general-purpose second package set.
+alone drives both the Darwin hosts and this sandbox. Two narrowly scoped
+inputs sit beside it: `nixpkgs-unstable` exists only so an overlay can pull a
+fresher `terraform` (see `flake.nix`), and `nixpkgs-signoff` builds only the
+Mac signer ([Local signoff](#local-signoff)). Neither is a general-purpose
+second package set.
 
 Several Linux outputs, so it works on NixOS and on any other distro:
 
@@ -779,6 +881,7 @@ dotfiles/
 ├── configuration.nix    # shared nix-darwin system and Homebrew configuration
 ├── home.nix             # Home Manager packages, links, zsh (macOS-gated where needed)
 ├── hosts/               # personal.nix, work.nix (Mac deltas), sandbox.nix (Linux NixOS)
+├── modules/             # opt-in nix-darwin modules (signoff)
 ├── packages/            # custom Nix package definitions
 ├── rebuild.sh           # validated profile selection and darwin-rebuild
 ├── justfile             # bootstrap, update, skills, and checks

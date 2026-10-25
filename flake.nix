@@ -46,9 +46,16 @@
     # .github/workflows/flake-update.yml does daily. It deliberately does not
     # follow nixpkgs: upstream builds and tests only against its own pin.
     treehouse.url = "github:kunchenguid/treehouse/v3.1.5";
+
+    # Builds only the signoff signer. Its Keychain access list names one exact
+    # build, so the signer must not change when nixpkgs does. The URL pins a
+    # commit, so `nix flake update` and Renovate lock file maintenance cannot
+    # move it, and scripts/flake-update.sh never lists it. Bump it by hand (see
+    # README.md "Local signoff").
+    nixpkgs-signoff.url = "github:NixOS/nixpkgs/fc51889f81924f15fba77a3c0b79cfb3f78fe0d4";
   };
 
-  outputs = inputs@{ self, nix-darwin, nix-homebrew, home-manager, nixpkgs, nixpkgs-unstable, kubernetes-axi, docker-axi, treehouse }:
+  outputs = inputs@{ self, nix-darwin, nix-homebrew, home-manager, nixpkgs, nixpkgs-unstable, nixpkgs-signoff, kubernetes-axi, docker-axi, treehouse }:
   let
     supportedSystems = [
       "aarch64-darwin"
@@ -79,6 +86,7 @@
             extensionPath = "libexec/pi-fff/node_modules/@ff-labs/pi-fff/src";
           };
         });
+        signoff = (import nixpkgs-signoff { system = final.stdenv.hostPlatform.system; }).callPackage ./packages/signoff.nix { };
       };
 
     # Swaps in terraform from nixpkgs-unstable, currently pinning it to
@@ -124,6 +132,7 @@
       modules = [
         { nixpkgs.overlays = sharedOverlays; }
         ./configuration.nix
+        ./modules/signoff.nix
         hostModule
         nix-homebrew.darwinModules.nix-homebrew
         home-manager.darwinModules.home-manager
@@ -177,6 +186,8 @@
       in nixpkgs.lib.genAttrs npmTools (name: pkgs.${name}) // {
         inherit (pkgs) kubernetes-axi docker-axi treehouse;
         default = pkgs.kubernetes-axi;
+      } // nixpkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
+        inherit (pkgs) signoff;
       });
 
     # The package build runs upstream's unit suite. This additional bounded
@@ -209,6 +220,97 @@
           test -f ${pkgs.pi-fff}/${pkgs.pi-fff.extensionPath}/index.ts
           mkdir "$out"
         '';
+      } // nixpkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
+        # Only the personal Mac gets the signer, its watcher ships off, the
+        # binary comes from nixpkgs-signoff and resolves tools only from the
+        # profiles, and the watcher pauses after a Keychain denial.
+        signoff-install =
+          let
+            inherit (nixpkgs) lib;
+            personal = self.darwinConfigurations.personal.config;
+            user = personal.system.primaryUser;
+            extend = modules: self.darwinConfigurations.personal.extendModules { inherit modules; };
+            # Every main-nixpkgs input the signer could pick up, changed as a
+            # nixpkgs bump would change it.
+            bumped = extend [ {
+              nixpkgs.overlays = lib.mkAfter [ (_: prev:
+                lib.genAttrs [ "go" "git" "just" "ruby" "bash" "ast-grep" "bun" "nodejs_24" "uv" "python3" ]
+                  (name: prev.${name}.overrideAttrs { SIGNOFF_BUMP = "1"; })
+                // { buildGoModule = args: (prev.buildGoModule args).overrideAttrs { SIGNOFF_BUMP = "1"; }; }) ];
+            } ];
+            # One watcher per signer binary; each stub stands in for a build.
+            watchWith = signoff: extra: (extend [
+              {
+                services.signoff.watch.enable = true;
+                nixpkgs.overlays = lib.mkAfter [ (_: _: { inherit signoff; }) ];
+              }
+              extra
+            ]).config.launchd.user.agents.signoff-watch;
+            stub = name: pkgs.writeShellScriptBin "signoff" ''
+              echo ${name} >> "$HOME/calls"
+              echo "dematom-labs/x@abc: keychain $HOME/Library/Keychains/login.keychain-db: User canceled the operation."
+            '';
+            first = watchWith (stub "first") { };
+            rebuilt = watchWith (stub "rebuilt") { };
+            refingered = watchWith (stub "rebuilt") { services.signoff.watch.keyFingerprint = "SHA256:other"; };
+            watch = watchWith pkgs.signoff { };
+            profiles = [
+              "${personal.system.path}/bin"
+              "${personal.environment.etc."profiles/per-user/${user}".source}/bin"
+            ];
+          in
+          assert lib.assertMsg personal.services.signoff.enable "personal must install signoff";
+          assert lib.assertMsg (!self.darwinConfigurations.work.config.services.signoff.enable) "work must not install signoff";
+          assert lib.assertMsg (!personal.launchd.user.agents ? signoff-watch) "the watcher must ship disabled";
+          assert lib.assertMsg (bumped.pkgs.signoff.drvPath == self.darwinConfigurations.personal.pkgs.signoff.drvPath)
+            "a main nixpkgs bump must not rebuild signoff";
+          assert watch.serviceConfig.StartInterval == 120;
+          assert lib.hasInfix "--app-id 5460531" watch.script;
+          assert lib.hasInfix "--installation-id 174959222" watch.script;
+          assert lib.hasInfix "SHA256:tlF5N8zgxWi5AR2FZdYPcRdbm8C1Dk4LkwsMp77A4Uk=" watch.script;
+          pkgs.runCommand "signoff-install" {
+            nativeBuildInputs = [ pkgs.gnugrep ];
+          } ''
+            for tool in git just ast-grep bun node uv python3 go ruby bash; do
+              found=
+              for dir in ${lib.escapeShellArgs profiles}; do
+                [ -x "$dir/$tool" ] && found=1
+              done
+              [ -n "$found" ] || { echo "$tool is not on the trusted PATH" >&2; exit 1; }
+            done
+
+            # A non-fleet repo is refused before any network call or key use.
+            if GH_TOKEN=unused ${lib.getExe pkgs.signoff} run octocat/Hello-World \
+              7fd1a60b01f91b314f59955a4e4d4e80d8edf11d 2> err; then
+              exit 1
+            fi
+            grep -q 'refused: octocat/Hello-World is not a fleet repo' err
+
+            # A Keychain error pauses passes until the marker is removed or the
+            # binary or watcher settings change.
+            export HOME=$PWD/home
+            log=$HOME/.local/state/signoff/watch.log
+            marker=$HOME/.local/state/signoff/keychain-denied
+            calls() { tr '\n' ' ' < "$HOME/calls"; }
+            ${first.command}
+            test -e "$marker"
+            grep -qF "is removed: dematom-labs/x@abc: keychain $HOME/Library/Keychains/login.keychain-db: User canceled the operation." "$log"
+            lines=$(wc -l < "$log")
+            ${first.command}
+            test "$(calls)" = 'first '
+            test "$(wc -l < "$log")" = "$lines"
+            rm "$marker"
+            ${first.command}
+            test "$(calls)" = 'first first '
+            ${rebuilt.command}
+            test "$(calls)" = 'first first rebuilt '
+            ${rebuilt.command}
+            test "$(calls)" = 'first first rebuilt '
+            ${refingered.command}
+            test "$(calls)" = 'first first rebuilt rebuilt '
+            test -e "$marker"
+            mkdir "$out"
+          '';
       });
 
     darwinConfigurations = {

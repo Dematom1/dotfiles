@@ -17,6 +17,12 @@
   },
   "packageRules": [
     {
+      "description": "nixpkgs-signoff pins the signoff signer's build; a bump drops it off the App key's Keychain access list, so it moves only by hand (README.md \"Local signoff\")",
+      "matchManagers": ["nix"],
+      "matchDepNames": ["nixpkgs-signoff"],
+      "enabled": false
+    },
+    {
       "description": "Nix-packaged CLIs (packages/npm/<name>): checked daily and auto-merged by Renovate once all checks pass",
       "matchFileNames": ["packages/npm/**"],
       "schedule": ["before 6am"],
