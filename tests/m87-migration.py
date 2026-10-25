@@ -240,6 +240,30 @@ class HandoffTest(unittest.TestCase):
         self.assertTrue(self.package.exists())
         self.assertEqual(self.rows()["github"], self.paths["github"][1])
 
+    def test_cleanup_retry_defers_to_managed_service_update(self):
+        with patch.object(Path, "unlink", side_effect=OSError("cleanup denied")):
+            self.migrate()
+        original = self.destination.read_bytes()
+        config = plistlib.loads(self.source.read_bytes())
+        config["EnvironmentVariables"] = {"UPDATED": "1"}
+        self.source.write_bytes(plistlib.dumps(config))
+        before_files = {path: path.read_bytes() for path in self.home.rglob("*") if path.is_file()}
+        before_paths = self.rows()
+        self.calls.clear()
+
+        self.migrate()
+
+        self.assertEqual(self.active, {migration.LABEL: 4242})
+        self.assertEqual(self.destination.read_bytes(), original)
+        self.assertEqual(self.rows(), before_paths)
+        self.assertTrue(self.shim.is_symlink())
+        self.assertEqual(
+            {path: path.read_bytes() for path in self.home.rglob("*") if path.is_file()},
+            before_files,
+        )
+        self.assertFalse(any(call[1] in ("bootout", "bootstrap") for call in self.calls))
+        self.assertFalse(any(call[-3:] == ["plugin", "sync", "github"] for call in self.calls))
+
     def test_missing_service_is_not_permission_failure(self):
         with patch.object(migration.subprocess, "run", return_value=
                           subprocess.CompletedProcess([], 1, "", "Operation not permitted")):

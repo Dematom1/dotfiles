@@ -173,7 +173,8 @@ def migrate(home, nix_root, managed_source, launchctl="/bin/launchctl", dry_run=
     destination = home / "Library/LaunchAgents" / f"{LABEL}.plist"
     original = destination.read_bytes() if destination.exists() else None
     if loaded_managed and original != new_bytes:
-        raise RuntimeError("Existing managed M87 service differs; retain npm until a later rebuild")
+        print("WARNING: managed M87 service update pending; deferring npm cleanup", file=sys.stderr)
+        return
 
     paths_changed = False
     installed = False
