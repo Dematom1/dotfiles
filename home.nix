@@ -66,7 +66,7 @@ in
     gh-axi chrome-devtools-axi tasks-axi quota-axi pg-axi docker-axi npm-axi
     pypi-axi homebrew-axi jev-axi bun-axi hetzner-axi linear-axi hey-axi lavish-axi
     # dev / build
-    neovim gh prek cmake lld luarocks protobuf
+    neovim gh prek cmake lld luarocks protobuf shellcheck actionlint
     nodejs_24 bun python311 go uv memray
     # upstream pipx 1.8.0 test suite is broken in this nixpkgs pin; skip its checks
     (pipx.overridePythonAttrs (_: { doCheck = false; }))
