@@ -469,11 +469,18 @@ launchd agent.
   [packages/signoff.nix](packages/signoff.nix). To move to another commit, run
   `scripts/vendor-signoff.sh <sha>`, then `nix build .#signoff`, which runs the
   signer's tests.
-- **Trusted PATH:** the build compiles in a read-only `/nix/store` tool
-  environment (`git`, `just`, `ast-grep`, `bun`, `node`, `uv`, `python3`, `go`,
-  `ruby`, and `bash`) followed by `/usr/bin:/bin`. These are the only tools
-  `git`, `just`, and a recipe can resolve. Add a package to `tools` in
-  `packages/signoff.nix` when a repository's recipe needs another one.
+- **Build:** the signer is built from its own `nixpkgs-signoff` input, pinned
+  to one nixpkgs commit in [flake.nix](flake.nix). `nix flake update`,
+  Renovate, and `scripts/flake-update.sh` never move it, so routine nixpkgs
+  bumps leave the binary, and its Keychain access list entry, unchanged.
+- **Trusted PATH:** the signer's default, `/run/current-system/sw/bin`, then
+  `/etc/profiles/per-user/<user>/bin`, then `/usr/bin:/bin`. These are the only
+  places `git`, `just`, and a recipe can resolve tools. `home.packages`
+  supplies `git`, `just`, `bun`, `node`, `uv`, `python3`, and `go`;
+  [modules/signoff.nix](modules/signoff.nix) adds `ast-grep`, `ruby`, and
+  `bash` to the system profile. Add a package to one of them when a
+  repository's recipe needs another tool. Tool updates do not rebuild the
+  signer.
 - **Watcher:** `services.signoff.watch.enable` is off by default. When on, a
   user agent runs one `signoff watch` pass every 120 seconds with App ID
   `5460531`, installation `174959222`, and key fingerprint
@@ -481,6 +488,12 @@ launchd agent.
   so launchd schedules passes instead of keeping a process alive, and never
   runs two at once. Output goes to `~/.local/state/signoff/watch.log`, and each
   signed head's full log to `~/.local/state/signoff/<owner>/<repo>/<sha>.log`.
+- **Keychain denial:** when a pass fails with a `keychain
+  .../login.keychain-db:` error, the watcher writes the binary's path to
+  `~/.local/state/signoff/keychain-denied`, logs one line, and skips every
+  later pass of that binary. A rebuilt binary removes the marker and runs
+  normally. After adding the binary to the access list (below), clear it with
+  `rm ~/.local/state/signoff/keychain-denied`.
 
 Before turning the watcher on, add the installed binary to the App key's access
 list. Until then, every signature raises a Keychain prompt.
@@ -507,8 +520,17 @@ list. Until then, every signature raises a Keychain prompt.
 5. Click **Save Changes** and enter the login password.
 
 Each signoff build has a new store path and code signature, so repeat these
-steps whenever that path changes: after `scripts/vendor-signoff.sh` or a
-nixpkgs bump that rebuilds it. Remove the old entry at the same time.
+steps whenever that path changes: after `scripts/vendor-signoff.sh` or a bump
+of `nixpkgs-signoff`. To bump `nixpkgs-signoff`:
+
+1. Set the commit in its `url` in [flake.nix](flake.nix), then run
+   `nix flake update nixpkgs-signoff`.
+2. Run `nix build .#signoff`, which runs the signer's tests.
+3. Run `just rebuild personal`.
+4. Repeat the access list steps above with the new store path, and remove the
+   old entry.
+5. If the watcher paused on the new binary, run
+   `rm ~/.local/state/signoff/keychain-denied`.
 
 To turn the watcher on, set `services.signoff.watch.enable = true;` in
 [hosts/personal.nix](hosts/personal.nix) and run `just rebuild personal`. Then
@@ -520,9 +542,12 @@ tail -f ~/.local/state/signoff/watch.log
 ```
 
 `nix flake check` runs the `signoff-install` check. It verifies that only the
-personal Mac installs the signer, that the watcher ships off with the settings
-above, that the binary carries the trusted PATH, and that it refuses a
-repository outside `dematom-labs`.
+personal Mac installs the signer, that it is built from `nixpkgs-signoff`
+without a baked-in tool environment, that every versioned tool and `bash` is in
+the personal system or per-user profile, that the watcher ships off with the
+settings above, that the binary refuses a repository outside `dematom-labs`,
+and that a stubbed Keychain denial pauses the watcher until the marker is
+removed or the binary changes.
 
 ## Linux sandbox server
 

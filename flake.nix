@@ -46,9 +46,16 @@
     # .github/workflows/flake-update.yml does daily. It deliberately does not
     # follow nixpkgs: upstream builds and tests only against its own pin.
     treehouse.url = "github:kunchenguid/treehouse/v3.1.5";
+
+    # Builds only the signoff signer. Its Keychain access list names one exact
+    # build, so the signer must not change when nixpkgs does. The URL pins a
+    # commit, so `nix flake update` and Renovate lock file maintenance cannot
+    # move it, and scripts/flake-update.sh never lists it. Bump it by hand (see
+    # README.md "Local signoff").
+    nixpkgs-signoff.url = "github:NixOS/nixpkgs/fc51889f81924f15fba77a3c0b79cfb3f78fe0d4";
   };
 
-  outputs = inputs@{ self, nix-darwin, nix-homebrew, home-manager, nixpkgs, nixpkgs-unstable, kubernetes-axi, docker-axi, treehouse }:
+  outputs = inputs@{ self, nix-darwin, nix-homebrew, home-manager, nixpkgs, nixpkgs-unstable, nixpkgs-signoff, kubernetes-axi, docker-axi, treehouse }:
   let
     supportedSystems = [
       "aarch64-darwin"
@@ -61,6 +68,8 @@
     # its package.json and package-lock.json current.
     npmTools = builtins.attrNames (nixpkgs.lib.filterAttrs (_: type: type == "directory")
       (builtins.readDir ./packages/npm));
+
+    signoffPkgsFor = system: import nixpkgs-signoff { inherit system; };
 
     # One overlay keeps package identities identical in standalone package
     # builds, nix-darwin, NixOS, and standalone Home Manager configurations.
@@ -79,7 +88,7 @@
             extensionPath = "libexec/pi-fff/node_modules/@ff-labs/pi-fff/src";
           };
         });
-        signoff = final.callPackage ./packages/signoff.nix { };
+        signoff = (signoffPkgsFor final.stdenv.hostPlatform.system).callPackage ./packages/signoff.nix { };
       };
 
     # Swaps in terraform from nixpkgs-unstable, currently pinning it to
@@ -214,19 +223,39 @@
           mkdir "$out"
         '';
       } // nixpkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
-        # Only the personal Mac gets the signer, its watcher ships off, and the
-        # binary resolves tools only from its baked-in trusted PATH.
+        # Only the personal Mac gets the signer, its watcher ships off, the
+        # binary comes from nixpkgs-signoff and resolves tools only from the
+        # profiles, and the watcher pauses after a Keychain denial.
         signoff-install =
           let
             inherit (nixpkgs) lib;
             personal = self.darwinConfigurations.personal.config;
-            watch = (self.darwinConfigurations.personal.extendModules {
-              modules = [ { services.signoff.watch.enable = true; } ];
+            user = personal.system.primaryUser;
+            signoffPkgs = signoffPkgsFor system;
+            # One watcher per signer binary; each stub stands in for a build.
+            watchWith = signoff: (self.darwinConfigurations.personal.extendModules {
+              modules = [ {
+                services.signoff.watch.enable = true;
+                nixpkgs.overlays = lib.mkAfter [ (_: _: { inherit signoff; }) ];
+              } ];
             }).config.launchd.user.agents.signoff-watch;
+            stub = name: pkgs.writeShellScriptBin "signoff" ''
+              echo ${name} >> "$HOME/calls"
+              echo "dematom-labs/x@abc: keychain $HOME/Library/Keychains/login.keychain-db: User canceled the operation."
+            '';
+            first = watchWith (stub "first");
+            rebuilt = watchWith (stub "rebuilt");
+            watch = watchWith pkgs.signoff;
+            profiles = [
+              "${personal.system.path}/bin"
+              "${personal.environment.etc."profiles/per-user/${user}".source}/bin"
+            ];
           in
           assert lib.assertMsg personal.services.signoff.enable "personal must install signoff";
           assert lib.assertMsg (!self.darwinConfigurations.work.config.services.signoff.enable) "work must not install signoff";
           assert lib.assertMsg (!personal.launchd.user.agents ? signoff-watch) "the watcher must ship disabled";
+          assert lib.assertMsg (pkgs.signoff.go == signoffPkgs.go && pkgs.signoff.stdenv == signoffPkgs.stdenv)
+            "signoff must be built from nixpkgs-signoff";
           assert watch.serviceConfig.StartInterval == 120;
           assert lib.hasInfix "--app-id 5460531" watch.script;
           assert lib.hasInfix "--installation-id 174959222" watch.script;
@@ -234,14 +263,42 @@
           pkgs.runCommand "signoff-install" {
             nativeBuildInputs = [ pkgs.gnugrep ];
           } ''
-            grep -qF '${pkgs.signoff.tools}/bin:/usr/bin:/bin' ${lib.getExe pkgs.signoff}
-            test -x ${pkgs.signoff.tools}/bin/just
+            if grep -q 'signoff-tools' ${lib.getExe pkgs.signoff}; then
+              echo "signoff embeds a /nix/store tool environment" >&2
+              exit 1
+            fi
+            for tool in git just ast-grep bun node uv python3 go ruby bash; do
+              found=
+              for dir in ${lib.escapeShellArgs profiles}; do
+                [ -x "$dir/$tool" ] && found=1
+              done
+              [ -n "$found" ] || { echo "$tool is not on the trusted PATH" >&2; exit 1; }
+            done
+
             # A non-fleet repo is refused before any network call or key use.
             if GH_TOKEN=unused ${lib.getExe pkgs.signoff} run octocat/Hello-World \
               7fd1a60b01f91b314f59955a4e4d4e80d8edf11d 2> err; then
               exit 1
             fi
             grep -q 'refused: octocat/Hello-World is not a fleet repo' err
+
+            # A Keychain denial pauses passes of that binary only.
+            export HOME=$PWD/home
+            log=$HOME/.local/state/signoff/watch.log
+            marker=$HOME/.local/state/signoff/keychain-denied
+            ${first.command}
+            test "$(cat "$marker")" = ${lib.getExe (stub "first")}
+            grep -q 'passes are paused' "$log"
+            lines=$(wc -l < "$log")
+            ${first.command}
+            test "$(cat "$HOME/calls")" = first
+            test "$(wc -l < "$log")" = "$lines"
+            rm "$marker"
+            ${first.command}
+            test "$(cat "$HOME/calls")" = "$(printf 'first\nfirst')"
+            ${rebuilt.command}
+            test "$(cat "$HOME/calls")" = "$(printf 'first\nfirst\nrebuilt')"
+            test "$(cat "$marker")" = ${lib.getExe (stub "rebuilt")}
             mkdir "$out"
           '';
       });

@@ -9,6 +9,8 @@ set -euo pipefail
 # Run by .github/workflows/flake-update.yml; needs nix, jq and an authenticated gh.
 
 repo=${1:-.}
+# Only these inputs and the release-tag pins move. Never add nixpkgs-signoff:
+# its rebuilt signer drops off the App key's Keychain access list.
 branch_inputs=(kubernetes-axi docker-axi)
 min_age_seconds=${FLAKE_UPDATE_MIN_AGE_SECONDS:-86400}
 
