@@ -272,6 +272,27 @@ approve any recommendation merely to test discovery. Review/merge actions,
 credentials, and repository action policy are separate operator concerns and
 are not changed by this discovery configuration.
 
+### M87 firstmate notifications
+
+After `just rebuild`, the macOS Home Manager job in
+[modules/m87-notify.nix](modules/m87-notify.nix) polls `m87 list` every five
+minutes. New recommended GitHub PRs produce one batched firstmate note and a
+macOS notification. Empty batches are quiet. The job never calls `m87 approve`.
+
+Firstmate must already be available at
+`/Users/laszlohoranszky/agent-workspace/bin/fm-inbox.sh`; the job sets `FM_HOME`
+to `/Users/laszlohoranszky/agent-workspace`. Messages contain validated PR URLs
+and the fixed label `recommended: review`, not free-form summaries or verdicts.
+PRs in `dematom-labs/infrastructure` instead request review only and state that
+a separate decision is required.
+
+The notifier tracks delivered item IDs in
+`~/.local/state/m87-notify/seen.json`. A changed recommendation for an already
+seen item does not trigger another note. Failed notes retry on a later poll
+with the same request ID if the batch is unchanged. Desktop notification
+failures do not retry a delivered note. Logs are in
+`~/Library/Logs/m87-notify.log` and `~/Library/Logs/m87-notify.error.log`.
+
 ### Declarative agent tooling
 
 [agent-tooling.json](agent-tooling.json) declares the kept agent tooling. On

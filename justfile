@@ -164,6 +164,7 @@ check-regressions:
     ./tests/agent-tools.sh
     ./tests/agent-tooling.py
     ./tests/pi-signed.sh
+    python3 ./tests/m87-notify.py
     ./tests/ponytail.sh
     ./tests/just-update.sh
     ./tests/regressions.sh

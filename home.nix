@@ -41,6 +41,8 @@ let
   '';
 in
 {
+  imports = [ ./modules/m87-notify.nix ];
+
   # home.username / home.homeDirectory are derived from the profile's
   # users.users entry in configuration.nix.
   home.stateVersion = "26.05";
