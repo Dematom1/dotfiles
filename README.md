@@ -85,8 +85,9 @@ command resolution. Non-Darwin profiles continue to use the nixpkgs package.
 
 `nix-homebrew` is imported, but intentionally not enabled. nix-darwin manages
 the existing Homebrew installation through its Homebrew activation. Activation
-uses cleanup mode `uninstall`, so applications or formulae not declared in the
-shared or selected host configuration are removed. It never uses `zap`: a cask's
+uses cleanup mode `none` for both Mac profiles, so applications and formulae not
+declared in the shared or selected host configuration are preserved. It never
+uses `uninstall` or `zap` for cleanup: a cask's
 zap stanza trashes paths it may share with other installs, as the claude-code
 cask did with native Claude Code's `~/.local/bin/claude` and `~/.claude.json`.
 
