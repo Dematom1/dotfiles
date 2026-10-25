@@ -252,11 +252,17 @@ to derive the viewer as Dematom1. It also adds no credential. M87 continues to
 use the existing `gh` authentication selected by its upstream plugin.
 
 This change does not activate or restart the live installation. After merging,
-the personal-machine operator runs `just rebuild personal`. Home Manager stops
-and removes the legacy npm agent, repoints installed plugin executables to Nix,
-and removes the npm package without replacing `~/.m87`. It then loads its own
-Nix-backed launchd agent. If activation fails, fix the reported error and rerun
-`just rebuild personal`. Do not run `m87 daemon install`: that creates a competing
+the personal-machine operator runs `just rebuild personal`. Activation checks
+the Nix runtime and replacement plugin manifests, then transactionally repoints
+installed npm plugin paths to Nix. It unloads the legacy worker before starting
+the managed worker so the two workers never share the queue. The legacy plist
+and npm package remain available until the managed PID, control socket, daemon
+status, and GitHub sync pass their checks. If takeover fails, activation restores
+the old plugin paths and reloads the legacy worker. Only a healthy takeover
+permits removal of the legacy plist, npm shim, and npm package. Cleanup errors
+warn and leave the managed worker running; a later rebuild retries cleanup.
+Activation does not replace `~/.m87`. If activation fails, fix the reported error
+and rerun `just rebuild personal`. Do not run `m87 daemon install`: that creates a competing
 service outside Home Manager. Then run `m87 plugin doctor` and
 `m87 plugin sync github`; do not
 approve any recommendation merely to test discovery. Review/merge actions,

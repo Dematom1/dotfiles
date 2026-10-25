@@ -191,6 +191,8 @@ in
       EnvironmentVariables = {
         M87_DAEMON = "1";
         M87_STATE_DIR = "${config.home.homeDirectory}/.m87";
+        M87_SKIP_SHELLENV = "1";
+        PATH = "${lib.makeBinPath [ pkgs.gh pkgs.git pkgs.acpx ]}:${config.home.homeDirectory}/.local/bin:${config.home.homeDirectory}/.opencode/bin:/usr/bin:/bin:/usr/sbin:/sbin";
       };
       RunAtLoad = true;
       KeepAlive = true;
@@ -199,11 +201,12 @@ in
     };
   };
 
-  # Stop the npm worker before touching its package or loading its replacement.
-  home.activation.m87RemoveNpmDaemon = lib.mkIf pkgs.stdenv.isDarwin (
-    lib.hm.dag.entryBetween [ "m87GithubDiscovery" "setupLaunchAgents" ] [ "writeBoundary" ] ''
+  # Retain the npm worker's files until exclusive takeover and sync succeed.
+  # Installing the exact generated plist lets setupLaunchAgents skip this job.
+  home.activation.m87DaemonHandoff = lib.mkIf pkgs.stdenv.isDarwin (
+    lib.hm.dag.entryBetween [ "setupLaunchAgents" ] [ "writeBoundary" "m87GithubDiscovery" ] ''
       ${lib.getExe pkgs.python311} ${./scripts/m87-remove-npm-daemon.py} \
-        ${pkgs.m87}/libexec/m87/node_modules/@kunchenguid/m87
+        ${pkgs.m87} "$newGenPath/LaunchAgents/org.nix-community.home.m87.plist"
     ''
   );
 
