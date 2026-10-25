@@ -221,24 +221,22 @@ def expand(value):
 
 
 def desired_servers(current: dict, declared: dict, where: str) -> dict:
-    """Declared fields win; fields the manifest leaves out (headers, env) survive."""
+    """Declared fields win; fields the manifest leaves out (headers, env) survive.
+
+    A server with requiredHeaders is created without credentials; secrets only come from its own auth flow.
+    """
     result = {}
-    for name, spec in current.items():
-        if name not in declared:
-            continue
-        merged = {**spec, **{k: expand(v) for k, v in declared[name].items() if k != "requiredHeaders"}}
-        missing = [h for h in declared[name].get("requiredHeaders", []) if h not in merged.get("headers", {})]
-        if missing:
-            warn(f"{where} MCP server {name} lacks {', '.join(missing)}; re-run its auth setup")
-        result[name] = merged
     for name, spec in declared.items():
-        if name in result:
-            continue
-        if spec.get("requiredHeaders"):
-            warn(f"{where} MCP server {name} is declared but absent; add it with its own auth flow "
-                 f"(see README 'Declarative agent tooling')")
-            continue
-        result[name] = {k: expand(v) for k, v in spec.items()}
+        fields = {k: expand(v) for k, v in spec.items() if k != "requiredHeaders"}
+        merged = {**current[name], **fields} if name in current else fields
+        missing = [h for h in spec.get("requiredHeaders", []) if h not in merged.get("headers", {})]
+        if missing:
+            headers = " ".join(f"-H '{h}: Bearer <token>'" for h in missing)
+            fix = (f"run `claude mcp remove -s user {name} && claude mcp add -s user -t {merged.get('type', 'http')} "
+                   f"{name} '{merged['url']}' {headers}`"
+                   if where == "Claude" and "url" in merged else "re-run its auth setup")
+            warn(f"{where} MCP server {name} needs re-authentication (lacks {', '.join(missing)}); {fix}")
+        result[name] = merged
     return result
 
 

@@ -59,6 +59,16 @@ for target in "${targets[@]}"; do
   [[ ",$packages," == *,backpass,* ]] || fail "$profile profile does not install backpass"
   [[ ",$packages," == *,acpx,* ]] || fail "$profile profile does not install acpx"
   if [[ "$system" == aarch64-darwin ]]; then
+    # A cask's zap stanza trashed native Claude Code once; cleanup must never zap.
+    [[ $(nix eval --raw "$repo#darwinConfigurations.$profile.config.homebrew.onActivation.cleanup") != zap ]] \
+      || fail "$profile Homebrew cleanup zaps removed casks"
+    # Activation's own PATH has no curl; the install step must bring its tools.
+    claude_install=$(nix eval --raw "$repo#$prefix.home.activation.claudeNativeInstall.data")
+    install_path=$(sed -n 's/^ *PATH="\([^"]*\)".*/\1/p' <<<"$claude_install")
+    [[ $(env -i PATH="$install_path" "$bash_bin" -c 'command -v curl') == /nix/store/*/bin/curl ]] \
+      || fail "$profile Claude install step does not run Nix's curl"
+    env -i PATH="$install_path" "$bash_bin" -c 'command -v shasum sysctl uname' >/dev/null \
+      || fail "$profile Claude install step lacks the installer's macOS tools"
     [[ ",$packages," != *,tailscale,* ]] || fail "$profile still installs nixpkgs tailscale on darwin"
     tailscale_wrapper=$(nix build --no-link --print-out-paths "$repo#$prefix.home.file.\".local/bin/tailscale\".source")
     bash "$repo/tests/tailscale-app-cli.sh" "$tailscale_wrapper"
@@ -71,15 +81,21 @@ for target in "${targets[@]}"; do
   [[ $("$home_path/bin/m87" --version) == "$m87_version" ]] \
     || fail "$profile M87 executable has the wrong version"
   # Every AXI tool the justfile sets hooks up for, or keeps hook-free, is Nix-installed.
-  axi_commands=$(just --justfile "$repo/justfile" --evaluate axi-tools)
-  axi_commands+=" $(just --justfile "$repo/justfile" --evaluate axi-tools-no-hooks)"
+  hook_commands=$(just --justfile "$repo/justfile" --evaluate axi-tools)
   if [[ "$profile" == work ]]; then
-    axi_commands+=" $(just --justfile "$repo/justfile" --evaluate axi-tools-work)"
+    hook_commands+=" $(just --justfile "$repo/justfile" --evaluate axi-tools-work)"
   fi
+  axi_commands="$hook_commands $(just --justfile "$repo/justfile" --evaluate axi-tools-no-hooks)"
   for command in backpass acpx treehouse kubernetes-axi $axi_commands; do
     [[ -x "$home_path/bin/$command" ]] || fail "$profile Home Manager path has no $command executable"
     [[ $(PATH="$home_path/bin" command -v "$command") == "$home_path/bin/$command" ]] \
       || fail "$profile Home Manager path does not resolve $command"
+  done
+  # A hook-list tool without `setup hooks` warns on every rebuild; list it in
+  # axi-tools-no-hooks instead.
+  for command in $hook_commands; do
+    "$home_path/bin/$command" setup --help 2>&1 | grep -Eq '(^|[[:space:]])setup[[:space:]]+hooks([[:space:]]|$)' \
+      || fail "$profile $command has no 'setup hooks'; move it to axi-tools-no-hooks"
   done
 
   pi_fff=$(nix eval --raw "$repo#$prefix.home.file.\".pi/agent/extensions/pi-fff\".source")
