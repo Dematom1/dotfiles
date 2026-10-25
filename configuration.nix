@@ -51,6 +51,11 @@ in
     finder.CreateDesktop = false;          # clean desktop
     trackpad.Clicking = true;              # tap to click
   };
+  launchd.user.agents.ice.serviceConfig = {
+    ProgramArguments = [ "/usr/bin/open" "-a" "/Applications/Ice.app" ];
+    RunAtLoad = true;
+  };
+
   launchd.user.agents.ai-tool-update-digest = {
     serviceConfig = {
       ProgramArguments = [
@@ -101,6 +106,7 @@ in
       # ~/.local/bin (`just setup-firstmate`) updates itself, and a second copy
       # on PATH went stale behind it.
       "ghostty"
+      "jordanbaird-ice"
       "1password-cli"
       "ngrok"
       "postico"

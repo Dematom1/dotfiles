@@ -165,6 +165,15 @@ in
     ".local/bin/tailscale".source = tailscaleAppCli;
   };
 
+  # ByHost preferences need -currentHost, not CustomUserPreferences. Log out
+  # or restart SystemUIServer after rebuilding to apply the new spacing.
+  home.activation.menuBarSpacing = lib.mkIf pkgs.stdenv.isDarwin (
+    lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      $DRY_RUN_CMD /usr/bin/defaults -currentHost write -g NSStatusItemSpacing -int 6
+      $DRY_RUN_CMD /usr/bin/defaults -currentHost write -g NSStatusItemSelectionPadding -int 4
+    ''
+  );
+
   # Activation's PATH holds only a few Nix store tools, so name curl and the
   # installer's other tools explicitly; macOS's own dirs supply shasum and sysctl.
   home.activation.claudeNativeInstall = lib.mkIf pkgs.stdenv.isDarwin (
