@@ -156,6 +156,7 @@ bootstrap: refresh-secrets setup-firstmate update-skills
 
 # Focused regression checks for Neovim, account selection, agent setup, and shell safety.
 check-regressions:
+    python3 ./tests/m87-migration.py
     ./tests/av-project-policy.sh
     ./tests/nvim-fff.sh
     ./tests/usernames.sh
