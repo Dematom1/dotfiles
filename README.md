@@ -261,6 +261,8 @@ status, and GitHub sync pass their checks. If takeover fails, activation restore
 the old plugin paths and reloads the legacy worker. Only a healthy takeover
 permits removal of the legacy plist, npm shim, and npm package. Cleanup errors
 warn and leave the managed worker running; a later rebuild retries cleanup.
+If that rebuild changes the managed plist, cleanup retains the legacy files
+and lets Home Manager update the service. A subsequent rebuild retries cleanup.
 Activation does not replace `~/.m87`. If activation fails, fix the reported error
 and rerun `just rebuild personal`. Do not run `m87 daemon install`: that creates a competing
 service outside Home Manager. Then run `m87 plugin doctor` and
