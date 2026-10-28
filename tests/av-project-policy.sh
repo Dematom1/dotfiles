@@ -126,7 +126,7 @@ for mode in explicit unset empty; do
   run_allowed "$isolated/subdir" task-1
   run_allowed "$tmp/isolated-link/subdir" task-1
 
-  expect_denied "$infrastructure/subdir" "nested infrastructure directory"
+  run_allowed "$infrastructure/subdir"
   expect_denied "$infrastructure" "task-marked canonical infrastructure" task-1
   expect_denied "$arbitrary" "arbitrary directory"
   expect_denied "$unregistered" "unregistered repository"

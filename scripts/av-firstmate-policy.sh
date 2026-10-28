@@ -105,7 +105,6 @@ canonical_infrastructure_project() {
   same_path "$home_root" "$HOME" || return 1
   canonical_root="$HOME/Code/infrastructure"
   same_path "$candidate" "$canonical_root" || return 1
-  same_path "$PWD_PHYSICAL" "$canonical_root" || return 1
   project_identity "$candidate" || return 1
   origin=$(git -C "$candidate" config --get-all remote.origin.url 2>/dev/null) || return 1
   case "$origin" in
