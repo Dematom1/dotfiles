@@ -16,6 +16,7 @@ test_home="$tmp/home"
 fm_home="$test_home/agent-workspace"
 managed="$fm_home/projects/dotfiles"
 canonical="$test_home/Code/dotfiles"
+infrastructure="$test_home/Code/infrastructure"
 isolated="$tmp/canonical-isolated"
 unregistered="$tmp/unregistered"
 lookalike="$tmp/canonical"
@@ -39,6 +40,9 @@ init_repo() {
 
 init_repo "$managed"
 init_repo "$canonical"
+init_repo "$infrastructure"
+mkdir -p "$infrastructure/subdir"
+git -C "$infrastructure" remote set-url origin https://github.com/dematom-labs/infrastructure.git
 init_repo "$unregistered"
 init_repo "$lookalike"
 git -C "$managed" worktree add -q -b fm-isolated "$isolated"
@@ -113,11 +117,17 @@ for mode in explicit unset empty; do
     empty) home_env=("HOME=$test_home" FM_HOME=) ;;
   esac
   run_allowed "$canonical"
+  run_allowed "$infrastructure"
+  git -C "$infrastructure" remote set-url origin git@github.com:dematom-labs/infrastructure.git
+  run_allowed "$infrastructure"
+  git -C "$infrastructure" remote set-url origin https://github.com/dematom-labs/infrastructure.git
   run_allowed "$managed"
   run_allowed "$tmp/canonical-link"
   run_allowed "$isolated/subdir" task-1
   run_allowed "$tmp/isolated-link/subdir" task-1
 
+  expect_denied "$infrastructure/subdir" "nested infrastructure directory"
+  expect_denied "$infrastructure" "task-marked canonical infrastructure" task-1
   expect_denied "$arbitrary" "arbitrary directory"
   expect_denied "$unregistered" "unregistered repository"
   expect_denied "$lookalike" "remote-name-only lookalike"
@@ -128,5 +138,23 @@ for mode in explicit unset empty; do
   expect_denied "$isolated" "metadata symlink spoof" symlink-spoof
   expect_denied "$tmp/unrelated-copy" "Git common directory spoof" common-spoof
 done
+
+git -C "$infrastructure" remote set-url origin https://github.com/example/infrastructure.git
+expect_denied "$infrastructure" "wrong infrastructure origin"
+git -C "$infrastructure" remote set-url origin https://github.com/Dematom1/infrastructure.git
+expect_denied "$infrastructure" "old infrastructure origin"
+git -C "$infrastructure" remote set-url origin https://github.com/dematom-labs/infrastructure.git
+git -C "$infrastructure" config --add remote.origin.url https://github.com/example/infrastructure.git
+expect_denied "$infrastructure" "ambiguous infrastructure origin"
+git -C "$infrastructure" config --unset-all remote.origin.url
+git -C "$infrastructure" config --add remote.origin.url https://github.com/dematom-labs/infrastructure.git
+
+mv "$infrastructure" "$tmp/infrastructure-real"
+ln -s "$tmp/infrastructure-real" "$infrastructure"
+expect_denied "$infrastructure" "symlinked canonical infrastructure"
+rm "$infrastructure"
+
+git -C "$tmp/infrastructure-real" worktree add -q -b infrastructure-linked "$infrastructure"
+expect_denied "$infrastructure" "linked canonical infrastructure worktree"
 
 printf '%s\n' "Automic Vault Firstmate project policy checks passed"
