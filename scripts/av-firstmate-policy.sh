@@ -99,6 +99,20 @@ canonical_project() {
   registered_project "$PROJECTS/dotfiles"
 }
 
+canonical_infrastructure_project() {
+  local candidate=$1 home_root canonical_root origin
+  home_root=$(absolute_dir "$HOME") || return 1
+  same_path "$home_root" "$HOME" || return 1
+  canonical_root="$HOME/Code/infrastructure"
+  same_path "$candidate" "$canonical_root" || return 1
+  project_identity "$candidate" || return 1
+  origin=$(git -C "$candidate" config --get-all remote.origin.url 2>/dev/null) || return 1
+  case "$origin" in
+    git@github.com:dematom-labs/infrastructure.git|https://github.com/dematom-labs/infrastructure.git) ;;
+    *) return 1 ;;
+  esac
+}
+
 [ -x "$AV_VENDOR_CLI" ] || fail "the signed vendor CLI is not executable"
 FM_HOME=${FM_HOME:-${HOME:?}/agent-workspace}
 [ "${FM_HOME#/}" != "$FM_HOME" ] || fail "Firstmate home must be absolute"
@@ -127,6 +141,10 @@ CURRENT_ROOT=$(absolute_dir "$CURRENT_ROOT") || fail "Git worktree root cannot b
 
 # Task-free availability rules: README.md, "Firstmate project availability".
 if registered_project "$CURRENT_ROOT" || canonical_project "$CURRENT_ROOT"; then
+  exec "$AV_VENDOR_CLI" "$@"
+fi
+
+if [ -z "${FM_TASK_ID:-}" ] && canonical_infrastructure_project "$CURRENT_ROOT"; then
   exec "$AV_VENDOR_CLI" "$@"
 fi
 

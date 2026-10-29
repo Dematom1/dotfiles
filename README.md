@@ -739,13 +739,22 @@ components and must own its real `.git` directory. The two checkouts do not
 need to share Git identity or a remote URL. This exception does not extend to
 linked worktrees of the local checkout.
 
-Apart from that local dotfiles exception, the gate rejects unregistered clones
-and arbitrary repositories. It also rejects symlinks in
-registered identity paths, and repositories that merely share a basename or remote
-URL. Navigation through a symlink is allowed when the physical working directory
-resolves to the verified clone or worker copy. It never creates a second project
-registry. It forwards every `av` argument
-unchanged to the signed vendor CLI after the identity check.
+The physical `$HOME/Code/infrastructure` checkout is allowed without a task
+marker only when it is its own Git root with a real `.git` directory and its
+origin is exactly `git@github.com:dematom-labs/infrastructure.git` or
+`https://github.com/dematom-labs/infrastructure.git`. `$HOME` and every path
+component must be physical, and the working directory's Git root must be
+that checkout. Nested directories inside the canonical clone are allowed;
+linked worktrees, forks, and other remote spellings are rejected. A task marker
+disables this exception.
+
+Apart from these canonical-copy exceptions, the gate rejects unregistered
+clones and arbitrary repositories. It also rejects symlinks in registered
+identity paths, and repositories that merely share a basename or remote URL.
+Navigation through a symlink is allowed when the physical working directory
+resolves to a verified registered clone or worker copy. It never creates a
+second project registry. It forwards every `av` argument unchanged to the
+signed vendor CLI after the identity check.
 
 Availability is not launcher endorsement, secret selection, an approval bypass,
 or broader credential scope. Existing per-secret and per-launcher authorization,
