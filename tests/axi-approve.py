@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Offline CLI check: python3 tests/axi-approve.py. No registry or 1Password access."""
+
 import json
 import os
 from pathlib import Path
@@ -11,23 +12,39 @@ import tempfile
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts/axi-approve.py"
 STAGE = {
     "id": "1de6f3db-2ed9-4d72-b3dd-8f0e2b474a2f",
-    "packageName": "argocd-axi", "version": "1.2.3", "status": "awaiting_approval",
-    "provenance": {"predicate": {
-        "buildDefinition": {
-            "externalParameters": {"workflow": {"repository": "https://github.com/example/argocd-axi"}},
-            "resolvedDependencies": [
-                {"uri": "git+https://github.com/example/dependency@refs/heads/main", "digest": {"gitCommit": "dependency123"}},
-                {"uri": "git+https://github.com/example/argocd-axi@refs/heads/main", "digest": {"gitCommit": "abc123"}},
-            ],
-        },
-        "runDetails": {"metadata": {"invocationId": "https://github.com/example/argocd-axi/actions/runs/42"}},
-    }},
+    "packageName": "argocd-axi",
+    "version": "1.2.3",
+    "status": "awaiting_approval",
+    "provenance": {
+        "predicate": {
+            "buildDefinition": {
+                "externalParameters": {
+                    "workflow": {"repository": "https://github.com/example/argocd-axi"}
+                },
+                "resolvedDependencies": [
+                    {
+                        "uri": "git+https://github.com/example/dependency@refs/heads/main",
+                        "digest": {"gitCommit": "dependency123"},
+                    },
+                    {
+                        "uri": "git+https://github.com/example/argocd-axi@refs/heads/main",
+                        "digest": {"gitCommit": "abc123"},
+                    },
+                ],
+            },
+            "runDetails": {
+                "metadata": {
+                    "invocationId": "https://github.com/example/argocd-axi/actions/runs/42"
+                }
+            },
+        }
+    },
 }
 
 with tempfile.TemporaryDirectory(prefix="axi-approve-test-") as directory:
     root = Path(directory)
     stub = root / "npm"
-    stub.write_text('''#!/usr/bin/env python3
+    stub.write_text("""#!/usr/bin/env python3
 import json, os, sys
 from pathlib import Path
 args = sys.argv[1:]
@@ -53,19 +70,23 @@ elif args[:2] == ["stage", "approve"]:
     sys.exit(int(os.environ.get("APPROVE_STATUS", "0")))
 else:
     sys.exit(99)
-''')
+""")
     stub.chmod(0o755)
     op = root / "op"
-    op.write_text('''#!/usr/bin/env python3
+    op.write_text("""#!/usr/bin/env python3
 import os, sys
 assert sys.argv[1:] == ["read", "op://Test/npm/one-time password"]
 with open(os.environ["TRACE"], "a") as trace:
     trace.write("op read\\n")
 print("123456")
-''')
+""")
     op.chmod(0o755)
-    env = dict(os.environ, PATH=f"{root}:{os.environ['PATH']}", STAGE=json.dumps(STAGE),
-               TRACE=str(root / "trace"))
+    env = dict(
+        os.environ,
+        PATH=f"{root}:{os.environ['PATH']}",
+        STAGE=json.dumps(STAGE),
+        TRACE=str(root / "trace"),
+    )
     env.pop("AXI_APPROVE_OP_REF", None)
 
     def run(extra=None, answer=None):
@@ -74,9 +95,14 @@ print("123456")
         try:
             if answer is not None:
                 os.write(master, answer.encode())
-            result = subprocess.run([sys.executable, str(SCRIPT)], env=env | (extra or {}),
-                                    stdin=slave if answer is not None else subprocess.DEVNULL,
-                                    capture_output=True, text=True, timeout=10)
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT)],
+                env=env | (extra or {}),
+                stdin=slave if answer is not None else subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
         finally:
             os.close(master)
             os.close(slave)
@@ -92,21 +118,38 @@ print("123456")
     result, trace = run({"PENDING": "1"})
     assert result.returncode == 1 and "AXI_APPROVE_OP_REF" in result.stdout
     assert "op read" not in trace
-    configured = {"PENDING": "1", "AXI_APPROVE_OP_REF": "op://Test/npm/one-time password"}
+    configured = {
+        "PENDING": "1",
+        "AXI_APPROVE_OP_REF": "op://Test/npm/one-time password",
+    }
     for malformed in (
         {"predicate": "bad"},
         {"predicate": {"buildDefinition": "bad"}},
-        {"predicate": {"buildDefinition": {"externalParameters": "bad", "resolvedDependencies": [None]}}},
+        {
+            "predicate": {
+                "buildDefinition": {
+                    "externalParameters": "bad",
+                    "resolvedDependencies": [None],
+                }
+            }
+        },
         {"predicate": {"runDetails": "bad"}},
     ):
-        result, _ = run(configured | {"STAGE": json.dumps(STAGE | {"provenance": malformed})}, "n\n")
-        assert result.returncode == 0 and "not provided by npm stage view" in result.stdout
+        result, _ = run(
+            configured | {"STAGE": json.dumps(STAGE | {"provenance": malformed})}, "n\n"
+        )
+        assert (
+            result.returncode == 0 and "not provided by npm stage view" in result.stdout
+        )
     result, trace = run(configured, "n\n")
     assert result.returncode == 0 and "skipped" in result.stdout
     assert "op read" not in trace and "stage approve" not in trace
     assert 'commit: "abc123"' in result.stdout
     assert 'commit: "dependency123"' not in result.stdout
-    assert all(value in result.stdout for value in ("actions/runs/42", "dist/index.js", STAGE["id"]))
+    assert all(
+        value in result.stdout
+        for value in ("actions/runs/42", "dist/index.js", STAGE["id"])
+    )
     result, trace = run(configured, "yes\n")
     assert result.returncode == 0 and "skipped" in result.stdout
     assert "op read" not in trace and "stage approve" not in trace

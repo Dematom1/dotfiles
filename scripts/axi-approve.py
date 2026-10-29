@@ -21,12 +21,25 @@ def field(key, value):
 
 def npm(*args, cwd=None):
     result = subprocess.run(
-        ["npm", *args, "--registry", REGISTRY, "--logs-max=0", "--loglevel=silent", "--timing=false"],
-        stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-        text=True, cwd=cwd,
+        [
+            "npm",
+            *args,
+            "--registry",
+            REGISTRY,
+            "--logs-max=0",
+            "--loglevel=silent",
+            "--timing=false",
+        ],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+        cwd=cwd,
     )
     if result.returncode:
-        raise ValueError(f"npm {' '.join(args[:2])} failed; check npm login and permissions")
+        raise ValueError(
+            f"npm {' '.join(args[:2])} failed; check npm login and permissions"
+        )
     return json.loads(result.stdout)
 
 
@@ -54,26 +67,45 @@ def inspect(item):
     dependencies = definition.get("resolvedDependencies")
     dependencies = dependencies if isinstance(dependencies, list) else []
     source_repository = workflow.get("repository")
-    commit = next((digest["gitCommit"] for dependency in dependencies
-                   if isinstance(dependency, dict)
-                   and isinstance(dependency.get("uri"), str)
-                   and (dependency["uri"][4:] if dependency["uri"].startswith("git+") else dependency["uri"]).split("@", 1)[0] == source_repository
-                   for digest in [dependency.get("digest")]
-                   if isinstance(digest, dict)
-                   and isinstance(dependency["digest"].get("gitCommit"), str)
-                   and dependency["digest"]["gitCommit"]), None)
+    commit = next(
+        (
+            digest["gitCommit"]
+            for dependency in dependencies
+            if isinstance(dependency, dict)
+            and isinstance(dependency.get("uri"), str)
+            and (
+                dependency["uri"][4:]
+                if dependency["uri"].startswith("git+")
+                else dependency["uri"]
+            ).split("@", 1)[0]
+            == source_repository
+            for digest in [dependency.get("digest")]
+            if isinstance(digest, dict)
+            and isinstance(dependency["digest"].get("gitCommit"), str)
+            and dependency["digest"]["gitCommit"]
+        ),
+        None,
+    )
     run_details = predicate.get("runDetails")
-    run_metadata = run_details.get("metadata") if isinstance(run_details, dict) else None
+    run_metadata = (
+        run_details.get("metadata") if isinstance(run_details, dict) else None
+    )
     run_metadata = run_metadata if isinstance(run_metadata, dict) else {}
     field("source_repo", workflow.get("repository", "not provided by npm stage view"))
     field("commit", commit or "not provided by npm stage view")
-    field("workflow_run", run_metadata.get("invocationId", "not provided by npm stage view"))
+    field(
+        "workflow_run",
+        run_metadata.get("invocationId", "not provided by npm stage view"),
+    )
     # npm stage view does not include a file list. Download for inspection only;
     # npm reports the tarball contents as JSON, without extracting or running it.
     with tempfile.TemporaryDirectory(prefix="axi-approve-") as directory:
         contents = npm("stage", "download", stage_id, "--json", cwd=directory)
     tarball = contents[detail["packageName"]]
-    if tarball["name"] != detail["packageName"] or tarball["version"] != detail["version"]:
+    if (
+        tarball["name"] != detail["packageName"]
+        or tarball["version"] != detail["version"]
+    ):
         raise ValueError("downloaded tarball does not match the staged release")
     if detail.get("shasum") and detail["shasum"] != tarball["shasum"]:
         raise ValueError("downloaded tarball shasum does not match the stage")
@@ -89,32 +121,58 @@ def inspect(item):
 def approve(stage_id, reference):
     # Never relay subprocess output: either tool could echo credentials on failure.
     result = subprocess.run(
-        ["op", "read", reference], stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
+        ["op", "read", reference],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
     )
     otp = result.stdout.strip()
     if result.returncode or not re.fullmatch(r"[0-9]{6,8}", otp):
-        raise ValueError("1Password OTP read failed; check the reference and desktop app integration")
+        raise ValueError(
+            "1Password OTP read failed; check the reference and desktop app integration"
+        )
     result = subprocess.run(
-        ["npm", "stage", "approve", stage_id, "--otp", otp,
-         "--registry", REGISTRY, "--logs-max=0", "--loglevel=silent", "--timing=false"],
-        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        [
+            "npm",
+            "stage",
+            "approve",
+            stage_id,
+            "--otp",
+            otp,
+            "--registry",
+            REGISTRY,
+            "--logs-max=0",
+            "--loglevel=silent",
+            "--timing=false",
+        ],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
     del otp
     if result.returncode:
-        raise ValueError("approval failed; check npm permissions or retry with a fresh OTP")
+        raise ValueError(
+            "approval failed; check npm permissions or retry with a fresh OTP"
+        )
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__, epilog=(
-        "Set AXI_APPROVE_OP_REF=op://VAULT/ITEM/one-time password. "
-        "Run axi-approve in a terminal; each release requires confirmation. "
-        "No automatic approval mode is supported."))
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        epilog=(
+            "Set AXI_APPROVE_OP_REF=op://VAULT/ITEM/one-time password. "
+            "Run axi-approve in a terminal; each release requires confirmation. "
+            "No automatic approval mode is supported."
+        ),
+    )
     parser.parse_args()
     result = subprocess.run(["npm", "--version"], capture_output=True, text=True)
     match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)\s*", result.stdout)
     if result.returncode or not match or tuple(map(int, match.groups())) < (11, 19, 0):
-        raise ValueError("npm >= 11.19 is required on PATH; rebuild dotfiles and reopen the terminal")
+        raise ValueError(
+            "npm >= 11.19 is required on PATH; rebuild dotfiles and reopen the terminal"
+        )
     pending = []
     for package in PACKAGES:
         items = npm("stage", "list", package, "--json")
@@ -129,9 +187,13 @@ def main():
         return 0
     reference = os.environ.get("AXI_APPROVE_OP_REF", "")
     if not reference.startswith("op://") or len(reference.split("/")) < 5:
-        raise ValueError("set AXI_APPROVE_OP_REF='op://VAULT/ITEM/one-time password' explicitly; no vault search is performed")
+        raise ValueError(
+            "set AXI_APPROVE_OP_REF='op://VAULT/ITEM/one-time password' explicitly; no vault search is performed"
+        )
     if not sys.stdin.isatty():
-        raise ValueError("run axi-approve in an interactive terminal to confirm each release")
+        raise ValueError(
+            "run axi-approve in an interactive terminal to confirm each release"
+        )
     failed = False
     for item in pending:
         label = f"{item['packageName']}@{item['version']}"
@@ -147,7 +209,12 @@ def main():
             # Do not print exception details, which could contain dependency secrets.
             failed = True
             field("result", f"{label}: failed")
-            field("error", str(error) if isinstance(error, ValueError) else "could not inspect or approve release")
+            field(
+                "error",
+                str(error)
+                if isinstance(error, ValueError)
+                else "could not inspect or approve release",
+            )
     return int(failed)
 
 
@@ -155,7 +222,12 @@ if __name__ == "__main__":
     try:
         sys.exit(main())
     except (ValueError, KeyError, TypeError, OSError) as error:
-        field("error", str(error) if isinstance(error, ValueError) else "could not run npm; check PATH and staged metadata")
+        field(
+            "error",
+            str(error)
+            if isinstance(error, ValueError)
+            else "could not run npm; check PATH and staged metadata",
+        )
         sys.exit(1)
     except (EOFError, KeyboardInterrupt):
         field("result", "cancelled; no further approvals")
