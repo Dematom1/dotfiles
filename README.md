@@ -282,17 +282,18 @@ are not changed by this discovery configuration.
 
 ### M87 firstmate notifications
 
-After `just rebuild`, the macOS Home Manager job in
-[modules/m87-notify.nix](modules/m87-notify.nix) polls `m87 list` every five
-minutes. New recommended GitHub PRs produce one batched firstmate note and a
-macOS notification. Empty batches are quiet. The job never calls `m87 approve`.
+Run `just rebuild` to install the macOS Home Manager job in
+[modules/m87-notify.nix](modules/m87-notify.nix). It polls `m87 list` every five
+minutes. New recommended GitHub pull requests and issues produce one batched
+firstmate note and a macOS notification. Empty batches are quiet. The job
+never merges or approves items.
 
 Firstmate must already be available at
 `/Users/laszlohoranszky/agent-workspace/bin/fm-inbox.sh`; the job sets `FM_HOME`
-to `/Users/laszlohoranszky/agent-workspace`. Messages contain validated PR URLs
-and the fixed label `recommended: review`, not free-form summaries or verdicts.
-PRs in `dematom-labs/infrastructure` instead request review only and state that
-a separate decision is required.
+to `/Users/laszlohoranszky/agent-workspace`. Messages contain validated GitHub
+pull-request and issue URLs and the fixed label `recommended: review`, not
+free-form summaries or verdicts. Items in `dematom-labs/infrastructure` request
+review only and state that a separate decision is required.
 
 The notifier tracks delivered item IDs in
 `~/.local/state/m87-notify/seen.json`. A changed recommendation for an already
