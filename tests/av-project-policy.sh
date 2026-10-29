@@ -11,7 +11,7 @@ fail() {
   exit 1
 }
 
-policy="$repo/scripts/av-firstmate-policy.sh"
+policy=${AV_POLICY:-"$repo/scripts/av-firstmate-policy.sh"}
 test_home="$tmp/home"
 fm_home="$test_home/agent-workspace"
 managed="$fm_home/projects/dotfiles"

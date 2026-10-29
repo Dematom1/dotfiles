@@ -7,9 +7,11 @@
 
 # Tool-local state, caches, and tool-installed plugins - all regenerated
 # (tokensave index DB, Claude project state, and opencode plugins via
-# `just setup-firstmate` / `just update-skills`).
+# `just setup-firstmate` / `just update-skills`). Project skills in
+# .claude/skills/ are committed.
 /.tokensave/
-/.claude/
+/.claude/*
+!/.claude/skills/
 /herdr/release-notes.json
 /profile.json.gz
 /opencode/plugin/
