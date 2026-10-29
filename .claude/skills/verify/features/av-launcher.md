@@ -10,8 +10,8 @@ Everywhere else it exits 126 with `av unavailable: <reason>`.
 
 ## Sub-features
 
-- The wrapper drops a caller-supplied `AV_VENDOR_CLI`, and its store policy is
-  byte-identical to the repo copy.
+- The wrapper drops a caller-supplied `AV_VENDOR_CLI`; the allowed-path
+  wrapper journey proves it reaches the signed CLI exec without running it.
 - Allow cases: the canonical dotfiles clone, a registered project, a
   symlinked spelling of an allowed path, a bound isolated worktree including
   subdirectories, and the canonical infrastructure clone with an HTTPS or SSH
@@ -35,21 +35,21 @@ either reaches Automic Vault or prints `av unavailable: ...`.
 .claude/skills/verify/scripts/av-launcher.sh "$GENERATION" "$OUT/av"
 ```
 
-1. Reads `$GENERATION/home-path/bin/av` and checks the `unset AV_VENDOR_CLI`
-   line and the store policy path.
+1. Reads `$GENERATION/home-path/bin/av` to locate its store policy path.
 2. Runs `AV_POLICY=<store policy> tests/av-project-policy.sh`: the full
    allow/refuse fixture on synthetic repos against the built script, with a
    recording vendor stub.
-3. Runs the installed wrapper itself under `env -i HOME=<synthetic>` for
-   refusals. Each must exit 126 with `av unavailable:`.
+3. Runs the installed wrapper from an allowed synthetic canonical dotfiles
+   clone under a sandbox that denies `/usr/local/bin/av`. It must not invoke
+   the caller's recording stub and must show the denied vendor exec.
+4. Runs the installed wrapper under `env -i HOME=<synthetic>` for refusals.
+   Each must exit 126 with `av unavailable:`.
 
 ## Gotchas
 
-- Allow cases never go through the wrapper. The wrapper always execs the real
-  signed `/usr/local/bin/av`, which this skill does not run. They run the
-  built policy with `AV_VENDOR_CLI=<stub>` instead.
-- If a wrapper refusal regresses into an allow, the wrapper execs the real
-  vendor with only `--version`. The journey then fails on exit 0.
+- The allowed wrapper case stops at the signed `/usr/local/bin/av` exec,
+  which the sandbox denies. The caller's `AV_VENDOR_CLI` stub must not run.
+- Wrapper refusal cases expect exit 126 with `av unavailable:`.
 - The policy suite at commit 389f4c4^ (before the Git environment hardening)
   fails with `environment override GIT_CONFIG was allowed`. That proves the
   suite catches the escape.

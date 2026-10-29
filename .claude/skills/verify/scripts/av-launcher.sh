@@ -14,15 +14,14 @@ failed=0
 pass() { echo "av $1: PASS"; }
 fail() { echo "av $1: FAIL - $2"; failed=1; }
 
-# 1. The wrapper on PATH drops caller overrides and execs the store policy.
+# 1. Locate the store policy used by the installed wrapper.
 [[ -x "$wrapper" ]] || { fail wrapper "no $wrapper"; exit 1; }
 cp "$wrapper" "$out/av-wrapper.sh"
 policy=$(awk '$1 == "exec" { print $3 }' "$wrapper")
-if [[ "$(sed -n 2p "$wrapper")" == "unset AV_VENDOR_CLI" && "$policy" == /nix/store/*-av-firstmate-policy.sh ]] \
-  && cmp -s "$policy" "$repo/scripts/av-firstmate-policy.sh"; then
-  pass "wrapper (unsets AV_VENDOR_CLI, execs $policy, matches the repo copy)"
+if [[ "$policy" == /nix/store/*-av-firstmate-policy.sh && -x "$policy" ]]; then
+  pass "wrapper policy located ($policy)"
 else
-  fail wrapper "unexpected wrapper or stale policy copy, see $out/av-wrapper.sh"
+  fail wrapper "could not locate executable store policy, see $out/av-wrapper.sh"
 fi
 
 # 2. The repo's synthetic-repo suite (allow + refuse + Git env overrides)
@@ -47,10 +46,32 @@ new_repo() {
   git -C "$1" remote add origin "$2"
 }
 new_repo "$fm/projects/dotfiles" https://github.com/example/dotfiles.git
+new_repo "$home/Code/dotfiles" https://github.com/example/dotfiles.git
 new_repo "$tmp/unregistered" https://github.com/example/unregistered.git
 new_repo "$home/Code/infrastructure" https://github.com/example/infrastructure.git
 git -C "$fm/projects/dotfiles" worktree add -q -b verify "$tmp/isolated"
 forged="remote.origin.url=https://github.com/dematom-labs/infrastructure.git"
+
+# An allowed wrapper call must reach the signed CLI path, but the sandbox denies
+# that exec so the real vendor can never run.
+stub_marker="$tmp/vendor-stub-invoked"
+cat > "$tmp/vendor-stub" <<EOF
+#!/bin/sh
+touch "$stub_marker"
+EOF
+chmod +x "$tmp/vendor-stub"
+if output=$(cd "$home/Code/dotfiles" && sandbox-exec -p '(version 1)(allow default)(deny process-exec (literal "/usr/local/bin/av"))' \\
+  env -i PATH=/usr/bin:/bin HOME="$home" AV_VENDOR_CLI="$tmp/vendor-stub" "$wrapper" --version 2>&1); then
+  status=0
+else
+  status=$?
+fi
+printf 'allowed wrapper: exit %s: %s\\n' "$status" "$output" >> "$out/wrapper-refusals.log"
+if [[ ! -e "$stub_marker" && "$output" == *"Operation not permitted"* ]]; then
+  pass "allowed wrapper reaches denied signed vendor exec"
+else
+  fail "allowed wrapper" "expected denied vendor exec without stub invocation: exit $status: $output"
+fi
 
 refuse() {
   local label=$1 dir=$2 status output
