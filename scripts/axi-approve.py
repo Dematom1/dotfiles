@@ -138,7 +138,7 @@ def main():
         try:
             stage_id = inspect(item)
             answer = input("Approve this version? [y/N] ").strip().lower()
-            if answer not in ("y", "yes"):
+            if answer != "y":
                 field("result", f"{label}: skipped")
                 continue
             approve(stage_id, reference)

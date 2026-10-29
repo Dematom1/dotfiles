@@ -107,6 +107,9 @@ print("123456")
     assert 'commit: "abc123"' in result.stdout
     assert 'commit: "dependency123"' not in result.stdout
     assert all(value in result.stdout for value in ("actions/runs/42", "dist/index.js", STAGE["id"]))
+    result, trace = run(configured, "yes\n")
+    assert result.returncode == 0 and "skipped" in result.stdout
+    assert "op read" not in trace and "stage approve" not in trace
     result, trace = run(configured, "y\n")
     assert result.returncode == 0 and "approved and published" in result.stdout
     assert trace.endswith("op read\nstage approve\n")
