@@ -745,7 +745,8 @@ origin is exactly `git@github.com:dematom-labs/infrastructure.git` or
 `https://github.com/dematom-labs/infrastructure.git`. `$HOME` and every path
 component must be physical, and the working directory's Git root must be
 that checkout. Nested directories inside the canonical clone are allowed;
-linked worktrees, forks, and other remote spellings are rejected. A task marker
+linked worktrees, forks, and other remote spellings are rejected. Git environment
+overrides cannot redirect repository discovery or origin checks. A task marker
 disables this exception.
 
 Apart from these canonical-copy exceptions, the gate rejects unregistered
