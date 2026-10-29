@@ -15,7 +15,10 @@ STAGE = {
     "provenance": {"predicate": {
         "buildDefinition": {
             "externalParameters": {"workflow": {"repository": "https://github.com/example/argocd-axi"}},
-            "resolvedDependencies": [{"digest": {"gitCommit": "abc123"}}],
+            "resolvedDependencies": [
+                {"uri": "git+https://github.com/example/dependency@refs/heads/main", "digest": {"gitCommit": "dependency123"}},
+                {"uri": "git+https://github.com/example/argocd-axi@refs/heads/main", "digest": {"gitCommit": "abc123"}},
+            ],
         },
         "runDetails": {"metadata": {"invocationId": "https://github.com/example/argocd-axi/actions/runs/42"}},
     }},
@@ -101,7 +104,8 @@ print("123456")
     result, trace = run(configured, "n\n")
     assert result.returncode == 0 and "skipped" in result.stdout
     assert "op read" not in trace and "stage approve" not in trace
-    assert 'commit: "not provided by npm stage view"' in result.stdout
+    assert 'commit: "abc123"' in result.stdout
+    assert 'commit: "dependency123"' not in result.stdout
     assert all(value in result.stdout for value in ("actions/runs/42", "dist/index.js", STAGE["id"]))
     result, trace = run(configured, "y\n")
     assert result.returncode == 0 and "approved and published" in result.stdout

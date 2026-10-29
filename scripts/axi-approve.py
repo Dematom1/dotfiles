@@ -51,11 +51,22 @@ def inspect(item):
     parameters = parameters if isinstance(parameters, dict) else {}
     workflow = parameters.get("workflow")
     workflow = workflow if isinstance(workflow, dict) else {}
+    dependencies = definition.get("resolvedDependencies")
+    dependencies = dependencies if isinstance(dependencies, list) else []
+    source_repository = workflow.get("repository")
+    commit = next((digest["gitCommit"] for dependency in dependencies
+                   if isinstance(dependency, dict)
+                   and isinstance(dependency.get("uri"), str)
+                   and (dependency["uri"][4:] if dependency["uri"].startswith("git+") else dependency["uri"]).split("@", 1)[0] == source_repository
+                   for digest in [dependency.get("digest")]
+                   if isinstance(digest, dict)
+                   and isinstance(dependency["digest"].get("gitCommit"), str)
+                   and dependency["digest"]["gitCommit"]), None)
     run_details = predicate.get("runDetails")
     run_metadata = run_details.get("metadata") if isinstance(run_details, dict) else None
     run_metadata = run_metadata if isinstance(run_metadata, dict) else {}
     field("source_repo", workflow.get("repository", "not provided by npm stage view"))
-    field("commit", "not provided by npm stage view")
+    field("commit", commit or "not provided by npm stage view")
     field("workflow_run", run_metadata.get("invocationId", "not provided by npm stage view"))
     # npm stage view does not include a file list. Download for inspection only;
     # npm reports the tarball contents as JSON, without extracting or running it.
