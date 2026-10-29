@@ -154,21 +154,25 @@ for variable in GIT_DIR GIT_WORK_TREE GIT_CONFIG GIT_CONFIG_GLOBAL GIT_CONFIG_SY
     GIT_CONFIG_COUNT) git_env=(GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=remote.origin.url GIT_CONFIG_VALUE_0=https://github.com/dematom-labs/infrastructure.git) ;;
     GIT_CONFIG_KEY_0|GIT_CONFIG_VALUE_0) git_env=(GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=remote.origin.url GIT_CONFIG_VALUE_0=https://github.com/dematom-labs/infrastructure.git "$variable=$forged") ;;
     GIT_CONFIG_PARAMETERS) git_env=("$variable='remote.origin.url=https://github.com/dematom-labs/infrastructure.git'") ;;
-    GIT_DIR|GIT_WORK_TREE) git_env=("$variable=$forged") ;;
+    GIT_DIR) git_env=("$variable=$forged/.git") ;;
+    GIT_WORK_TREE) git_env=("$variable=$forged") ;;
     GIT_COMMON_DIR|GIT_INDEX_FILE|GIT_OBJECT_DIRECTORY|GIT_CEILING_DIRECTORIES) git_env=("$variable=$forged") ;;
     GIT_DISCOVERY_ACROSS_FILESYSTEM) git_env=("$variable=1") ;;
   esac
-  if [[ "$variable" == GIT_CONFIG_COUNT || "$variable" == GIT_CONFIG_PARAMETERS ]]; then
-    git -C "$infrastructure" remote set-url origin https://github.com/example/infrastructure.git
-    expect_denied "$infrastructure" "environment override $variable"
-    git -C "$infrastructure" remote set-url origin https://github.com/dematom-labs/infrastructure.git
-  elif [[ "$variable" == GIT_DIR || "$variable" == GIT_WORK_TREE ]]; then
-    git -C "$infrastructure" remote set-url origin https://github.com/example/infrastructure.git
-    expect_denied "$infrastructure" "environment override $variable"
-    git -C "$infrastructure" remote set-url origin https://github.com/dematom-labs/infrastructure.git
-  else
-    expect_denied "$arbitrary" "environment override $variable"
-  fi
+  case "$variable" in
+    GIT_CONFIG|GIT_CONFIG_GLOBAL|GIT_CONFIG_SYSTEM)
+      printf '[remote "origin"]\nurl = https://github.com/dematom-labs/infrastructure.git\n' > "$tmp/forged.gitconfig"
+      git -C "$infrastructure" remote set-url origin https://github.com/example/infrastructure.git
+      expect_denied "$infrastructure" "environment override $variable"
+      git -C "$infrastructure" remote set-url origin https://github.com/dematom-labs/infrastructure.git
+      ;;
+    GIT_CONFIG_COUNT|GIT_CONFIG_PARAMETERS|GIT_DIR|GIT_WORK_TREE)
+      git -C "$infrastructure" remote set-url origin https://github.com/example/infrastructure.git
+      expect_denied "$infrastructure" "environment override $variable"
+      git -C "$infrastructure" remote set-url origin https://github.com/dematom-labs/infrastructure.git
+      ;;
+    *) expect_denied "$arbitrary" "environment override $variable" ;;
+  esac
 done
 
 git -C "$infrastructure" remote set-url origin https://github.com/example/infrastructure.git
