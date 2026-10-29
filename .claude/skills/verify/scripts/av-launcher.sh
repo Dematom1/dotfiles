@@ -60,13 +60,13 @@ cat > "$tmp/vendor-stub" <<EOF
 touch "$stub_marker"
 EOF
 chmod +x "$tmp/vendor-stub"
-if output=$(cd "$home/Code/dotfiles" && sandbox-exec -p '(version 1)(allow default)(deny process-exec (literal "/usr/local/bin/av"))' \\
+if output=$(cd "$home/Code/dotfiles" && sandbox-exec -p '(version 1)(allow default)(deny process-exec (literal "/usr/local/bin/av"))' \
   env -i PATH=/usr/bin:/bin HOME="$home" AV_VENDOR_CLI="$tmp/vendor-stub" "$wrapper" --version 2>&1); then
   status=0
 else
   status=$?
 fi
-printf 'allowed wrapper: exit %s: %s\\n' "$status" "$output" >> "$out/wrapper-refusals.log"
+printf 'allowed wrapper: exit %s: %s\n' "$status" "$output" >> "$out/wrapper-refusals.log"
 if [[ ! -e "$stub_marker" && "$output" == *"Operation not permitted"* ]]; then
   pass "allowed wrapper reaches denied signed vendor exec"
 else
