@@ -89,9 +89,10 @@ Expected runtime is about 2 minutes when the closure is cached. The
 
 Proof standard: a journey passes only on the observed end state. For m87, the
 observed state is which PID owns `~/.m87/daemon.pid`, the repointed plugin rows,
-and the retired files. For av, it includes refusal codes and messages, and the
-allowed wrapper reaching a sandbox-denied vendor exec without invoking its stub.
-GitHub is faked only through m87's own
+and the retired files. The build journey also checks the generated activation
+order and parsed m87 plist values. For av, it includes refusal codes and
+messages, plus an allowed-path wrapper run that rejects the unavailable signed
+CLI without invoking the caller's stub. GitHub is faked only through m87's own
 `M87_GH_BIN` boundary. launchd is faked because the real one is the live
 system. If a journey fails, report it with its evidence. Never weaken a journey
 to make it pass.

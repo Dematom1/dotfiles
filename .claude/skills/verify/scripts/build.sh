@@ -37,7 +37,8 @@ generation=$(nix-store -qR "$system" | grep -- '-home-manager-generation$')
 [[ $(wc -l <<<"$generation") -eq 1 ]] || { fail generation "expected one HM generation"; exit 1; }
 printf 'PROFILE=%s\nSYSTEM=%s\nGENERATION=%s\n' "$profile" "$system" "$generation" > "$out/build.env"
 
-# Activation order the m87 steps rely on (see home.nix entryBetween).
+# The generated activate script is the program darwin-rebuild switch executes;
+# its Home Manager activation headers appear in execution order.
 order=$(sed -n 's/^_iNote "Activating %s" "\(.*\)"$/\1/p' "$generation/activate")
 printf '%s\n' "$order" > "$out/activation-order.txt"
 expected="writeBoundary m87GithubDiscovery m87DaemonHandoff setupLaunchAgents"
@@ -50,10 +51,15 @@ fi
 
 plist="$generation/LaunchAgents/org.nix-community.home.m87.plist"
 home=$(nix eval --raw "$repo#darwinConfigurations.$profile.config.users.users.$user.home")
-if plutil -lint "$plist" > /dev/null && grep -q "<string>$home/.m87</string>" "$plist"; then
+label=$(plutil -extract Label raw -o - "$plist" 2>/dev/null || true)
+state_dir=$(plutil -extract EnvironmentVariables.M87_STATE_DIR raw -o - "$plist" 2>/dev/null || true)
+arguments=$(plutil -extract ProgramArguments json -o - "$plist" 2>/dev/null || true)
+if plutil -lint "$plist" > /dev/null \
+  && [[ "$label" == org.nix-community.home.m87 && "$state_dir" == "$home/.m87" ]] \
+  && jq -e '.[-1] | strings | test("/nix/store/[^ ]+/bin/m87 daemon run$")' <<<"$arguments" > /dev/null; then
   pass "managed m87 plist"
 else
-  fail "managed m87 plist" "missing or not pointing at ~/.m87"
+  fail "managed m87 plist" "missing expected label, state directory, or daemon command"
 fi
 if [[ -x "$generation/home-path/bin/av" ]]; then pass "av wrapper installed"; else fail "av wrapper" "missing"; fi
 

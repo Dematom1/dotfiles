@@ -10,8 +10,9 @@ Everywhere else it exits 126 with `av unavailable: <reason>`.
 
 ## Sub-features
 
-- The wrapper drops a caller-supplied `AV_VENDOR_CLI`; the allowed-path
-  wrapper journey proves it reaches the signed CLI exec without running it.
+- The wrapper drops a caller-supplied `AV_VENDOR_CLI`; the wrapper journey
+  proves this by observing the policy's refusal for its unavailable signed CLI
+  path, with the caller's recording stub untouched.
 - Allow cases: the canonical dotfiles clone, a registered project, a
   symlinked spelling of an allowed path, a bound isolated worktree including
   subdirectories, and the canonical infrastructure clone with an HTTPS or SSH
@@ -40,15 +41,17 @@ either reaches Automic Vault or prints `av unavailable: ...`.
    allow/refuse fixture on synthetic repos against the built script, with a
    recording vendor stub.
 3. Runs the installed wrapper from an allowed synthetic canonical dotfiles
-   clone under a sandbox that denies `/usr/local/bin/av`. It must not invoke
-   the caller's recording stub and must show the denied vendor exec.
+   clone under a sandbox with a caller-supplied recording stub. It must exit 126
+   with `av unavailable: the signed vendor CLI is not executable`, and the stub
+   must remain untouched, proving the wrapper dropped the override.
 4. Runs the installed wrapper under `env -i HOME=<synthetic>` for refusals.
    Each must exit 126 with `av unavailable:`.
 
 ## Gotchas
 
-- The allowed wrapper case stops at the signed `/usr/local/bin/av` exec,
-  which the sandbox denies. The caller's `AV_VENDOR_CLI` stub must not run.
+- The allowed-path policy suite proves allow behavior. The wrapper override
+  check expects the sandbox's executable check to reject `/usr/local/bin/av`
+  before exec; the caller's `AV_VENDOR_CLI` stub must not run.
 - Wrapper refusal cases expect exit 126 with `av unavailable:`.
 - The policy suite at commit 389f4c4^ (before the Git environment hardening)
   fails with `environment override GIT_CONFIG was allowed`. That proves the

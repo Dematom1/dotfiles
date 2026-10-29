@@ -52,8 +52,7 @@ new_repo "$home/Code/infrastructure" https://github.com/example/infrastructure.g
 git -C "$fm/projects/dotfiles" worktree add -q -b verify "$tmp/isolated"
 forged="remote.origin.url=https://github.com/dematom-labs/infrastructure.git"
 
-# An allowed wrapper call must reach the signed CLI path, but the sandbox denies
-# that exec so the real vendor can never run.
+# Verify the wrapper drops caller overrides without executing a vendor CLI.
 stub_marker="$tmp/vendor-stub-invoked"
 cat > "$tmp/vendor-stub" <<EOF
 #!/bin/sh
@@ -66,11 +65,11 @@ if output=$(cd "$home/Code/dotfiles" && sandbox-exec -p '(version 1)(allow defau
 else
   status=$?
 fi
-printf 'allowed wrapper: exit %s: %s\n' "$status" "$output" >> "$out/wrapper-refusals.log"
-if [[ ! -e "$stub_marker" && "$output" == *"Operation not permitted"* ]]; then
-  pass "allowed wrapper reaches denied signed vendor exec"
+printf 'wrapper drops AV_VENDOR_CLI override: exit %s: %s\n' "$status" "$output" >> "$out/wrapper-refusals.log"
+if [[ ! -e "$stub_marker" && $status -eq 126 && "$output" == "av unavailable: the signed vendor CLI is not executable" ]]; then
+  pass "wrapper drops AV_VENDOR_CLI override"
 else
-  fail "allowed wrapper" "expected denied vendor exec without stub invocation: exit $status: $output"
+  fail "wrapper drops AV_VENDOR_CLI override" "exit $status: $output"
 fi
 
 refuse() {

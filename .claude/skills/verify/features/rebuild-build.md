@@ -12,8 +12,12 @@ covers everything that switch would build, without the switch.
 - The `darwinConfigurations.<profile>.system` closure builds.
 - The flake `checks.<arch>.*` build: `kubernetes-axi-doctor`,
   `agent-tools-layout`, and `signoff-install`.
-- The Home Manager activation order includes `writeBoundary` ->
-  `m87GithubDiscovery` -> `m87DaemonHandoff` -> `setupLaunchAgents`.
+- The generated `activate` program is the exact program `darwin-rebuild switch`
+  executes; its Home Manager activation headers give execution order. The check
+  requires `writeBoundary` -> `m87GithubDiscovery` -> `m87DaemonHandoff` ->
+  `setupLaunchAgents`, so the managed job is not loaded before daemon handoff.
+- The m87 plist is parsed semantically and must have the expected label, state
+  directory, and final `m87 daemon run` arguments.
 - The generation ships `LaunchAgents/org.nix-community.home.m87.plist` with
   state in `~/.m87`, plus the `home-path/bin/av` wrapper.
 
