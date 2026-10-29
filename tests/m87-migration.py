@@ -166,9 +166,10 @@ class HandoffTest(unittest.TestCase):
         elif args[-3:] == ["plugin", "sync", "github"]:
             self.assertEqual(self.active, {migration.LABEL: 4242})
             self.assertTrue(self.legacy.exists() and self.cli.exists() and self.shim.exists())
-            with sqlite3.connect(self.database) as db:
-                db.execute("update plugins set last_sync_at='after', last_error=? where id='github'",
-                           ("sync failed" if self.failure == "sync" else None,))
+            if self.failure != "delayed-sync":
+                with sqlite3.connect(self.database) as db:
+                    db.execute("update plugins set last_sync_at='after', last_error=? where id='github'",
+                               ("sync failed" if self.failure == "sync" else None,))
         else:
             self.fail(f"Unexpected command: {args}")
         return subprocess.CompletedProcess(args, code, stdout, stderr)
@@ -186,6 +187,23 @@ class HandoffTest(unittest.TestCase):
             self.assertEqual(db.execute("select * from queue").fetchall(), [("preserved queue",)])
             self.assertEqual(db.execute("select config_json from plugins where id='github'").fetchone(),
                              ('{"retained":true}',))
+
+    def test_sync_completion_is_polled(self):
+        original_sleep = migration.time.sleep
+        self.failure = "delayed-sync"
+        with patch.object(migration.time, "sleep", side_effect=lambda _: original_sleep(0)):
+            original_command = self.command
+
+            def queued_command(args, **kwargs):
+                result = original_command(args, **kwargs)
+                if list(map(str, args))[-3:] == ["plugin", "sync", "github"]:
+                    with sqlite3.connect(self.database) as db:
+                        db.execute("update plugins set last_sync_at='after' where id='github'")
+                return result
+
+            with patch.object(migration.subprocess, "run", side_effect=queued_command):
+                self.migrate()
+        self.assertEqual(self.active, {migration.LABEL: 4242})
 
     def test_success_and_repeat(self):
         self.migrate()

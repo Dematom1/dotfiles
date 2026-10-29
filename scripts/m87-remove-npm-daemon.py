@@ -106,16 +106,23 @@ def verify_worker(home, nix_root, launchctl, env, version, timeout=30):
             time.sleep(0.25)
 
 
-def verify_sync(database, nix_root, env):
+def verify_sync(database, nix_root, env, timeout=90):
     with sqlite3.connect(f"{database.as_uri()}?mode=ro", uri=True) as db:
         before = db.execute("select last_sync_at from plugins where id='github'").fetchone()
     if before is None:
         raise RuntimeError("GitHub plugin is not installed")
     run([nix_root / "bin/m87", "plugin", "sync", "github"], env=env, timeout=60)
-    with sqlite3.connect(f"{database.as_uri()}?mode=ro", uri=True) as db:
-        result = db.execute("select last_sync_at, last_error, status from plugins where id='github'").fetchone()
-    if not result or not result[0] or result[0] == before[0] or result[1] or result[2] != "active":
-        raise RuntimeError("GitHub sync did not complete successfully")
+    deadline = time.monotonic() + timeout
+    while True:
+        with sqlite3.connect(f"{database.as_uri()}?mode=ro", uri=True) as db:
+            result = db.execute("select last_sync_at, last_error, status from plugins where id='github'").fetchone()
+        if result and result[0] and result[0] != before[0] and not result[1] and result[2] == "active":
+            return
+        if time.monotonic() >= deadline:
+            status = result[2] if result else "missing"
+            error = result[1] if result else "no plugin state"
+            raise RuntimeError(f"GitHub sync did not complete successfully (status: {status}, error: {error})")
+        time.sleep(0.25)
 
 
 def migrate(home, nix_root, managed_source, launchctl="/bin/launchctl", dry_run=False):
