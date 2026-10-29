@@ -2,6 +2,6 @@
   "name": "dotfiles-chrome-devtools-axi-package",
   "private": true,
   "dependencies": {
-    "chrome-devtools-axi": "0.1.44"
+    "chrome-devtools-axi": "0.1.45"
   }
 }

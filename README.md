@@ -282,17 +282,18 @@ are not changed by this discovery configuration.
 
 ### M87 firstmate notifications
 
-After `just rebuild`, the macOS Home Manager job in
-[modules/m87-notify.nix](modules/m87-notify.nix) polls `m87 list` every five
-minutes. New recommended GitHub PRs produce one batched firstmate note and a
-macOS notification. Empty batches are quiet. The job never calls `m87 approve`.
+Run `just rebuild` to install the macOS Home Manager job in
+[modules/m87-notify.nix](modules/m87-notify.nix). It polls `m87 list` every five
+minutes. New recommended GitHub pull requests and issues produce one batched
+firstmate note and a macOS notification. Empty batches are quiet. The job
+never merges or approves items.
 
 Firstmate must already be available at
 `/Users/laszlohoranszky/agent-workspace/bin/fm-inbox.sh`; the job sets `FM_HOME`
-to `/Users/laszlohoranszky/agent-workspace`. Messages contain validated PR URLs
-and the fixed label `recommended: review`, not free-form summaries or verdicts.
-PRs in `dematom-labs/infrastructure` instead request review only and state that
-a separate decision is required.
+to `/Users/laszlohoranszky/agent-workspace`. Messages contain validated GitHub
+pull-request and issue URLs and the fixed label `recommended: review`, not
+free-form summaries or verdicts. Items in `dematom-labs/infrastructure` request
+review only and state that a separate decision is required.
 
 The notifier tracks delivered item IDs in
 `~/.local/state/m87-notify/seen.json`. A changed recommendation for an already
@@ -739,13 +740,23 @@ components and must own its real `.git` directory. The two checkouts do not
 need to share Git identity or a remote URL. This exception does not extend to
 linked worktrees of the local checkout.
 
-Apart from that local dotfiles exception, the gate rejects unregistered clones
-and arbitrary repositories. It also rejects symlinks in
-registered identity paths, and repositories that merely share a basename or remote
-URL. Navigation through a symlink is allowed when the physical working directory
-resolves to the verified clone or worker copy. It never creates a second project
-registry. It forwards every `av` argument
-unchanged to the signed vendor CLI after the identity check.
+The physical `$HOME/Code/infrastructure` checkout is allowed without a task
+marker only when it is its own Git root with a real `.git` directory and its
+origin is exactly `git@github.com:dematom-labs/infrastructure.git` or
+`https://github.com/dematom-labs/infrastructure.git`. `$HOME` and every path
+component must be physical, and the working directory's Git root must be
+that checkout. Nested directories inside the canonical clone are allowed;
+linked worktrees, forks, and other remote spellings are rejected. Git environment
+overrides cannot redirect repository discovery or origin checks. A task marker
+disables this exception.
+
+Apart from these canonical-copy exceptions, the gate rejects unregistered
+clones and arbitrary repositories. It also rejects symlinks in registered
+identity paths, and repositories that merely share a basename or remote URL.
+Navigation through a symlink is allowed when the physical working directory
+resolves to a verified registered clone or worker copy. It never creates a
+second project registry. It forwards every `av` argument unchanged to the
+signed vendor CLI after the identity check.
 
 Availability is not launcher endorsement, secret selection, an approval bypass,
 or broader credential scope. Existing per-secret and per-launcher authorization,
