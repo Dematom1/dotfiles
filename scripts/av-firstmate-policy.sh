@@ -5,6 +5,11 @@ set -euo pipefail
 
 AV_VENDOR_CLI=${AV_VENDOR_CLI:-/usr/local/bin/av}
 
+# Git environment overrides can redirect repository discovery and config reads.
+git() {
+  /usr/bin/env -i PATH=/usr/bin:/bin HOME="$HOME" /usr/bin/git "$@"
+}
+
 fail() {
   printf 'av unavailable: %s\n' "$1" >&2
   exit 126

@@ -21,6 +21,7 @@ isolated="$tmp/canonical-isolated"
 unregistered="$tmp/unregistered"
 lookalike="$tmp/canonical"
 arbitrary="$tmp/arbitrary"
+forged="$tmp/forged"
 mkdir -p "$fm_home/data" "$fm_home/projects" "$fm_home/state" "$test_home/Code" "$arbitrary"
 cat > "$fm_home/data/projects.md" <<'EOF'
 - dotfiles [no-mistakes] - registered project
@@ -45,12 +46,15 @@ mkdir -p "$infrastructure/subdir"
 git -C "$infrastructure" remote set-url origin https://github.com/dematom-labs/infrastructure.git
 init_repo "$unregistered"
 init_repo "$lookalike"
+init_repo "$forged"
+git -C "$forged" remote set-url origin https://github.com/dematom-labs/infrastructure.git
 git -C "$managed" worktree add -q -b fm-isolated "$isolated"
 mkdir -p "$isolated/subdir"
 ln -s "$unregistered" "$fm_home/projects/spoof"
 
 vendor="$tmp/vendor-av"
 args_log="$tmp/vendor-args"
+git_env=()
 cat > "$vendor" <<'EOF'
 #!/usr/bin/env bash
 printf '<%s>\n' "$@" > "$VENDOR_ARGS"
@@ -61,7 +65,7 @@ chmod +x "$vendor"
 invoke_policy() {
   local dir=$1 task=$2
   shift 2
-  (cd -L "$dir" && env "${home_env[@]}" AV_VENDOR_CLI="$vendor" FM_TASK_ID="$task" \
+  (cd -L "$dir" && env "${home_env[@]}" "${git_env[@]}" AV_VENDOR_CLI="$vendor" FM_TASK_ID="$task" \
     VENDOR_ARGS="$args_log" "$policy" "$@")
 }
 
@@ -137,6 +141,38 @@ for mode in explicit unset empty; do
   expect_denied "$unregistered" "unlinked task path spoof" path-spoof
   expect_denied "$isolated" "metadata symlink spoof" symlink-spoof
   expect_denied "$tmp/unrelated-copy" "Git common directory spoof" common-spoof
+done
+
+# Caller-controlled Git variables must not redirect root discovery or config.
+for variable in GIT_DIR GIT_WORK_TREE GIT_CONFIG GIT_CONFIG_GLOBAL GIT_CONFIG_SYSTEM \
+  GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0 GIT_CONFIG_PARAMETERS \
+  GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_CEILING_DIRECTORIES \
+  GIT_DISCOVERY_ACROSS_FILESYSTEM; do
+  git_env=("$variable=$infrastructure/.git")
+  case "$variable" in
+    GIT_CONFIG|GIT_CONFIG_GLOBAL|GIT_CONFIG_SYSTEM) git_env=("$variable=$tmp/forged.gitconfig") ;;
+    GIT_CONFIG_COUNT) git_env=(GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=remote.origin.url GIT_CONFIG_VALUE_0=https://github.com/dematom-labs/infrastructure.git) ;;
+    GIT_CONFIG_KEY_0|GIT_CONFIG_VALUE_0) git_env=(GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=remote.origin.url GIT_CONFIG_VALUE_0=https://github.com/dematom-labs/infrastructure.git "$variable=$forged") ;;
+    GIT_CONFIG_PARAMETERS) git_env=("$variable='remote.origin.url=https://github.com/dematom-labs/infrastructure.git'") ;;
+    GIT_DIR) git_env=("$variable=$forged/.git") ;;
+    GIT_WORK_TREE) git_env=("$variable=$forged") ;;
+    GIT_COMMON_DIR|GIT_INDEX_FILE|GIT_OBJECT_DIRECTORY|GIT_CEILING_DIRECTORIES) git_env=("$variable=$forged") ;;
+    GIT_DISCOVERY_ACROSS_FILESYSTEM) git_env=("$variable=1") ;;
+  esac
+  case "$variable" in
+    GIT_CONFIG|GIT_CONFIG_GLOBAL|GIT_CONFIG_SYSTEM)
+      printf '[remote "origin"]\nurl = https://github.com/dematom-labs/infrastructure.git\n' > "$tmp/forged.gitconfig"
+      git -C "$infrastructure" remote set-url origin https://github.com/example/infrastructure.git
+      expect_denied "$infrastructure" "environment override $variable"
+      git -C "$infrastructure" remote set-url origin https://github.com/dematom-labs/infrastructure.git
+      ;;
+    GIT_CONFIG_COUNT|GIT_CONFIG_PARAMETERS|GIT_DIR|GIT_WORK_TREE)
+      git -C "$infrastructure" remote set-url origin https://github.com/example/infrastructure.git
+      expect_denied "$infrastructure" "environment override $variable"
+      git -C "$infrastructure" remote set-url origin https://github.com/dematom-labs/infrastructure.git
+      ;;
+    *) expect_denied "$arbitrary" "environment override $variable" ;;
+  esac
 done
 
 git -C "$infrastructure" remote set-url origin https://github.com/example/infrastructure.git
