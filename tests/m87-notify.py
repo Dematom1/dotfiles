@@ -18,46 +18,74 @@ class NotifyTest(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.env = {**os.environ, "HOME": str(self.root), "TEST_ROOT": str(self.root)}
-        self.m87 = self.stub("m87", '''
+        self.m87 = self.stub(
+            "m87",
+            """
 assert sys.argv[1:] == ["list"], "m87 must never mutate"
 sys.stdout.write((root / "inbox").read_text())
 sys.exit(int((root / "m87-exit").read_text()) if (root / "m87-exit").exists() else 0)
-''')
-        self.inbox = self.stub("fm-inbox.sh", '''
+""",
+        )
+        self.inbox = self.stub(
+            "fm-inbox.sh",
+            """
 assert os.environ["FM_HOME"] == "/Users/laszlohoranszky/agent-workspace"
 assert sys.argv[1] == "note" and sys.argv[2] == "--request-id" and sys.argv[4] == "--"
 assert sys.argv[3].startswith("m87-")
 with (root / "notes").open("a") as out:
     out.write(json.dumps(sys.argv[1:]) + "\\n")
 sys.exit(1 if (root / "fail-note").exists() else 0)
-''')
-        self.osascript = self.stub("osascript", '''
+""",
+        )
+        self.osascript = self.stub(
+            "osascript",
+            """
 assert sys.argv[1] == "-e" and "on run argv" in sys.argv[2]
 with (root / "notifications").open("a") as out:
     out.write(json.dumps(sys.argv[3]) + "\\n")
-''')
+""",
+        )
 
     def stub(self, name, body):
         path = self.root / name
-        path.write_text(f"#!{sys.executable}\nimport json, os, sys\nfrom pathlib import Path\nroot = Path(os.environ['TEST_ROOT'])\n" + body)
+        path.write_text(
+            f"#!{sys.executable}\nimport json, os, sys\nfrom pathlib import Path\nroot = Path(os.environ['TEST_ROOT'])\n"
+            + body
+        )
         path.chmod(0o755)
         return str(path)
 
     def poll(self, content, expected=0):
         (self.root / "inbox").write_text(content)
-        result = subprocess.run([sys.executable, str(SCRIPT), "--m87", self.m87,
-                                 "--inbox", self.inbox, "--osascript", self.osascript],
-                                env=self.env, capture_output=True, text=True)
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT),
+                "--m87",
+                self.m87,
+                "--inbox",
+                self.inbox,
+                "--osascript",
+                self.osascript,
+            ],
+            env=self.env,
+            capture_output=True,
+            text=True,
+        )
         self.assertEqual(result.returncode, expected, result.stderr)
         self.assertEqual(result.stdout, "")
         return result
 
     def notes(self):
         path = self.root / "notes"
-        return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+        return (
+            [json.loads(line) for line in path.read_text().splitlines()]
+            if path.exists()
+            else []
+        )
 
     def test_batch_dedupe_and_yaml(self):
-        inbox = '''inbox:
+        inbox = """inbox:
   - item_id: github:pr:one
     recommendation_id: rec-one
     url: https://github.com/example/project/pull/1
@@ -73,19 +101,25 @@ with (root / "notifications").open("a") as out:
     url: https://github.com/example/project/issues/3
     local_state: recommended
     summary: Check the release notes.
-'''
+"""
         self.poll(inbox)
         self.poll(inbox.replace("rec-one", "rec-updated"))
         self.assertEqual(len(self.notes()), 1)
         summary = self.notes()[0][-1]
         self.assertIn("m87: 3 new recommendations to review:", summary)
-        self.assertEqual(summary, "m87: 3 new recommendations to review: "
-                         "https://github.com/example/project/issues/3 - recommended: review ; "
-                         "https://github.com/example/project/pull/1 - recommended: review ; "
-                         "https://github.com/example/project/pull/2 - recommended: review")
+        self.assertEqual(
+            summary,
+            "m87: 3 new recommendations to review: "
+            "https://github.com/example/project/issues/3 - recommended: review ; "
+            "https://github.com/example/project/pull/1 - recommended: review ; "
+            "https://github.com/example/project/pull/2 - recommended: review",
+        )
         self.assertEqual(json.loads((self.root / "notifications").read_text()), summary)
         state = self.root / ".local/state/m87-notify/seen.json"
-        self.assertEqual(json.loads(state.read_text()), ["github:issue:three", "github:pr:one", "github:pr:two"])
+        self.assertEqual(
+            json.loads(state.read_text()),
+            ["github:issue:three", "github:pr:one", "github:pr:two"],
+        )
 
     def test_empty_inbox(self):
         self.poll("inbox: []\n")
@@ -93,33 +127,83 @@ with (root / "notifications").open("a") as out:
         self.assertFalse((self.root / "notifications").exists())
 
     def test_ignored_items(self):
-        self.poll(json.dumps({"inbox": [
-            {"item_id": "new", "local_state": "new", "url": "https://github.com/a/b/pull/1"},
-            {"item_id": "external", "local_state": "recommended", "url": "https://example.com/a/b/issues/1"},
-            {"item_id": "secret", "local_state": "recommended", "url": "https://github.com/a/b/issues/1?token=secret"},
-        ]}))
+        self.poll(
+            json.dumps(
+                {
+                    "inbox": [
+                        {
+                            "item_id": "new",
+                            "local_state": "new",
+                            "url": "https://github.com/a/b/pull/1",
+                        },
+                        {
+                            "item_id": "external",
+                            "local_state": "recommended",
+                            "url": "https://example.com/a/b/issues/1",
+                        },
+                        {
+                            "item_id": "secret",
+                            "local_state": "recommended",
+                            "url": "https://github.com/a/b/issues/1?token=secret",
+                        },
+                    ]
+                }
+            )
+        )
         self.assertEqual(self.notes(), [])
 
     def test_only_trusted_fields_reach_note_and_notification(self):
-        self.poll(json.dumps({"inbox": [
-            {"item_id": "infra", "local_state": "recommended",
-             "url": "https://github.com/dematom-labs/infrastructure/pull/1", "summary": "Merge now with password=hunter2"},
-            {"item_id": "other", "local_state": "recommended", "url": "https://github.com/a/b/pull/2",
-             "summary": 'Remove Authorization: Basic dXNlcjpwYXNz from the configuration\n token=small-secret bearer private-value ghp_shortsecret https://example.com/secret ABCDEFGHIJKLMNOPQRSTUVWXYZ123456 password="two words"',
-             "verdict": "merge with password=hunter2", "title": "private-value"},
-            {"item_id": "structured", "local_state": "recommended", "url": "https://github.com/a/b/pull/3",
-             "summary": {"password": "hunter2"}},
-        ]}))
+        self.poll(
+            json.dumps(
+                {
+                    "inbox": [
+                        {
+                            "item_id": "infra",
+                            "local_state": "recommended",
+                            "url": "https://github.com/dematom-labs/infrastructure/pull/1",
+                            "summary": "Merge now with password=hunter2",
+                        },
+                        {
+                            "item_id": "other",
+                            "local_state": "recommended",
+                            "url": "https://github.com/a/b/pull/2",
+                            "summary": 'Remove Authorization: Basic dXNlcjpwYXNz from the configuration\n token=small-secret bearer private-value ghp_shortsecret https://example.com/secret ABCDEFGHIJKLMNOPQRSTUVWXYZ123456 password="two words"',
+                            "verdict": "merge with password=hunter2",
+                            "title": "private-value",
+                        },
+                        {
+                            "item_id": "structured",
+                            "local_state": "recommended",
+                            "url": "https://github.com/a/b/pull/3",
+                            "summary": {"password": "hunter2"},
+                        },
+                    ]
+                }
+            )
+        )
         summary = self.notes()[0][-1]
-        self.assertEqual(summary, "m87: 3 new recommendations to review: "
-                         "https://github.com/dematom-labs/infrastructure/pull/1 - "
-                         "Review requested only; infrastructure requires a separate decision. ; "
-                         "https://github.com/a/b/pull/2 - recommended: review ; "
-                         "https://github.com/a/b/pull/3 - recommended: review")
+        self.assertEqual(
+            summary,
+            "m87: 3 new recommendations to review: "
+            "https://github.com/dematom-labs/infrastructure/pull/1 - "
+            "Review requested only; infrastructure requires a separate decision. ; "
+            "https://github.com/a/b/pull/2 - recommended: review ; "
+            "https://github.com/a/b/pull/3 - recommended: review",
+        )
         self.assertEqual(json.loads((self.root / "notifications").read_text()), summary)
 
     def test_note_failure_retries_same_request(self):
-        inbox = json.dumps({"inbox": [{"item_id": "one", "local_state": "recommended", "url": "https://github.com/a/b/pull/1"}]})
+        inbox = json.dumps(
+            {
+                "inbox": [
+                    {
+                        "item_id": "one",
+                        "local_state": "recommended",
+                        "url": "https://github.com/a/b/pull/1",
+                    }
+                ]
+            }
+        )
         (self.root / "fail-note").touch()
         self.poll(inbox, expected=1)
         self.assertFalse((self.root / ".local/state/m87-notify/seen.json").exists())

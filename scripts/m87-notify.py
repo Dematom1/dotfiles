@@ -16,7 +16,11 @@ FIRSTMATE_HOME = "/Users/laszlohoranszky/agent-workspace"
 
 
 def recommendation(item):
-    if item["url"].lower().startswith("https://github.com/dematom-labs/infrastructure/"):
+    if (
+        item["url"]
+        .lower()
+        .startswith("https://github.com/dematom-labs/infrastructure/")
+    ):
         return "Review requested only; infrastructure requires a separate decision."
     return "recommended: review"
 
@@ -30,15 +34,26 @@ def run(args):
         except BlockingIOError:
             return
         try:
-            result = subprocess.run([args.m87, "list"], capture_output=True, text=True, timeout=60)
+            result = subprocess.run(
+                [args.m87, "list"], capture_output=True, text=True, timeout=60
+            )
         except (FileNotFoundError, subprocess.TimeoutExpired):
             return
         if result.returncode:
             return
         # m87 0.1.10 has no JSON flag: its native list output is structured YAML.
-        result = subprocess.run([args.yq, "."], input=result.stdout, capture_output=True, text=True, check=True, timeout=30)
+        result = subprocess.run(
+            [args.yq, "."],
+            input=result.stdout,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=30,
+        )
         items = json.loads(result.stdout)["inbox"] or []
-        if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
+        if not isinstance(items, list) or any(
+            not isinstance(item, dict) for item in items
+        ):
             raise ValueError("invalid inbox schema")
         seen_file = state / "seen.json"
         seen = set(json.loads(seen_file.read_text())) if seen_file.exists() else set()
@@ -46,24 +61,45 @@ def run(args):
         for item in items:
             url = item.get("url", "")
             item_id = item.get("item_id")
-            if (item.get("local_state") == "recommended" and isinstance(item_id, str)
-                    and item_id not in seen and re.fullmatch(r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/(?:pull|issues)/[0-9]+", url)):
+            if (
+                item.get("local_state") == "recommended"
+                and isinstance(item_id, str)
+                and item_id not in seen
+                and re.fullmatch(
+                    r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/(?:pull|issues)/[0-9]+",
+                    url,
+                )
+            ):
                 batch[item_id] = item
         if not batch:
             return
         ids = sorted(batch)
         digest = hashlib.sha256(json.dumps(ids).encode()).hexdigest()
         summary = f"m87: {len(ids)} new recommendations to review: " + " ; ".join(
-            f"{batch[item_id]['url']} - {recommendation(batch[item_id])}" for item_id in ids
+            f"{batch[item_id]['url']} - {recommendation(batch[item_id])}"
+            for item_id in ids
         )
-        subprocess.run([args.inbox, "note", "--request-id", f"m87-{digest}", "--", summary],
-                       env={**os.environ, "FM_HOME": FIRSTMATE_HOME},
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=60)
+        subprocess.run(
+            [args.inbox, "note", "--request-id", f"m87-{digest}", "--", summary],
+            env={**os.environ, "FM_HOME": FIRSTMATE_HOME},
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=True,
+            timeout=60,
+        )
         script = 'on run argv\ndisplay notification (item 1 of argv) with title "m87"\nend run'
         try:
-            subprocess.run([args.osascript, "-e", script, summary], capture_output=True, check=True, timeout=30)
+            subprocess.run(
+                [args.osascript, "-e", script, summary],
+                capture_output=True,
+                check=True,
+                timeout=30,
+            )
         except (OSError, subprocess.SubprocessError):
-            print("m87-notify: desktop notification failed; firstmate note delivered", file=sys.stderr)
+            print(
+                "m87-notify: desktop notification failed; firstmate note delivered",
+                file=sys.stderr,
+            )
         with tempfile.NamedTemporaryFile(mode="w", dir=state, delete=False) as output:
             temporary = Path(output.name)
             try:
