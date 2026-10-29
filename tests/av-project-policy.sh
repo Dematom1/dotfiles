@@ -47,6 +47,7 @@ git -C "$infrastructure" remote set-url origin https://github.com/dematom-labs/i
 init_repo "$unregistered"
 init_repo "$lookalike"
 init_repo "$forged"
+git -C "$forged" remote set-url origin https://github.com/dematom-labs/infrastructure.git
 git -C "$managed" worktree add -q -b fm-isolated "$isolated"
 mkdir -p "$isolated/subdir"
 ln -s "$unregistered" "$fm_home/projects/spoof"
@@ -153,11 +154,15 @@ for variable in GIT_DIR GIT_WORK_TREE GIT_CONFIG GIT_CONFIG_GLOBAL GIT_CONFIG_SY
     GIT_CONFIG_COUNT) git_env=(GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=remote.origin.url GIT_CONFIG_VALUE_0=https://github.com/dematom-labs/infrastructure.git) ;;
     GIT_CONFIG_KEY_0|GIT_CONFIG_VALUE_0) git_env=(GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=remote.origin.url GIT_CONFIG_VALUE_0=https://github.com/dematom-labs/infrastructure.git "$variable=$forged") ;;
     GIT_CONFIG_PARAMETERS) git_env=("$variable='remote.origin.url=https://github.com/dematom-labs/infrastructure.git'") ;;
-    GIT_DIR|GIT_WORK_TREE) git_env=("$variable=$infrastructure") ;;
+    GIT_DIR|GIT_WORK_TREE) git_env=("$variable=$forged") ;;
     GIT_COMMON_DIR|GIT_INDEX_FILE|GIT_OBJECT_DIRECTORY|GIT_CEILING_DIRECTORIES) git_env=("$variable=$forged") ;;
     GIT_DISCOVERY_ACROSS_FILESYSTEM) git_env=("$variable=1") ;;
   esac
   if [[ "$variable" == GIT_CONFIG_COUNT || "$variable" == GIT_CONFIG_PARAMETERS ]]; then
+    git -C "$infrastructure" remote set-url origin https://github.com/example/infrastructure.git
+    expect_denied "$infrastructure" "environment override $variable"
+    git -C "$infrastructure" remote set-url origin https://github.com/dematom-labs/infrastructure.git
+  elif [[ "$variable" == GIT_DIR || "$variable" == GIT_WORK_TREE ]]; then
     git -C "$infrastructure" remote set-url origin https://github.com/example/infrastructure.git
     expect_denied "$infrastructure" "environment override $variable"
     git -C "$infrastructure" remote set-url origin https://github.com/dematom-labs/infrastructure.git
