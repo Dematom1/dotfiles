@@ -42,17 +42,27 @@ def inspect(item):
     field("status", detail.get("status", "unknown"))
     # Preserve all metadata, including provenance fields as the registry evolves.
     field("metadata", json.dumps(detail, ensure_ascii=True))
-    provenance = detail.get("provenance") or {}
-    predicate = provenance.get("predicate", {}) if isinstance(provenance, dict) else {}
-    definition = predicate.get("buildDefinition", {})
-    workflow = definition.get("externalParameters", {}).get("workflow", {})
-    dependencies = definition.get("resolvedDependencies", [])
-    commit = next((d.get("digest", {}).get("gitCommit") for d in dependencies
-                   if d.get("digest", {}).get("gitCommit")), None)
+    provenance = detail.get("provenance")
+    predicate = provenance.get("predicate") if isinstance(provenance, dict) else None
+    predicate = predicate if isinstance(predicate, dict) else {}
+    definition = predicate.get("buildDefinition")
+    definition = definition if isinstance(definition, dict) else {}
+    parameters = definition.get("externalParameters")
+    parameters = parameters if isinstance(parameters, dict) else {}
+    workflow = parameters.get("workflow")
+    workflow = workflow if isinstance(workflow, dict) else {}
+    dependencies = definition.get("resolvedDependencies")
+    dependencies = dependencies if isinstance(dependencies, list) else []
+    commit = next((digest.get("gitCommit") for dependency in dependencies
+                   if isinstance(dependency, dict)
+                   for digest in [dependency.get("digest")]
+                   if isinstance(digest, dict) and digest.get("gitCommit")), None)
+    run_details = predicate.get("runDetails")
+    run_metadata = run_details.get("metadata") if isinstance(run_details, dict) else None
+    run_metadata = run_metadata if isinstance(run_metadata, dict) else {}
     field("source_repo", workflow.get("repository", "not provided by npm stage view"))
     field("commit", commit or "not provided by npm stage view")
-    field("workflow_run", predicate.get("runDetails", {}).get("metadata", {}).get(
-        "invocationId", "not provided by npm stage view"))
+    field("workflow_run", run_metadata.get("invocationId", "not provided by npm stage view"))
     # npm stage view does not include a file list. Download for inspection only;
     # npm reports the tarball contents as JSON, without extracting or running it.
     with tempfile.TemporaryDirectory(prefix="axi-approve-") as directory:

@@ -90,6 +90,14 @@ print("123456")
     assert result.returncode == 1 and "AXI_APPROVE_OP_REF" in result.stdout
     assert "op read" not in trace
     configured = {"PENDING": "1", "AXI_APPROVE_OP_REF": "op://Test/npm/one-time password"}
+    for malformed in (
+        {"predicate": "bad"},
+        {"predicate": {"buildDefinition": "bad"}},
+        {"predicate": {"buildDefinition": {"externalParameters": "bad", "resolvedDependencies": [None]}}},
+        {"predicate": {"runDetails": "bad"}},
+    ):
+        result, _ = run(configured | {"STAGE": json.dumps(STAGE | {"provenance": malformed})}, "n\n")
+        assert result.returncode == 0 and "not provided by npm stage view" in result.stdout
     result, trace = run(configured, "n\n")
     assert result.returncode == 0 and "skipped" in result.stdout
     assert "op read" not in trace and "stage approve" not in trace
