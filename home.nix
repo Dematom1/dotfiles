@@ -33,6 +33,9 @@ let
     exec /usr/local/bin/av inject +OPENCODE_API_KEY -- \
       ${lib.escapeShellArg piSignedExecutable} "$@"
   '';
+  axiApprove = pkgs.writeShellScriptBin "axi-approve" ''
+    exec ${lib.getExe pkgs.python311} ${./scripts/axi-approve.py} "$@"
+  '';
   tailscaleAppCli = pkgs.writeShellScript "tailscale" ''
     exec /Applications/Tailscale.app/Contents/MacOS/Tailscale "$@"
   '';
@@ -60,7 +63,7 @@ in
     # kubernetes / infra
     argocd kubectl kubernetes-helm kustomize k9s kubectx kubernetes-axi terraform
     # agent tools; npm ones are pinned by packages/npm/<name>/package-lock.json
-    m87 backpass acpx treehouse
+    m87 backpass acpx treehouse axiApprove
     # AXI agent tools (https://axi.md); the justfile lists decide which get hooks
     gh-axi chrome-devtools-axi tasks-axi quota-axi pg-axi docker-axi npm-axi
     pypi-axi homebrew-axi jev-axi bun-axi hetzner-axi linear-axi hey-axi lavish-axi
