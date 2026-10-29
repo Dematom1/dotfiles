@@ -47,13 +47,13 @@ def run(args):
             url = item.get("url", "")
             item_id = item.get("item_id")
             if (item.get("local_state") == "recommended" and isinstance(item_id, str)
-                    and item_id not in seen and re.fullmatch(r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/pull/[0-9]+", url)):
+                    and item_id not in seen and re.fullmatch(r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/(?:pull|issues)/[0-9]+", url)):
                 batch[item_id] = item
         if not batch:
             return
         ids = sorted(batch)
         digest = hashlib.sha256(json.dumps(ids).encode()).hexdigest()
-        summary = f"m87: {len(ids)} new PRs to review: " + " ; ".join(
+        summary = f"m87: {len(ids)} new recommendations to review: " + " ; ".join(
             f"{batch[item_id]['url']} - {recommendation(batch[item_id])}" for item_id in ids
         )
         subprocess.run([args.inbox, "note", "--request-id", f"m87-{digest}", "--", summary],

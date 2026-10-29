@@ -69,18 +69,23 @@ with (root / "notifications").open("a") as out:
     url: https://github.com/example/project/pull/2
     local_state: recommended
     summary: Check tests.
+  - item_id: github:issue:three
+    url: https://github.com/example/project/issues/3
+    local_state: recommended
+    summary: Check the release notes.
 '''
         self.poll(inbox)
         self.poll(inbox.replace("rec-one", "rec-updated"))
         self.assertEqual(len(self.notes()), 1)
         summary = self.notes()[0][-1]
-        self.assertIn("m87: 2 new PRs to review:", summary)
-        self.assertEqual(summary, "m87: 2 new PRs to review: "
+        self.assertIn("m87: 3 new recommendations to review:", summary)
+        self.assertEqual(summary, "m87: 3 new recommendations to review: "
+                         "https://github.com/example/project/issues/3 - recommended: review ; "
                          "https://github.com/example/project/pull/1 - recommended: review ; "
                          "https://github.com/example/project/pull/2 - recommended: review")
         self.assertEqual(json.loads((self.root / "notifications").read_text()), summary)
         state = self.root / ".local/state/m87-notify/seen.json"
-        self.assertEqual(json.loads(state.read_text()), ["github:pr:one", "github:pr:two"])
+        self.assertEqual(json.loads(state.read_text()), ["github:issue:three", "github:pr:one", "github:pr:two"])
 
     def test_empty_inbox(self):
         self.poll("inbox: []\n")
@@ -90,8 +95,8 @@ with (root / "notifications").open("a") as out:
     def test_ignored_items(self):
         self.poll(json.dumps({"inbox": [
             {"item_id": "new", "local_state": "new", "url": "https://github.com/a/b/pull/1"},
-            {"item_id": "issue", "local_state": "recommended", "url": "https://github.com/a/b/issues/1"},
-            {"item_id": "secret", "local_state": "recommended", "url": "https://github.com/a/b/pull/1?token=secret"},
+            {"item_id": "external", "local_state": "recommended", "url": "https://example.com/a/b/issues/1"},
+            {"item_id": "secret", "local_state": "recommended", "url": "https://github.com/a/b/issues/1?token=secret"},
         ]}))
         self.assertEqual(self.notes(), [])
 
@@ -106,7 +111,7 @@ with (root / "notifications").open("a") as out:
              "summary": {"password": "hunter2"}},
         ]}))
         summary = self.notes()[0][-1]
-        self.assertEqual(summary, "m87: 3 new PRs to review: "
+        self.assertEqual(summary, "m87: 3 new recommendations to review: "
                          "https://github.com/dematom-labs/infrastructure/pull/1 - "
                          "Review requested only; infrastructure requires a separate decision. ; "
                          "https://github.com/a/b/pull/2 - recommended: review ; "
