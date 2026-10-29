@@ -10,6 +10,7 @@ export CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS="1"
 # --- Tool initialization ---
 eval "$(fzf --zsh)"
 eval "$(direnv hook zsh)"
+export _ZO_EXCLUDE_DIRS="$HOME:$HOME/.treehouse"
 eval "$(zoxide init zsh)"
 eval "$(atuin init zsh)"
 
