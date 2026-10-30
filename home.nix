@@ -94,7 +94,7 @@ in
   ++ lib.optionals (profile == "personal") [
     # personal-only nix packages
     gnupg argo-workflows velero hcloud
-    (azure-cli.withExtensions [ azure-cli.extensions.azure-devops ])
+    azure-cli
   ]
   # work Mac only (the Homebrew equivalent lives in hosts/work.nix)
   ++ lib.optionals (profile == "work") [
