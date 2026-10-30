@@ -208,16 +208,16 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1792588769,
-        "narHash": "sha256-JJNVP3bO4FhzSTPCWlArMLBh5eJnxuq4qFlD9CBxqkg=",
+        "lastModified": 1793107511,
+        "narHash": "sha256-roxiwaMht0EwIZwTtKxXJL5cjxHke0rwGdv1+7Qb3r8=",
         "owner": "kunchenguid",
         "repo": "treehouse",
-        "rev": "42b88127e55def0dd5d371296eacd287dafbf1ca",
+        "rev": "a2651e736cc2f4d16810688aedb476baa6162797",
         "type": "github"
       },
       "original": {
         "owner": "kunchenguid",
-        "ref": "v3.1.5",
+        "ref": "v3.1.7",
         "repo": "treehouse",
         "type": "github"
       }
