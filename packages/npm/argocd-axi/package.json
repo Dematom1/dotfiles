@@ -1,0 +1,7 @@
+{
+  "name": "dotfiles-argocd-axi-package",
+  "private": true,
+  "dependencies": {
+    "argocd-axi": "0.1.0"
+  }
+}

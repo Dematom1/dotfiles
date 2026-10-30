@@ -1,0 +1,7 @@
+{
+  "name": "dotfiles-datadog-axi-package",
+  "private": true,
+  "dependencies": {
+    "datadog-axi": "0.1.1"
+  }
+}

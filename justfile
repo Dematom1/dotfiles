@@ -5,12 +5,14 @@ skills-dir := ".agents/skills"
 # AXI agent tools (https://axi.md). Nix installs every one of them (home.nix,
 # packages/npm/<name>), so these lists only decide whose session hooks are set
 # up. kubernetes-axi is Nix-installed too but registers no hooks.
-axi-tools := "gh-axi chrome-devtools-axi tasks-axi npm-axi pypi-axi homebrew-axi jev-axi bun-axi hetzner-axi"
+axi-tools := "gh-axi chrome-devtools-axi tasks-axi npm-axi pypi-axi homebrew-axi jev-axi bun-axi hetzner-axi argocd-axi argo-workflows-axi datadog-axi"
 
 # HEY stays on-demand so session-start hooks cannot inject private email.
 # lavish-axi is routed by its skill instead of a per-session status dump.
 # quota-axi, pg-axi, docker-axi and linear-axi have no `setup hooks` command.
 axi-tools-no-hooks := "hey-axi lavish-axi quota-axi pg-axi docker-axi linear-axi"
+
+# Argo CD connectivity for this Mac is pending a separate maintainer setup.
 
 # work-machine-only AXI tools - Nix installs them on the work profile only, and
 # their hooks are set up only when ~/.config/dotfiles-profile says "work" (the
