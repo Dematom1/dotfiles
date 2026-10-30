@@ -55,6 +55,12 @@ The app must already be installed; its installation method is unchanged.
 Apply the wrapper with `just rebuild`, then use `type -a tailscale` to check
 command resolution. Non-Darwin profiles continue to use the nixpkgs package.
 
+### Approve staged AXI releases
+
+Home Manager installs `axi-approve` to review and approve staged releases of
+`argo-workflows-axi`, `argocd-axi`, and `datadog-axi` using the npm OTP in
+1Password. See [setup and approval instructions](docs/axi-approve.md).
+
 ### Menu bar
 
 Both Mac profiles install Ice through the `jordanbaird-ice` Homebrew cask and
