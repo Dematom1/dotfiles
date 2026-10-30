@@ -214,7 +214,8 @@
           treehouse --version | grep -Fq ${pkgs.treehouse.version}
           ${nixpkgs.lib.concatMapStrings (name: ''
             test -x ${pkgs.${name}}/bin/${name}
-          '') (nixpkgs.lib.remove "pi-fff" npmTools ++ [ "kubernetes-axi" "docker-axi" ])}
+          '') (nixpkgs.lib.remove "pi-fff" (nixpkgs.lib.remove "npm-cli" npmTools) ++ [ "kubernetes-axi" "docker-axi" ])}
+          test -x ${pkgs.npm-cli}/bin/npm
           IFS= read -r interpreter < ${pkgs.bun-axi}/bin/bun-axi
           test "$interpreter" = '#!${pkgs.bun}/bin/bun'
           test -f ${pkgs.pi-fff}/${pkgs.pi-fff.extensionPath}/index.ts
