@@ -332,9 +332,11 @@ available. Missing tools warn without failing activation. The 16 legacy
 Impeccable command skills are replaced by the consolidated upstream `impeccable`
 skill. Home Manager links the vendored `pi/extensions/terminal-status-title.js`.
 
-AXI binary installation belongs to the separate Nix packaging PR. Missing AXI
-tools report that their hooks register on the next rebuild once installed.
-Rex is an explicit exception: the app owns its skill and hook, and this
+AXI binaries are installed from pinned npm releases by Home Manager, and the
+configured tools register their hooks during `just rebuild`. `argocd-axi`
+requires a reachable Argo CD server; connection setup for
+https://argocd.dematom1.com with SSO or per-agent read-only tokens is pending a
+separate change. Rex is an explicit exception: the app owns its skill and hook, and this
 repository preserves them. If a Rex CLI advertises `setup hooks`, activation
 invokes it; otherwise the app remains responsible for installation.
 
