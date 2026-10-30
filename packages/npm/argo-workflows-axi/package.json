@@ -1,0 +1,7 @@
+{
+  "name": "dotfiles-argo-workflows-axi-package",
+  "private": true,
+  "dependencies": {
+    "argo-workflows-axi": "0.1.2"
+  }
+}
