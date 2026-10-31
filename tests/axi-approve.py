@@ -171,4 +171,19 @@ print("123456")
     assert result.returncode == 0 and (root / "latest").read_text() == "1.2.4"
     assert trace.index("stage approve 1de6f3db") < trace.index("stage approve 2de6f3db")
 
+    prerelease_newer = STAGE | {
+        "id": "3de6f3db-2ed9-4d72-b3dd-8f0e2b474a2f",
+        "version": "1.2.3-beta.10",
+    }
+    prerelease_older = STAGE | {
+        "id": "4de6f3db-2ed9-4d72-b3dd-8f0e2b474a2f",
+        "version": "1.2.3-beta.2",
+    }
+    result, trace = run(
+        configured | {"STAGES": json.dumps([prerelease_newer, prerelease_older])},
+        "y\ny\n",
+    )
+    assert result.returncode == 0 and (root / "latest").read_text() == "1.2.3-beta.10"
+    assert trace.index("stage approve 4de6f3db") < trace.index("stage approve 3de6f3db")
+
 print("axi-approve offline checks passed")

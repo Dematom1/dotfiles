@@ -160,15 +160,40 @@ def approve(stage_id, reference):
 
 def compare_versions(left, right):
     def parts(version):
-        match = re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?", version)
+        match = re.fullmatch(
+            r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
+            r"(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?"
+            r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?",
+            version,
+        )
         if not match:
             raise ValueError("staged version is not valid semver")
         major, minor, patch, prerelease = match.groups()
-        return (int(major), int(minor), int(patch), prerelease)
-    a, b = parts(left), parts(right)
-    if a[:3] != b[:3]:
-        return (a[:3] > b[:3]) - (a[:3] < b[:3])
-    return (bool(a[3]) > bool(b[3])) - (bool(a[3]) < bool(b[3])) if a[3] != b[3] else 0
+        identifiers = prerelease.split(".") if prerelease else None
+        if identifiers and any(
+            identifier.isdigit()
+            and len(identifier) > 1
+            and identifier.startswith("0")
+            for identifier in identifiers
+        ):
+            raise ValueError("staged version is not valid semver")
+        return (int(major), int(minor), int(patch)), identifiers
+
+    a_core, a_pre = parts(left)
+    b_core, b_pre = parts(right)
+    if a_core != b_core:
+        return (a_core > b_core) - (a_core < b_core)
+    if a_pre is None or b_pre is None:
+        return (a_pre is None) - (b_pre is None)
+    for a_id, b_id in zip(a_pre, b_pre):
+        if a_id == b_id:
+            continue
+        a_numeric, b_numeric = a_id.isdigit(), b_id.isdigit()
+        if a_numeric != b_numeric:
+            return -1 if a_numeric else 1
+        a_value, b_value = (int(a_id), int(b_id)) if a_numeric else (a_id, b_id)
+        return (a_value > b_value) - (a_value < b_value)
+    return (len(a_pre) > len(b_pre)) - (len(a_pre) < len(b_pre))
 
 
 def main():
