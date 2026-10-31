@@ -8,7 +8,7 @@
    export AXI_APPROVE_OP_REF='op://VAULT/ITEM/one-time password'
    ```
 
-   There is no vault search. If `AXI_APPROVE_OP_REF` is unset, `axi-approve` prompts once for the npm OTP using hidden terminal input and reuses it for approvals in that run. Non-interactive use is refused.
+   There is no vault search. If `AXI_APPROVE_OP_REF` is unset, `axi-approve` prompts for the npm OTP using hidden terminal input immediately before each confirmed approval. Non-interactive use is refused.
 4. Run `axi-approve` in a terminal. Inspect each version, then answer `y` to publish it. Any other answer skips it. Staged versions are approved oldest-first within each package, and the command verifies that `latest` points to the highest approved version. If it does not, the command prints the exact `npm dist-tag add <package>@<version> latest` repair command and exits unsuccessfully.
 
 The command uses the public npm registry explicitly. It lists all staged versions for the three packages, shows their stage IDs and registry metadata, and downloads each tarball into a temporary directory to list its files. It does not extract or execute package contents. The temporary directory is removed before confirmation.

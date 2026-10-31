@@ -234,7 +234,6 @@ def main():
         raise ValueError(
             "run axi-approve in an interactive terminal to confirm each release"
         )
-    otp = getpass.getpass("npm one-time password: ") if reference is None else None
     if reference is not None and (
         not reference.startswith("op://") or len(reference.split("/")) < 5
     ):
@@ -251,7 +250,7 @@ def main():
                 field("result", f"{label}: skipped")
                 continue
             if reference is None:
-                approve_with_otp(stage_id, otp)
+                approve_with_otp(stage_id, getpass.getpass("npm one-time password: "))
             else:
                 approve(stage_id, reference)
             approved[item["packageName"]] = item["version"]
