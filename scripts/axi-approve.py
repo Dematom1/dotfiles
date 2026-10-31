@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import uuid
+from functools import cmp_to_key
 
 PACKAGES = ("argo-workflows-axi", "argocd-axi", "datadog-axi")
 REGISTRY = "https://registry.npmjs.org/"
@@ -157,6 +158,19 @@ def approve(stage_id, reference):
         )
 
 
+def compare_versions(left, right):
+    def parts(version):
+        match = re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?", version)
+        if not match:
+            raise ValueError("staged version is not valid semver")
+        major, minor, patch, prerelease = match.groups()
+        return (int(major), int(minor), int(patch), prerelease)
+    a, b = parts(left), parts(right)
+    if a[:3] != b[:3]:
+        return (a[:3] > b[:3]) - (a[:3] < b[:3])
+    return (bool(a[3]) > bool(b[3])) - (bool(a[3]) < bool(b[3])) if a[3] != b[3] else 0
+
+
 def main():
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -194,7 +208,9 @@ def main():
         raise ValueError(
             "run axi-approve in an interactive terminal to confirm each release"
         )
+    pending.sort(key=cmp_to_key(lambda left, right: (left["packageName"] > right["packageName"]) - (left["packageName"] < right["packageName"]) or compare_versions(left["version"], right["version"])))
     failed = False
+    approved = {}
     for item in pending:
         label = f"{item['packageName']}@{item['version']}"
         try:
@@ -204,6 +220,7 @@ def main():
                 field("result", f"{label}: skipped")
                 continue
             approve(stage_id, reference)
+            approved[item["packageName"]] = item["version"]
             field("result", f"{label}: approved and published")
         except (ValueError, KeyError, TypeError, OSError) as error:
             # Do not print exception details, which could contain dependency secrets.
@@ -215,6 +232,11 @@ def main():
                 if isinstance(error, ValueError)
                 else "could not inspect or approve release",
             )
+    for package, version in approved.items():
+        tags = npm("dist-tag", "ls", package, "--json")
+        if tags.get("latest") != version:
+            failed = True
+            field("error", f"{package} latest is {tags.get('latest')}; run npm dist-tag add {package}@{version} latest")
     return int(failed)
 
 

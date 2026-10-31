@@ -49,15 +49,16 @@ import json, os, sys
 from pathlib import Path
 args = sys.argv[1:]
 with open(os.environ["TRACE"], "a") as trace:
-    trace.write(("version" if args == ["--version"] else " ".join(args[:2])) + "\\n")
+    trace.write(("version" if args == ["--version"] else " ".join(args[:2]) + (" " + args[2] if args[:2] == ["stage", "approve"] else "")) + "\\n")
 if args == ["--version"]:
     print(os.environ.get("VERSION", "11.19.0"))
     sys.exit(0)
 assert "--logs-max=0" in args
 assert args[args.index("--registry") + 1] == "https://registry.npmjs.org/"
-item = json.loads(os.environ["STAGE"])
+items = json.loads(os.environ.get("STAGES", json.dumps([json.loads(os.environ["STAGE"])])))
+item = next((item for item in items if item["id"] == args[2]), items[0]) if len(args) > 2 else items[0]
 if args[:2] == ["stage", "list"]:
-    print(json.dumps([item] if os.environ.get("PENDING") and args[2] == item["packageName"] else []))
+    print(json.dumps([item for item in items if item["packageName"] == args[2]] if os.environ.get("PENDING") and args[2] == items[0]["packageName"] else []))
 elif args[:2] == ["stage", "view"]:
     print(json.dumps(item))
 elif args[:2] == ["stage", "download"]:
@@ -67,7 +68,11 @@ elif args[:2] == ["stage", "download"]:
     }}))
 elif args[:2] == ["stage", "approve"]:
     assert args[args.index("--otp") + 1] == "123456"
+    with open(os.environ["LATEST"], "w") as latest:
+        latest.write(item["version"])
     sys.exit(int(os.environ.get("APPROVE_STATUS", "0")))
+elif args[:2] == ["dist-tag", "ls"]:
+    print(json.dumps({"latest": Path(os.environ["LATEST"]).read_text()}))
 else:
     sys.exit(99)
 """)
@@ -86,11 +91,13 @@ print("123456")
         PATH=f"{root}:{os.environ['PATH']}",
         STAGE=json.dumps(STAGE),
         TRACE=str(root / "trace"),
+        LATEST=str(root / "latest"),
     )
     env.pop("AXI_APPROVE_OP_REF", None)
 
     def run(extra=None, answer=None):
         (root / "trace").write_text("")
+        (root / "latest").write_text("")
         master, slave = pty.openpty()
         try:
             if answer is not None:
@@ -155,8 +162,13 @@ print("123456")
     assert "op read" not in trace and "stage approve" not in trace
     result, trace = run(configured, "y\n")
     assert result.returncode == 0 and "approved and published" in result.stdout
-    assert trace.endswith("op read\nstage approve\n")
+    assert "op read\nstage approve " + STAGE["id"] + "\n" in trace
     result, trace = run(configured | {"APPROVE_STATUS": "1"}, "y\n")
     assert result.returncode == 1 and "approval failed" in result.stdout
+
+    newer = STAGE | {"id": "2de6f3db-2ed9-4d72-b3dd-8f0e2b474a2f", "version": "1.2.4"}
+    result, trace = run(configured | {"STAGES": json.dumps([newer, STAGE])}, "y\ny\n")
+    assert result.returncode == 0 and (root / "latest").read_text() == "1.2.4"
+    assert trace.index("stage approve 1de6f3db") < trace.index("stage approve 2de6f3db")
 
 print("axi-approve offline checks passed")
