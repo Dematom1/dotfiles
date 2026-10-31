@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import uuid
+from functools import cmp_to_key
 
 PACKAGES = ("argo-workflows-axi", "argocd-axi", "datadog-axi")
 REGISTRY = "https://registry.npmjs.org/"
@@ -157,6 +158,44 @@ def approve(stage_id, reference):
         )
 
 
+def compare_versions(left, right):
+    def parts(version):
+        match = re.fullmatch(
+            r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
+            r"(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?"
+            r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?",
+            version,
+        )
+        if not match:
+            raise ValueError("staged version is not valid semver")
+        major, minor, patch, prerelease = match.groups()
+        identifiers = prerelease.split(".") if prerelease else None
+        if identifiers and any(
+            identifier.isdigit()
+            and len(identifier) > 1
+            and identifier.startswith("0")
+            for identifier in identifiers
+        ):
+            raise ValueError("staged version is not valid semver")
+        return (int(major), int(minor), int(patch)), identifiers
+
+    a_core, a_pre = parts(left)
+    b_core, b_pre = parts(right)
+    if a_core != b_core:
+        return (a_core > b_core) - (a_core < b_core)
+    if a_pre is None or b_pre is None:
+        return (a_pre is None) - (b_pre is None)
+    for a_id, b_id in zip(a_pre, b_pre):
+        if a_id == b_id:
+            continue
+        a_numeric, b_numeric = a_id.isdigit(), b_id.isdigit()
+        if a_numeric != b_numeric:
+            return -1 if a_numeric else 1
+        a_value, b_value = (int(a_id), int(b_id)) if a_numeric else (a_id, b_id)
+        return (a_value > b_value) - (a_value < b_value)
+    return (len(a_pre) > len(b_pre)) - (len(a_pre) < len(b_pre))
+
+
 def main():
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -194,7 +233,9 @@ def main():
         raise ValueError(
             "run axi-approve in an interactive terminal to confirm each release"
         )
+    pending.sort(key=cmp_to_key(lambda left, right: (left["packageName"] > right["packageName"]) - (left["packageName"] < right["packageName"]) or compare_versions(left["version"], right["version"])))
     failed = False
+    approved = {}
     for item in pending:
         label = f"{item['packageName']}@{item['version']}"
         try:
@@ -204,6 +245,7 @@ def main():
                 field("result", f"{label}: skipped")
                 continue
             approve(stage_id, reference)
+            approved[item["packageName"]] = item["version"]
             field("result", f"{label}: approved and published")
         except (ValueError, KeyError, TypeError, OSError) as error:
             # Do not print exception details, which could contain dependency secrets.
@@ -215,6 +257,11 @@ def main():
                 if isinstance(error, ValueError)
                 else "could not inspect or approve release",
             )
+    for package, version in approved.items():
+        tags = npm("dist-tag", "ls", package, "--json")
+        if tags.get("latest") != version:
+            failed = True
+            field("error", f"{package} latest is {tags.get('latest')}; run npm dist-tag add {package}@{version} latest")
     return int(failed)
 
 

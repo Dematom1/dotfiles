@@ -10,7 +10,7 @@
    ```
 
    There is no default reference and no vault search. The reference itself is not an OTP and can go in your shell configuration.
-5. Run `axi-approve` in a terminal. Inspect each version, then answer `y` to publish it. Any other answer skips it.
+5. Run `axi-approve` in a terminal. Inspect each version, then answer `y` to publish it. Any other answer skips it. Staged versions are approved oldest-first within each package, and the command verifies that `latest` points to the highest approved version. If it does not, the command prints the exact `npm dist-tag add <package>@<version> latest` repair command and exits unsuccessfully.
 
 The command uses the public npm registry explicitly. It lists all staged versions for the three packages, shows their stage IDs and registry metadata, and downloads each tarball into a temporary directory to list its files. It does not extract or execute package contents. The temporary directory is removed before confirmation.
 
