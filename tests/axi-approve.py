@@ -123,7 +123,7 @@ print("123456")
     assert result.returncode == 1 and "npm >= 11.19" in result.stdout
     assert "stage" not in trace
     result, trace = run({"PENDING": "1"})
-    assert result.returncode == 1 and "AXI_APPROVE_OP_REF" in result.stdout
+    assert result.returncode == 1 and "interactive terminal" in result.stdout
     assert "op read" not in trace
     configured = {
         "PENDING": "1",

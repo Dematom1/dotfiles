@@ -58,8 +58,9 @@ command resolution. Non-Darwin profiles continue to use the nixpkgs package.
 ### Approve staged AXI releases
 
 Home Manager installs `axi-approve` to review and approve staged releases of
-`argo-workflows-axi`, `argocd-axi`, and `datadog-axi` using the npm OTP in
-1Password. See [setup and approval instructions](docs/axi-approve.md).
+`argo-workflows-axi`, `argocd-axi`, and `datadog-axi` using an npm OTP entered
+at a hidden terminal prompt or read from 1Password. See [setup and approval
+instructions](docs/axi-approve.md).
 
 ### Menu bar
 

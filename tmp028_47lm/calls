@@ -1,0 +1,6 @@
+["--version"]
+["stage", "list", "argo-workflows-axi", "--json", "--registry", "https://registry.npmjs.org/", "--logs-max=0", "--loglevel=silent", "--timing=false"]
+["stage", "list", "argocd-axi", "--json", "--registry", "https://registry.npmjs.org/", "--logs-max=0", "--loglevel=silent", "--timing=false"]
+["stage", "list", "datadog-axi", "--json", "--registry", "https://registry.npmjs.org/", "--logs-max=0", "--loglevel=silent", "--timing=false"]
+["stage", "view", "00000000-0000-0000-0000-000000000001", "--json", "--registry", "https://registry.npmjs.org/", "--logs-max=0", "--loglevel=silent", "--timing=false"]
+["stage", "download", "00000000-0000-0000-0000-000000000001", "--json", "--registry", "https://registry.npmjs.org/", "--logs-max=0", "--loglevel=silent", "--timing=false"]

@@ -2,6 +2,7 @@
 """Human approval of the maintained AXI packages' staged npm releases."""
 
 import argparse
+import getpass
 import json
 import os
 import re
@@ -133,6 +134,10 @@ def approve(stage_id, reference):
         raise ValueError(
             "1Password OTP read failed; check the reference and desktop app integration"
         )
+    approve_with_otp(stage_id, otp)
+
+
+def approve_with_otp(stage_id, otp):
     result = subprocess.run(
         [
             "npm",
@@ -200,7 +205,7 @@ def main():
     parser = argparse.ArgumentParser(
         description=__doc__,
         epilog=(
-            "Set AXI_APPROVE_OP_REF=op://VAULT/ITEM/one-time password. "
+            "Set AXI_APPROVE_OP_REF=op://VAULT/ITEM/one-time password for 1Password, or enter the OTP when prompted. "
             "Run axi-approve in a terminal; each release requires confirmation. "
             "No automatic approval mode is supported."
         ),
@@ -224,15 +229,15 @@ def main():
     if not pending:
         field("result", "nothing pending")
         return 0
-    reference = os.environ.get("AXI_APPROVE_OP_REF", "")
-    if not reference.startswith("op://") or len(reference.split("/")) < 5:
-        raise ValueError(
-            "set AXI_APPROVE_OP_REF='op://VAULT/ITEM/one-time password' explicitly; no vault search is performed"
-        )
-    if not sys.stdin.isatty():
+    reference = os.environ.get("AXI_APPROVE_OP_REF")
+    if not sys.stdin.isatty() or (reference is None and not sys.stdout.isatty()):
         raise ValueError(
             "run axi-approve in an interactive terminal to confirm each release"
         )
+    if reference is not None and (
+        not reference.startswith("op://") or len(reference.split("/")) < 5
+    ):
+        raise ValueError("AXI_APPROVE_OP_REF must be an op:// vault reference")
     pending.sort(key=cmp_to_key(lambda left, right: (left["packageName"] > right["packageName"]) - (left["packageName"] < right["packageName"]) or compare_versions(left["version"], right["version"])))
     failed = False
     approved = {}
@@ -244,7 +249,10 @@ def main():
             if answer != "y":
                 field("result", f"{label}: skipped")
                 continue
-            approve(stage_id, reference)
+            if reference is None:
+                approve_with_otp(stage_id, getpass.getpass("npm one-time password: "))
+            else:
+                approve(stage_id, reference)
             approved[item["packageName"]] = item["version"]
             field("result", f"{label}: approved and published")
         except (ValueError, KeyError, TypeError, OSError) as error:
