@@ -1,0 +1,9 @@
+#!/usr/bin/env python3
+import sys,json,os
+x=sys.argv[1:]
+open(os.environ['CALLS'],'a').write(json.dumps(x)+'\n')
+if x==['--version']:print('11.19.0')
+elif x[:2]==['stage','list']:print(json.dumps([{'id':'00000000-0000-0000-0000-000000000001','packageName':x[2],'version':'1.0.0'}] if x[2]=='argo-workflows-axi' else []))
+elif x[:2]==['stage','view']:print(json.dumps({'id':x[2],'packageName':'argo-workflows-axi','version':'1.0.0','shasum':'x'}))
+elif x[:2]==['stage','download']:print(json.dumps({'argo-workflows-axi':{'name':'argo-workflows-axi','version':'1.0.0','shasum':'x','files':[{'path':'package.json'}]}}))
+elif x[:3]==['dist-tag','ls','argo-workflows-axi']:print(json.dumps({'latest':'1.0.0'}))
