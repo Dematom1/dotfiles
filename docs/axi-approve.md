@@ -17,6 +17,6 @@ Source repository, commit, and workflow run come from SLSA provenance when `npm 
 
 Only a confirmed release triggers authentication. The browser URL and npm's web-auth output remain visible so you can complete approval. The typed-code mode reads hidden input, suppresses dependency output, and never writes the OTP to disk. npm requires the OTP as an argument, so it can be visible to privileged local process inspection during approval. Do not run this command through a command-recording wrapper.
 
-No pending versions prints `nothing pending` and exits successfully without accessing 1Password. A failed inspection or approval prints a result for that version and causes exit code 1. The command continues with the remaining versions. It has no automatic-confirmation flag.
+No pending versions prints `nothing pending` and exits successfully without starting authentication. A failed inspection or approval prints a result for that version and causes exit code 1. The command continues with the remaining versions. It has no automatic-confirmation flag.
 
 Run the offline check with `python3 tests/axi-approve.py`. The check stubs both npm and op and never contacts the registry or 1Password.

@@ -71,6 +71,7 @@ elif args[:2] == ["stage", "download"]:
 elif command[:2] == ["stage", "approve"]:
     if "--auth-type=web" in args:
         assert "--otp" not in args
+        print("Complete your login at https://www.npmjs.com/login")
     else:
         assert args[args.index("--otp") + 1] == "123456"
     with open(os.environ["LATEST"], "w") as latest:
@@ -173,6 +174,7 @@ print("123456")
     default = {"PENDING": "1", "TEST_TTY": "1"}
     result, trace = run(default, "y\n")
     assert result.returncode == 0 and "approved and published" in result.stdout, (result.stdout, result.stderr, trace)
+    assert "https://www.npmjs.com/login" in result.stdout
     assert "--auth-type=web stage approve" in trace
     assert "--otp" not in trace
 
