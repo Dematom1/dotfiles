@@ -49,14 +49,16 @@ import json, os, sys
 from pathlib import Path
 args = sys.argv[1:]
 with open(os.environ["TRACE"], "a") as trace:
-    trace.write(("version" if args == ["--version"] else " ".join(args[:2]) + (" " + args[2] if args[:2] == ["stage", "approve"] else "")) + "\\n")
+    trace.write(("version" if args == ["--version"] else " ".join(args[:3])) + "\\n")
 if args == ["--version"]:
     print(os.environ.get("VERSION", "11.19.0"))
     sys.exit(0)
-assert "--logs-max=0" in args
+if "--auth-type=web" not in args:
+    assert "--logs-max=0" in args
 assert args[args.index("--registry") + 1] == "https://registry.npmjs.org/"
+command = args[1:] if args[:1] == ["--auth-type=web"] else args
 items = json.loads(os.environ.get("STAGES", json.dumps([json.loads(os.environ["STAGE"])])))
-item = next((item for item in items if item["id"] == args[2]), items[0]) if len(args) > 2 else items[0]
+item = next((item for item in items if item["id"] in args), items[0])
 if args[:2] == ["stage", "list"]:
     print(json.dumps([item for item in items if item["packageName"] == args[2]] if os.environ.get("PENDING") and args[2] == items[0]["packageName"] else []))
 elif args[:2] == ["stage", "view"]:
@@ -66,8 +68,11 @@ elif args[:2] == ["stage", "download"]:
         "name": item["packageName"], "version": item["version"],
         "files": [{"path": "package.json"}, {"path": "dist/index.js"}],
     }}))
-elif args[:2] == ["stage", "approve"]:
-    assert args[args.index("--otp") + 1] == "123456"
+elif command[:2] == ["stage", "approve"]:
+    if "--auth-type=web" in args:
+        assert "--otp" not in args
+    else:
+        assert args[args.index("--otp") + 1] == "123456"
     with open(os.environ["LATEST"], "w") as latest:
         latest.write(item["version"])
     sys.exit(int(os.environ.get("APPROVE_STATUS", "0")))
@@ -103,7 +108,8 @@ print("123456")
             if answer is not None:
                 os.write(master, answer.encode())
             result = subprocess.run(
-                [sys.executable, str(SCRIPT)],
+                ([sys.executable, "-c", "import getpass,runpy,sys; sys.argv=[sys.argv[1]]; sys.stdout.isatty=lambda: True; getpass.getpass=lambda _: '123456'; runpy.run_path(sys.argv[0],run_name='__main__')", str(SCRIPT)]
+                 if extra and extra.get("TEST_TTY") else [sys.executable, str(SCRIPT)]),
                 env=env | (extra or {}),
                 stdin=slave if answer is not None else subprocess.DEVNULL,
                 capture_output=True,
@@ -163,6 +169,16 @@ print("123456")
     result, trace = run(configured, "y\n")
     assert result.returncode == 0 and "approved and published" in result.stdout
     assert "op read\nstage approve " + STAGE["id"] + "\n" in trace
+
+    default = {"PENDING": "1", "TEST_TTY": "1"}
+    result, trace = run(default, "y\n")
+    assert result.returncode == 0 and "approved and published" in result.stdout, (result.stdout, result.stderr, trace)
+    assert "--auth-type=web stage approve" in trace
+    assert "--otp" not in trace
+
+    result, trace = run(default | {"AXI_APPROVE_AUTH": "otp"}, "y\n123456\n")
+    assert result.returncode == 0 and "approved and published" in result.stdout
+    assert "stage approve " + STAGE["id"] in trace and "--auth-type=web" not in trace
     result, trace = run(configured | {"APPROVE_STATUS": "1"}, "y\n")
     assert result.returncode == 1 and "approval failed" in result.stdout
 
