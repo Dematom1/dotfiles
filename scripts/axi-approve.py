@@ -163,6 +163,18 @@ def approve_with_otp(stage_id, otp):
         )
 
 
+def approve_with_web_auth(stage_id):
+    result = subprocess.run(
+        [
+            "npm", "--auth-type=web", "stage", "approve", stage_id,
+            "--registry", REGISTRY,
+        ],
+        stdin=None,
+    )
+    if result.returncode:
+        raise ValueError("approval failed; check npm permissions or retry")
+
+
 def compare_versions(left, right):
     def parts(version):
         match = re.fullmatch(
@@ -205,7 +217,9 @@ def main():
     parser = argparse.ArgumentParser(
         description=__doc__,
         epilog=(
-            "Set AXI_APPROVE_OP_REF=op://VAULT/ITEM/one-time password for 1Password, or enter the OTP when prompted. "
+            "By default npm web authentication prints a URL for browser approval. "
+            "Set AXI_APPROVE_OP_REF=op://VAULT/ITEM/one-time password for 1Password, "
+            "or set AXI_APPROVE_AUTH=otp to enter an OTP when prompted. "
             "Run axi-approve in a terminal; each release requires confirmation. "
             "No automatic approval mode is supported."
         ),
@@ -230,6 +244,7 @@ def main():
         field("result", "nothing pending")
         return 0
     reference = os.environ.get("AXI_APPROVE_OP_REF")
+    typed_otp = os.environ.get("AXI_APPROVE_AUTH") == "otp"
     if not sys.stdin.isatty() or (reference is None and not sys.stdout.isatty()):
         raise ValueError(
             "run axi-approve in an interactive terminal to confirm each release"
@@ -249,10 +264,12 @@ def main():
             if answer != "y":
                 field("result", f"{label}: skipped")
                 continue
-            if reference is None:
+            if reference is not None:
+                approve(stage_id, reference)
+            elif typed_otp:
                 approve_with_otp(stage_id, getpass.getpass("npm one-time password: "))
             else:
-                approve(stage_id, reference)
+                approve_with_web_auth(stage_id)
             approved[item["packageName"]] = item["version"]
             field("result", f"{label}: approved and published")
         except (ValueError, KeyError, TypeError, OSError) as error:
