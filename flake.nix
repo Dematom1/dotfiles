@@ -247,10 +247,13 @@
           assert enabled.launchd.agents.claude-swap.enable;
           assert disabled.home.sessionVariables.QUOTA_AXI_CLAUDE_SWAP == "1";
           pkgs.runCommand "claude-swap-launchd" { } ''
-            mkdir "$out"
+            result="$out"
+            out="$TMPDIR/disabled"
+            mkdir -p "$out"
             ${disabled.home.extraBuilderCommands}
             test ! -e "$out/LaunchAgents/org.nix-community.home.claude-swap.plist"
-            mv "$out/LaunchAgents" "$out/disabled"
+            out="$TMPDIR/enabled"
+            mkdir -p "$out"
             ${enabled.home.extraBuilderCommands}
             ${pkgs.python3}/bin/python - "$out/LaunchAgents/org.nix-community.home.claude-swap.plist" <<'PY'
             import plistlib, sys
@@ -260,6 +263,7 @@
             assert agent["RunAtLoad"] and agent["KeepAlive"]
             assert agent["StandardOutPath"] == agent["StandardErrorPath"] == "/Users/laszlohoranszky/Library/Logs/claude-swap.log"
             PY
+            mkdir "$result"
           '';
 
         # Only the personal Mac gets the signer, its watcher ships off, the
