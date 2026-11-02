@@ -245,13 +245,13 @@
           in
           assert !disabled.launchd.agents.claude-swap.enable;
           assert enabled.launchd.agents.claude-swap.enable;
-          assert disabled.home.sessionVariables.QUOTA_AXI_CLAUDE_SWAP == "1";
           pkgs.runCommand "claude-swap-launchd" { } ''
             result="$out"
             out="$TMPDIR/disabled"
             mkdir -p "$out"
             ${disabled.home.extraBuilderCommands}
             test ! -e "$out/LaunchAgents/org.nix-community.home.claude-swap.plist"
+            ${pkgs.bash}/bin/bash --noprofile --norc -c 'source "$1"; test "$QUOTA_AXI_CLAUDE_SWAP" = 1' _ ${disabled.home.path}/etc/profile.d/hm-session-vars.sh
             out="$TMPDIR/enabled"
             mkdir -p "$out"
             ${enabled.home.extraBuilderCommands}
