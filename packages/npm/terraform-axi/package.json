@@ -1,0 +1,7 @@
+{
+  "name": "dotfiles-terraform-axi-package",
+  "private": true,
+  "dependencies": {
+    "terraform-axi": "0.1.0"
+  }
+}
