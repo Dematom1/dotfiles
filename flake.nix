@@ -45,7 +45,7 @@
     # bump is a tag edit plus `nix flake lock`, which
     # .github/workflows/flake-update.yml does daily. It deliberately does not
     # follow nixpkgs: upstream builds and tests only against its own pin.
-    treehouse.url = "github:kunchenguid/treehouse/v3.1.5";
+    treehouse.url = "github:kunchenguid/treehouse/v3.1.8";
 
     # Builds only the signoff signer. Its Keychain access list names one exact
     # build, so the signer must not change when nixpkgs does. The URL pins a
