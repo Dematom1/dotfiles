@@ -68,7 +68,7 @@ in
     m87 backpass acpx treehouse axiApprove
     # AXI agent tools (https://axi.md); the justfile lists decide which get hooks
     gh-axi chrome-devtools-axi tasks-axi quota-axi pg-axi docker-axi npm-axi
-    pypi-axi homebrew-axi jev-axi bun-axi hetzner-axi argocd-axi argo-workflows-axi datadog-axi
+    pypi-axi homebrew-axi jev-axi bun-axi hetzner-axi argocd-axi argo-workflows-axi datadog-axi terraform-axi search-console-axi
     linear-axi hey-axi lavish-axi
     # dev / build
     neovim gh prek cmake lld luarocks protobuf shellcheck actionlint

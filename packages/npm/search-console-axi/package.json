@@ -1,0 +1,8 @@
+{
+  "name": "dotfiles-search-console-axi-package",
+  "private": true,
+  "dependencies": {
+    "search-console-axi": "^0.1.0",
+    "undefined": "0.1.0"
+  }
+}
