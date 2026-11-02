@@ -62,6 +62,41 @@ Home Manager installs `axi-approve` to review and approve staged releases of
 at a hidden terminal prompt or read from 1Password. See [setup and approval
 instructions](docs/axi-approve.md).
 
+### Claude account auto-balancing
+
+Home Manager installs `claude-swap` 0.29.0 (`cswap`) from pinned PyPI sources,
+including Textual 8.2.8 because the nixpkgs version is too old. Rebuild with
+`just rebuild personal` (or `just rebuild work`); this runs `darwin-rebuild
+switch` with Home Manager attached, not a separate `home-manager switch`.
+Do not use `cswap upgrade` for this Nix-managed installation.
+
+The macOS auto agent is **off by default**. Set up both accounts manually:
+
+1. With the current account logged into Claude Code, run `cswap add`.
+2. In Claude Code, use `/login` to log into the other account, then run
+   `cswap add` again. Do **not** `/logout` first: it can revoke the saved
+   account's refresh token.
+3. Run `cswap list` and `cswap status` to verify the accounts and active login.
+4. In `home.nix`, change `services.claude-swap.autoEnable = false;` to
+   `services.claude-swap.autoEnable = true;`, then run `just rebuild personal`
+   (or `just rebuild work`) again.
+
+The Home Manager agent `org.nix-community.home.claude-swap` runs
+`cswap auto --interval 60 --threshold 90` at login and restarts if it exits.
+Both stdout and stderr go to `~/Library/Logs/claude-swap.log`
+(`/Users/laszlohoranszky/Library/Logs/claude-swap.log` on personal,
+`/Users/laszlo/Library/Logs/claude-swap.log` on work). It rotates the default
+Claude login; Firstmate stays unpinned. Do not wrap Firstmate in `cswap run`
+or bind it to a particular account. To stop automatic rotation, set the same
+option back to `false` and rebuild.
+
+Home Manager also exports `QUOTA_AXI_CLAUDE_SWAP=1`; open a new shell after
+rebuilding so quota-axi displays one `claude-swap:<digest>` lane per account.
+Optional display names belong in your local
+`~/.config/quota-axi/config.json` under `tui.accountLabels`, not this repo.
+On macOS, cswap owns credentials in Keychain and backups/settings under
+`~/.claude-swap-backup/`. Never commit account data, tokens, or exports here.
+
 ### Menu bar
 
 Both Mac profiles install Ice through the `jordanbaird-ice` Homebrew cask and

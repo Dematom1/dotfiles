@@ -79,6 +79,7 @@
         kubernetes-axi = final.callPackage ./packages/node-source-tool.nix { src = kubernetes-axi; };
         docker-axi = final.callPackage ./packages/node-source-tool.nix { src = docker-axi; };
         treehouse = treehouse.packages.${final.stdenv.hostPlatform.system}.default;
+        claude-swap = final.callPackage ./packages/claude-swap.nix { };
         # A Pi extension, not a CLI: home.nix links its entrypoint directory.
         pi-fff = (final.callPackage ./packages/npm-tool.nix { npmRoot = ./packages/npm/pi-fff; }).overrideAttrs (old: {
           npmFlags = [ "--legacy-peer-deps" ];
@@ -184,7 +185,7 @@
       let
         pkgs = pkgsFor system;
       in nixpkgs.lib.genAttrs npmTools (name: pkgs.${name}) // {
-        inherit (pkgs) kubernetes-axi docker-axi treehouse;
+        inherit (pkgs) kubernetes-axi docker-axi treehouse claude-swap;
         default = pkgs.kubernetes-axi;
       } // nixpkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
         inherit (pkgs) signoff;
@@ -207,6 +208,17 @@
           grep -q 'kubectl' "$out/doctor.toon"
         '';
 
+        claude-swap-cli = pkgs.runCommand "claude-swap-cli" { } ''
+          mkdir -p "$out" "$TMPDIR/home"
+          export HOME="$TMPDIR/home" XDG_CONFIG_HOME="$TMPDIR/home/.config"
+          ${pkgs.claude-swap}/bin/cswap --version > "$out/version"
+          grep -F '0.29.0' "$out/version"
+          ${pkgs.claude-swap}/bin/cswap --help > "$out/help"
+          ${pkgs.claude-swap}/bin/cswap auto --help > "$out/auto-help"
+          grep -F -- '--interval SECONDS' "$out/auto-help"
+          grep -F -- '--threshold PCT' "$out/auto-help"
+        '';
+
         agent-tools-layout = pkgs.runCommand "agent-tools-layout" {
           nativeBuildInputs = [ pkgs.m87 pkgs.treehouse pkgs.nodejs_24 ];
         } ''
@@ -222,6 +234,34 @@
           mkdir "$out"
         '';
       } // nixpkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
+        claude-swap-launchd =
+          let
+            disabled = self.darwinConfigurations.personal.config.home-manager.users.laszlohoranszky;
+            enabled = (self.darwinConfigurations.personal.extendModules {
+              modules = [ ({ lib, ... }: {
+                home-manager.users.laszlohoranszky.services.claude-swap.autoEnable = lib.mkForce true;
+              }) ];
+            }).config.home-manager.users.laszlohoranszky;
+          in
+          assert !disabled.launchd.agents.claude-swap.enable;
+          assert enabled.launchd.agents.claude-swap.enable;
+          assert disabled.home.sessionVariables.QUOTA_AXI_CLAUDE_SWAP == "1";
+          pkgs.runCommand "claude-swap-launchd" { } ''
+            mkdir "$out"
+            ${disabled.home.extraBuilderCommands}
+            test ! -e "$out/LaunchAgents/org.nix-community.home.claude-swap.plist"
+            mv "$out/LaunchAgents" "$out/disabled"
+            ${enabled.home.extraBuilderCommands}
+            ${pkgs.python3}/bin/python - "$out/LaunchAgents/org.nix-community.home.claude-swap.plist" <<'PY'
+            import plistlib, sys
+            with open(sys.argv[1], "rb") as source:
+                agent = plistlib.load(source)
+            assert agent["ProgramArguments"][-1].endswith("${pkgs.claude-swap}/bin/cswap auto --interval 60 --threshold 90")
+            assert agent["RunAtLoad"] and agent["KeepAlive"]
+            assert agent["StandardOutPath"] == agent["StandardErrorPath"] == "/Users/laszlohoranszky/Library/Logs/claude-swap.log"
+            PY
+          '';
+
         # Only the personal Mac gets the signer, its watcher ships off, the
         # binary comes from nixpkgs-signoff and resolves tools only from the
         # profiles, and the watcher pauses after a Keychain denial.

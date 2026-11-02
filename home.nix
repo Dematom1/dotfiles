@@ -41,7 +41,9 @@ let
   '';
 in
 {
-  imports = [ ./modules/m87-notify.nix ];
+  imports = [ ./modules/m87-notify.nix ./modules/claude-swap.nix ];
+
+  services.claude-swap.autoEnable = false;
 
   # home.username / home.homeDirectory are derived from the profile's
   # users.users entry in configuration.nix.
