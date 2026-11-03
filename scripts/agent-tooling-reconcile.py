@@ -87,13 +87,18 @@ class Run:
         if self.prepared or self.dry_run:
             return
         for path in dict.fromkeys(self.paths):
-            self.originals[path] = fingerprint(path)
-            if path.is_file():
-                shutil.copy2(path, self.backup_target(path))
-            elif path.is_symlink():
-                self.backup_target(path).symlink_to(os.readlink(path))
-            elif path.is_dir():
-                copy_private_tree(path, self.backup_target(path))
+            try:
+                original = fingerprint(path)
+                if path.is_file():
+                    shutil.copy2(path, self.backup_target(path))
+                elif path.is_symlink():
+                    self.backup_target(path).symlink_to(os.readlink(path))
+                elif path.is_dir():
+                    copy_private_tree(path, self.backup_target(path))
+            except OSError as error:
+                warn(f"{path} cannot be backed up ({error}); left untouched")
+                continue
+            self.originals[path] = original
         self.prepared = True
 
     def finish(self) -> None:
@@ -225,7 +230,11 @@ def load_json(path: Path, create: bool = False):
     """Return data and text, or None; create supplies an empty object only if absent."""
     if not path.exists() and not path.is_symlink():
         return ({}, "\n") if create else None
-    text = path.read_text(encoding="utf-8")
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as error:
+        warn(f"{path} cannot be read ({error}); left untouched")
+        return None
     try:
         data = json.loads(text)
         if not isinstance(data, dict):

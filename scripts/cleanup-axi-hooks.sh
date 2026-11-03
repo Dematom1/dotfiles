@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+remover="${AXI_HOOK_REMOVER:-$repo_dir/scripts/remove-axi-session-start-hook.py}"
 state="$HOME/.local/state/dotfiles/axi-hooks-cleanup"
 mkdir -p "$state"
 failed=0
@@ -38,7 +39,7 @@ for tool in "${tools[@]}"; do
       fi
       ;;
     *)
-      if ! python3 "$repo_dir/scripts/remove-axi-session-start-hook.py" "$HOME" "$tool"; then
+      if ! python3 "$remover" "$HOME" "$tool"; then
         echo "    - $tool cleanup failed; retry next rebuild" >&2
         failed=1
         continue

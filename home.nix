@@ -208,6 +208,7 @@ in
     if [[ -v DRY_RUN ]]; then
       echo "Skipping AXI hook cleanup during dry run."
     else
+      AXI_HOOK_REMOVER=${./scripts/remove-axi-session-start-hook.py} \
       PATH="${lib.makeBinPath [ pkgs.bash pkgs.coreutils pkgs.python311 ]}:$HOME/.nix-profile/bin:/etc/profiles/per-user/${config.home.username}/bin:$PATH" \
         ${lib.getExe pkgs.bash} ${./scripts/cleanup-axi-hooks.sh} \
         || echo "warning: AXI hook cleanup incomplete; a later activation will retry." >&2
