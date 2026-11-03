@@ -20,6 +20,8 @@ with tempfile.TemporaryDirectory() as temporary:
                     "matcher": "",
                     "hooks": [
                         {"type": "command", "command": "gh-axi"},
+                        {"type": "command", "command": "gh-axi --session-start"},
+                        {"type": "command", "command": "gh-axi --other"},
                         {"type": "command", "command": '"/nix/bin/gh-axi"'},
                         {"type": "command", "command": "/usr/local/bin/gh-axi"},
                         {"type": "command", "command": "some-other-tool"},
@@ -37,6 +39,7 @@ with tempfile.TemporaryDirectory() as temporary:
         {
             "matcher": "",
             "hooks": [
+                {"type": "command", "command": "gh-axi --other"},
                 {"type": "command", "command": "/usr/local/bin/gh-axi"},
                 {"type": "command", "command": "some-other-tool"},
             ],
@@ -44,6 +47,23 @@ with tempfile.TemporaryDirectory() as temporary:
     ]
     assert result["hooks"]["PreToolUse"] == original["hooks"]["PreToolUse"]
     assert result["unrelated"]
+
+    import runpy
+    from unittest.mock import patch
+
+    remover = runpy.run_path(str(script))
+    before = path.read_bytes()
+    with patch.object(
+        remover["os"], "replace", side_effect=OSError("synthetic replace failure")
+    ):
+        try:
+            remover["write_atomic"](path, result)
+        except OSError:
+            pass
+        else:
+            raise AssertionError("atomic write failure was hidden")
+    assert path.read_bytes() == before
+    assert not list(path.parent.glob(f".{path.name}.*"))
 
     cleanup_home = home / "cleanup-home"
     settings = cleanup_home / ".claude/settings.json"
@@ -87,9 +107,8 @@ with tempfile.TemporaryDirectory() as temporary:
     call_log = home / "uninstall.log"
     for tool in ["bun-axi", "hetzner-axi", "argocd-axi", "argo-workflows-axi"]:
         command = bin_dir / tool
-        command.write_text(
-            '#!/bin/sh\nprintf "%s %s\\n" "${0##*/}" "$*" >> "$CALL_LOG"\n'
-        )
+        script = '#!/bin/sh\nprintf "%s %s\\n" "${0##*/}" "$*" >> "$CALL_LOG"\n'
+        command.write_text(script + ("exit 2\n" if tool == "bun-axi" else ""))
         command.chmod(0o755)
     cleanup = Path(__file__).resolve().parents[1] / "scripts/cleanup-axi-hooks.sh"
     utils = home / "utils"
@@ -102,18 +121,29 @@ with tempfile.TemporaryDirectory() as temporary:
         "PATH": f"{bin_dir}:{utils}",
         "CALL_LOG": str(call_log),
     }
-    subprocess.run([str(cleanup)], env=env, check=True, capture_output=True, text=True)
+    first = subprocess.run([str(cleanup)], env=env, capture_output=True, text=True)
+    assert first.returncode == 1 and "bun-axi cleanup failed" in first.stderr
+    assert "datadog-axi unavailable" in first.stderr
     assert len(call_log.read_text().splitlines()) == 4
     markers = cleanup_home / ".local/state/dotfiles/axi-hooks-cleanup"
-    assert len(list(markers.iterdir())) == 15
+    assert len(list(markers.iterdir())) == 14
+    bun = bin_dir / "bun-axi"
+    bun.write_text('#!/bin/sh\nprintf "%s %s\\n" "${0##*/}" "$*" >> "$CALL_LOG"\n')
     missing = bin_dir / "datadog-axi"
-    missing.write_text('#!/bin/sh\nprintf "%s %s\\n" "${0##*/}" "$*" >> "$CALL_LOG"\n')
+    missing.write_text(
+        '#!/bin/sh\nprintf "%s %s\\n" "${0##*/}" "$*" >> "$CALL_LOG"\nexit 2\n'
+    )
     missing.chmod(0o755)
+    failed = subprocess.run([str(cleanup)], env=env, capture_output=True, text=True)
+    assert failed.returncode == 1 and "datadog-axi cleanup failed" in failed.stderr
+    assert len(call_log.read_text().splitlines()) == 6
+    assert len(list(markers.iterdir())) == 15
+    missing.write_text('#!/bin/sh\nprintf "%s %s\\n" "${0##*/}" "$*" >> "$CALL_LOG"\n')
     subprocess.run([str(cleanup)], env=env, check=True, capture_output=True, text=True)
-    assert len(call_log.read_text().splitlines()) == 5
+    assert len(call_log.read_text().splitlines()) == 7
     assert len(list(markers.iterdir())) == 16
     subprocess.run([str(cleanup)], env=env, check=True, capture_output=True, text=True)
-    assert len(call_log.read_text().splitlines()) == 5
+    assert len(call_log.read_text().splitlines()) == 7
     assert json.loads(settings.read_text())["hooks"]["SessionStart"][0]["hooks"] == [
         {"command": "keep-me"}
     ]
@@ -125,6 +155,8 @@ with tempfile.TemporaryDirectory() as temporary:
         "hetzner-axi setup uninstall",
         "argocd-axi setup uninstall",
         "argo-workflows-axi setup uninstall",
+        "bun-axi setup hooks --uninstall",
+        "datadog-axi setup uninstall",
         "datadog-axi setup uninstall",
     ]
 

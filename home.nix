@@ -69,7 +69,7 @@ in
     argocd kubectl kubernetes-helm kustomize k9s kubectx terraform
     # agent tools; npm ones are pinned by packages/npm/<name>/package-lock.json
     m87 backpass acpx treehouse axiApprove
-    # AXI agent tools (https://axi.md); the justfile lists decide which get hooks
+    # AXI agent tools (https://axi.md); the justfile lists define hook ownership
     gh-axi chrome-devtools-axi tasks-axi quota-axi pg-axi docker-axi npm-axi
     pypi-axi homebrew-axi jev-axi bun-axi hetzner-axi argocd-axi argo-workflows-axi datadog-axi terraform-axi search-console-axi
     linear-axi hey-axi lavish-axi k8s-axi
@@ -193,9 +193,8 @@ in
   );
 
   # Reconcile Claude plugins, marketplaces, MCP servers and hooks, Codex MCP
-  # servers and hooks, Pi packages, and every skill root to agent-tooling.json,
-  # and register the hooks of each installed hook-enabled AXI tool listed in
-  # the justfile. Network or parse problems only warn, so a rebuild never fails.
+  # servers and hooks, Pi packages, and every skill root to agent-tooling.json.
+  # Network or parse problems only warn, so a rebuild never fails.
   home.activation.agentTooling = lib.hm.dag.entryAfter [ "linkGeneration" "claudeNativeInstall" ] ''
     dry_run=()
     if [[ -v DRY_RUN ]]; then dry_run=(--dry-run); fi
@@ -203,6 +202,16 @@ in
       ${lib.getExe pkgs.python311} ${./scripts/agent-tooling-reconcile.py} \
       --manifest ${./agent-tooling.json} --justfile "$HOME/Code/dotfiles/justfile" \
       --profile ${lib.escapeShellArg profile} "''${dry_run[@]}"
+  '';
+
+  home.activation.axiHookCleanup = lib.hm.dag.entryAfter [ "agentTooling" ] ''
+    if [[ -v DRY_RUN ]]; then
+      echo "Skipping AXI hook cleanup during dry run."
+    else
+      PATH="${lib.makeBinPath [ pkgs.bash pkgs.coreutils pkgs.python311 ]}:$HOME/.nix-profile/bin:/etc/profiles/per-user/${config.home.username}/bin:$PATH" \
+        ${lib.getExe pkgs.bash} ${./scripts/cleanup-axi-hooks.sh} \
+        || echo "warning: AXI hook cleanup incomplete; a later activation will retry." >&2
+    fi
   '';
 
   launchd.agents.m87 = lib.mkIf pkgs.stdenv.isDarwin {

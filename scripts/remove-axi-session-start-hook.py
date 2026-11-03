@@ -2,28 +2,58 @@
 """Remove one AXI tool's exact SessionStart command from agent hook settings."""
 
 import json
+import os
+import shlex
+import stat
 import sys
+import tempfile
 from pathlib import Path
 
 
 def owned_command(command: object, tool: str) -> bool:
     if not isinstance(command, str):
         return False
-    # gh-axi setup hooks may persist a JSON-quoted absolute executable path.
     quoted = command.startswith('"')
     if quoted:
         try:
             command = json.loads(command)
         except json.JSONDecodeError:
             return False
-    if not isinstance(command, str) or any(c.isspace() for c in command):
+    try:
+        argv = shlex.split(command)
+    except ValueError:
         return False
-    return (not quoted and command == tool) or (
+    if not argv:
+        return False
+    if argv[0] == tool and not argv[1:]:
+        return True
+    if tool == "gh-axi" and argv[0] == tool and argv[1:] == ["--session-start"]:
+        return True
+    return (
         quoted
         and tool == "gh-axi"
-        and Path(command).is_absolute()
-        and Path(command).name == tool
+        and len(argv) == 1
+        and Path(argv[0]).is_absolute()
+        and Path(argv[0]).name == tool
     )
+
+
+def write_atomic(path: Path, data: dict) -> None:
+    path = path.resolve()
+    fd, temporary = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as file:
+            file.write(json.dumps(data, indent=2) + "\n")
+            file.flush()
+            os.fsync(file.fileno())
+        os.chmod(temporary, stat.S_IMODE(path.stat().st_mode))
+        os.replace(temporary, path)
+    except BaseException:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+        raise
 
 
 def remove_from(value: object, tool: str) -> bool:
@@ -75,7 +105,7 @@ def main() -> int:
             print(f"{path}: cannot parse settings: {error}", file=sys.stderr)
             return 1
         if remove_from(data, tool):
-            path.write_text(json.dumps(data, indent=2) + "\n")
+            write_atomic(path, data)
     return 0
 
 

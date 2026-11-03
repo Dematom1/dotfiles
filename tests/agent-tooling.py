@@ -979,8 +979,7 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
     )
     for name in [".claude/settings.json", ".codex/hooks.json"]:
         check(
-            hook_commands(json.loads((fresh_home / name).read_text()), "SessionStart"),
-            "fresh hooks missing",
+            not (fresh_home / name).exists(), f"unexpected fresh AXI hooks file: {name}"
         )
     check(
         set(
