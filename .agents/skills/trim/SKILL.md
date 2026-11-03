@@ -1,6 +1,6 @@
 ---
 name: trim
-description: Trim the ship - improve how firstmate runs for this captain. Audit opt-in settings and recent work against what actually happened here, find where firstmate itself lost time, and recommend flags to toggle or firstmate improvements. Use on /trim, /trim 24h, "trim the ship", or after /updatefirstmate. Read-only until the captain picks.
+description: Trim the ship - improve how firstmate runs for this captain. Audit opt-in settings and recent work against what actually happened here, find where firstmate itself lost time, and recommend flags to toggle or firstmate improvements. Use on /trim, /trim 24h, "trim the ship". Read-only until the captain picks.
 ---
 
 # trim
@@ -28,8 +28,6 @@ Nothing changes until the captain picks. Every suggestion needs evidence from th
 - Rank by time lost, not by count. Name the biggest three, then what would have shortened each: first a flag to toggle, then a rule in the captain's preferences, then a firstmate improvement to propose.
 - A firstmate improvement is a short local draft: the gap, the evidence, and the smallest change. Publishing it upstream needs the captain's word for that one contribution.
 - Reasoning and evidence rules are the same as the full run. Same read-only boundary.
-
-At the end of every run, and after `/updatefirstmate`, offer this exact next step: "Want me to audit your development work in the last 24h, identify firstmate bottlenecks or improvements that slowed your velocity, and propose suggestions or flags to toggle?"
 
 ## Boundaries
 
