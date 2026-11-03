@@ -66,6 +66,9 @@ with tempfile.TemporaryDirectory() as temporary:
     assert not list(path.parent.glob(f".{path.name}.*"))
 
     cleanup_home = home / "cleanup-home"
+    profile = cleanup_home / ".config/dotfiles-profile"
+    profile.parent.mkdir(parents=True)
+    profile.write_text("work")
     settings = cleanup_home / ".claude/settings.json"
     settings.parent.mkdir(parents=True)
     settings.write_text(
@@ -121,6 +124,16 @@ with tempfile.TemporaryDirectory() as temporary:
         "PATH": f"{bin_dir}:{utils}",
         "CALL_LOG": str(call_log),
     }
+    personal_home = home / "personal-home"
+    personal_env = {**env, "HOME": str(personal_home)}
+    personal = subprocess.run(
+        [str(cleanup)], env=personal_env, capture_output=True, text=True
+    )
+    assert personal.returncode == 1
+    assert all(tool not in personal.stderr for tool in ["slack-axi", "aws-axi", "gws-axi", "notion-axi"])
+    personal_markers = personal_home / ".local/state/dotfiles/axi-hooks-cleanup"
+    assert not any((personal_markers / tool).exists() for tool in ["slack-axi", "aws-axi", "gws-axi", "notion-axi"])
+    call_log.write_text("")
     first = subprocess.run([str(cleanup)], env=env, capture_output=True, text=True)
     assert first.returncode == 1 and "bun-axi cleanup failed" in first.stderr
     assert "datadog-axi unavailable" in first.stderr
