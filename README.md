@@ -357,7 +357,7 @@ brings each tool's own state to exactly that set:
 |---|---|---|
 | `claude.plugins`, `claude.marketplaces` | Claude's plugin registry | The `claude plugin` CLI uninstalls undeclared user-scope plugins and retired project plugins, removes undeclared marketplaces, and adds and installs missing ones. |
 | `claude.mcpServers` | `~/.claude.json` `mcpServers` | Declared fields are set and undeclared servers are removed; see the credential preservation rules below. `retiredProjectMcpServers` are removed from every project scope; other project servers stay. |
-| `claude.hooks` | `~/.claude/settings.json` and `settings.local.json` hooks | `ensure` entries are written (replacing any hook that matches them), hooks matching a `keep` substring or a hook-enabled AXI tool name are preserved, and every other hook is removed, including those of `axi-tools-no-hooks`. AXI hooks are no longer registered during activation. The first rebuild runs the separate per-tool cleanup, which removes the old AXI SessionStart entries. `settings.local.json` only loses hooks. If the justfile lists cannot be read, hooks are left untouched with a warning. |
+| `claude.hooks` | `~/.claude/settings.json` and `settings.local.json` hooks | `ensure` entries are written (replacing any hook that matches them), hooks matching a `keep` substring or a name in `axi-tools` are preserved, and other hooks are removed, including those of `axi-tools-no-hooks`. Rebuilds do not register AXI hooks; the per-tool cleanup runs after reconciliation and removes their old SessionStart entries once. `settings.local.json` only loses hooks. If the justfile lists cannot be read, hooks are left untouched with a warning. |
 | `codex.mcpServers` | `~/.codex/config.toml` `[mcp_servers.*]` | As for Claude. Every other table is preserved byte for byte. |
 | `codex.hooks` | `~/.codex/hooks.json` | As for Claude. |
 | `pi.packages` | `~/.pi/agent/settings.json` `packages` | Only declared package sources remain; existing per-package options and ordering are preserved. Pi installs a missing package on its next start. pi-fff and terminal-status-title are Nix-linked extensions, so they are not packages. |
@@ -370,8 +370,10 @@ available. Missing tools warn without failing activation. The 16 legacy
 Impeccable command skills are replaced by the consolidated upstream `impeccable`
 skill. Home Manager links the vendored `pi/extensions/terminal-status-title.js`.
 
-AXI binaries are installed from pinned npm releases by Home Manager, and the
-configured tools register their hooks during `just rebuild`. `argocd-axi`
+AXI binaries are installed from pinned npm releases by Home Manager. Rebuilds
+and Home Manager activations do not register AXI hooks; `axi-tools` preserves
+existing hooks, while `axi-tools-no-hooks` removes them. A one-time Home Manager
+activation cleanup removes hooks installed by the previous setup. `argocd-axi`
 requires a reachable Argo CD server; connection setup for
 https://argocd.dematom1.com with SSO or per-agent read-only tokens is pending a
 separate change. Rex is an explicit exception: the app owns its skill and hook, and this
@@ -413,9 +415,9 @@ remove one, delete its entry and rebuild.
 - **MCP server:** add the non-secret fields under `claude.mcpServers` or
   `codex.mcpServers`. A leading `~/` expands to the home directory.
 - **Hook:** add an `ensure` entry for a hook dotfiles defines, or a `keep`
-  substring for one an installer writes. An AXI tool's hooks follow the
-  justfile: list it in `axi-tools` to register them, or in
-  `axi-tools-no-hooks` to remove them.
+  substring for one an installer writes. Rebuilds do not register AXI hooks.
+  Listing a tool in `axi-tools` preserves existing hooks; listing it in
+  `axi-tools-no-hooks` removes them.
 - **Pi package:** add its source string to `pi.packages`.
 - **Skill:** follow [the skill reference](.agents/SKILLS.md#adding-or-removing-a-skill).
 
