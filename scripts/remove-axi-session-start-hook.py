@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Remove one AXI tool's exact SessionStart command from agent hook settings."""
+
 import json
 import sys
 from pathlib import Path
@@ -18,7 +19,10 @@ def owned_command(command: object, tool: str) -> bool:
     if not isinstance(command, str) or any(c.isspace() for c in command):
         return False
     return (not quoted and command == tool) or (
-        quoted and tool == "gh-axi" and Path(command).is_absolute() and Path(command).name == tool
+        quoted
+        and tool == "gh-axi"
+        and Path(command).is_absolute()
+        and Path(command).name == tool
     )
 
 
@@ -39,8 +43,11 @@ def remove_from(value: object, tool: str) -> bool:
             kept.append(entry)
             continue
         commands = entry["hooks"]
-        remaining = [hook for hook in commands
-                     if not (isinstance(hook, dict) and owned_command(hook.get("command"), tool))]
+        remaining = [
+            hook
+            for hook in commands
+            if not (isinstance(hook, dict) and owned_command(hook.get("command"), tool))
+        ]
         changed |= len(remaining) != len(commands)
         if remaining:
             group = dict(entry)
