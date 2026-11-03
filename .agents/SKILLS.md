@@ -13,15 +13,17 @@ uses `--copy`. Eve and PromptScript are intentionally excluded. Claude's Home
 Manager-owned skills root is itself a symlink, so generated relative leaf links
 can point back to themselves; physical generated copies avoid that self-loop.
 
-## Declared, not committed
+## Declared, mostly generated
 
-The skill *content* is gitignored (`.agents/skills/*`, `opencode/skills/*`). The
-declared set lives in [agent-tooling.json](../agent-tooling.json): each
+Generated skill content is gitignored (`.agents/skills/*`, `opencode/skills/*`).
+Hand-authored skills committed in `.agents/skills/` are exceptions. The declared
+set lives in [agent-tooling.json](../agent-tooling.json): each
 `skills.sources` entry names a public source, its skills, and the agents it
 targets. Bundles shared by Codex, OpenCode, and Pi omit `claude-code` to keep
 Claude's budget-capped skill listing small. `skills.keep` lists skills that a
 tool writes itself and that must survive: `rex` (the Rex app), `synced`
-(claude.ai account skills). See the rebuild reference below for installer
+(claude.ai account skills), and `trim` (the hand-authored local skill). See the
+rebuild reference below for installer
 exceptions and the Impeccable migration.
 
 See [Declarative agent tooling](../README.md#declarative-agent-tooling) for
@@ -45,6 +47,6 @@ Add a `skills.sources` entry to `agent-tooling.json` (or delete one), then run
 `just rebuild`. Tool-owned skills that dotfiles does not install go in
 `skills.keep`. Ponytail's skills come with its plugin and Pi package. The
 claude.ai account skills stay on claude.ai.
-For a hand-authored skill you want to keep, `git add -f .agents/skills/<name>`
-and add its name to `skills.keep.claude`. The dir is gitignored, so tracking a
-first-party skill is a deliberate force-add.
+Hand-authored skills committed under `.agents/skills/` need an entry in
+`skills.keep.claude`; `.gitignore` has explicit exceptions for the tracked
+first-party skill directories.
