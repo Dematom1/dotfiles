@@ -80,7 +80,7 @@ update-skills:
     done
 
     echo
-    echo "All updated (skill content is gitignored). Validate:  just check-skills"
+    echo "All updated (generated skill content is gitignored). Validate:  just check-skills"
 
 # ---------------------------------------------------------------------------
 # Machine setup - install Nix, then activate the nix-darwin configuration.

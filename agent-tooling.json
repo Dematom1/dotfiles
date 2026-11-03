@@ -57,7 +57,7 @@
       {"source": "pbakaus/impeccable", "skills": ["impeccable"], "agents": ["codex", "opencode", "pi"]}
     ],
     "keep": {
-      "claude": ["rex", "synced"],
+      "claude": ["rex", "synced", "trim"],
       "shared": ["rex"],
       "codex": []
     }
