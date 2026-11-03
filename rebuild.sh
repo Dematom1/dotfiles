@@ -45,4 +45,4 @@ if [[ "$CURRENT_USER" != "$EXPECTED_USER" ]]; then
 fi
 
 sudo darwin-rebuild switch --flake "$HOME/Code/dotfiles#$PROFILE"
-just --justfile "$DIR/justfile" _cleanup-axi-hooks
+"$DIR/scripts/cleanup-axi-hooks.sh"

@@ -8,10 +8,10 @@ time. Secrets are never read from the manifest: an MCP server's existing
 headers and env survive, and a server that needs auth is never created
 without it.
 
-AXI tools are the exception: their lists stay in the justfile (`axi-tools`,
-`axi-tools-work`; `axi-tools-no-hooks` get none). Each installed hook tool
-registers its own hooks through `just _setup-axi-hooks`, and those hooks are
-kept.
+AXI hook ownership is recorded by the justfile lists (`axi-tools`,
+`axi-tools-work`; `axi-tools-no-hooks` get none). Rebuilds no longer register
+AXI session hooks; existing entries are preserved during normal reconciliation
+and removed once by the dedicated cleanup recipe.
 
 Home Manager activation runs the full reconcile; `just update-skills` runs
 `--refresh-skills`, which only reinstalls every declared skill source.
@@ -19,7 +19,6 @@ Home Manager activation runs the full reconcile; `just update-skills` runs
 from __future__ import annotations
 
 import argparse
-import getpass
 import json
 import os
 import re
@@ -509,18 +508,6 @@ def axi_hook_tools(justfile: Path | None, profile: str) -> list[str] | None:
     return tools
 
 
-def register_axi_hooks(run: Run, justfile: Path, tools: list[str]) -> None:
-    just = shutil.which("just")
-    if any(load_json(path, create=True) is None for path in HOOK_FILES):
-        return
-    # The Nix profiles `_setup-axi-hooks` prefers over PATH.
-    profiles = [Path("/etc/profiles/per-user") / getpass.getuser() / "bin", HOME / ".nix-profile/bin"]
-    for tool in tools:
-        if not (any(os.access(profile / tool, os.X_OK) for profile in profiles) or shutil.which(tool)):
-            note(f"{tool} is not installed; its hooks register on the next rebuild once installed")
-            continue
-        run.command([just, "--justfile", str(justfile), "_setup-axi-hooks", tool], "register AXI hooks")
-
 def claude_json(claude: str, args: list[str]):
     try:
         # Even inventory commands initialize and migrate Claude's configuration.
@@ -699,7 +686,6 @@ def main() -> int:
         steps = [
             ("Claude plugins", lambda: reconcile_claude_plugins(run, manifest)),
             ("project hooks", lambda: reconcile_project_hooks(run, manifest)),
-            ("AXI hooks", lambda: tools is not None and register_axi_hooks(run, justfile, tools)),
             ("Claude MCP servers", lambda: reconcile_claude_json(run, manifest)),
             ("Claude hooks", lambda: hooks(HOME / ".claude/settings.json", hook_policy("claude"))),
             # Local settings only ever lose undeclared hooks; the declared ones live in settings.json.
