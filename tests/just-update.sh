@@ -202,7 +202,7 @@ nm_output=$(cd "$sandbox" && \
 [[ "$nm_output" == *"skipped no-mistakes update: 2 active pipeline runs"*"never --force"* ]] \
   || fail "a refused no-mistakes update was not reported"
 [[ "$(grep -Fc -- '--force' "$stack_log" || true)" -eq 0 ]] || fail "update forced a no-mistakes update"
-[[ "$(grep -Fxc 'gh-axi setup hooks' "$stack_log" || true)" -eq 0 ]] \
+[[ "$(grep -Ec 'setup hooks' "$stack_log" || true)" -eq 0 ]] \
   || fail "update registered AXI hooks after the refused no-mistakes update"
 
 # Any other no-mistakes update failure must fail the update with its status.
@@ -216,7 +216,7 @@ nm_output=$(cd "$sandbox" && \
 [[ "$nm_output" == *"checksum mismatch"* ]] || fail "the no-mistakes failure output was hidden"
 [[ "$nm_output" != *"FirstMate stack updated."* && "$nm_output" != *"skipped no-mistakes update"* ]] \
   || fail "a failed no-mistakes update reported success"
-[[ "$(grep -Fxc 'gh-axi setup hooks' "$stack_log" || true)" -eq 0 ]] \
+[[ "$(grep -Ec 'setup hooks' "$stack_log" || true)" -eq 0 ]] \
   || fail "update continued after a failed no-mistakes update"
 
 printf '%s\n' "just update checks passed"
