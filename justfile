@@ -3,8 +3,8 @@
 skills-dir := ".agents/skills"
 
 # AXI agent tools (https://axi.md). Nix installs every one of them (home.nix,
-# packages/npm/<name>), so these lists only decide whose session hooks are set
-# up. kubernetes-axi is Nix-installed too but registers no hooks.
+# packages/npm/<name>); the lists identify hooks to keep and clean up. kubernetes-axi
+# is Nix-installed too but registers no hooks.
 axi-tools := "gh-axi chrome-devtools-axi tasks-axi npm-axi pypi-axi homebrew-axi jev-axi bun-axi hetzner-axi argocd-axi argo-workflows-axi datadog-axi"
 
 # HEY stays on-demand so session-start hooks cannot inject private email.
@@ -14,9 +14,7 @@ axi-tools-no-hooks := "hey-axi lavish-axi quota-axi pg-axi docker-axi linear-axi
 
 # Argo CD connectivity for this Mac is pending a separate maintainer setup.
 
-# work-machine-only AXI tools - Nix installs them on the work profile only, and
-# their hooks are set up only when ~/.config/dotfiles-profile says "work" (the
-# same marker rebuild.sh reads).
+# Work-machine-only AXI tools. Nix installs them only on the work profile.
 axi-tools-work := "slack-axi aws-axi gws-axi notion-axi"
 
 # Reviewed upstream agent package/plugin identities. Keep these user-scoped and
@@ -208,26 +206,9 @@ _update-ponytail: _setup-ponytail
     claude plugin marketplace update ponytail
     claude plugin update {{ ponytail-claude-plugin }}
 
-# Remove hooks only through documented tool-owned uninstall commands. The marker
-# makes the migration a one-time rebuild action.
+# One-time removal of hooks previously registered by AXI setup commands.
 _cleanup-axi-hooks:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    marker="$HOME/.local/state/dotfiles/axi-hooks-cleaned-v1"
-    [[ -e "$marker" ]] && exit 0
-    mkdir -p "$(dirname "$marker")"
-    for tool in bun-axi; do
-      if command -v "$tool" >/dev/null 2>&1; then "$tool" setup hooks --uninstall
-      else echo "    - $tool unavailable; skipped"; fi
-    done
-    for tool in hetzner-axi argocd-axi argo-workflows-axi datadog-axi; do
-      if command -v "$tool" >/dev/null 2>&1; then "$tool" setup uninstall
-      else echo "    - $tool unavailable; skipped"; fi
-    done
-    # Other tools have no documented hook uninstall form in their help; leave
-    # their hooks untouched rather than risk deleting hooks they do not own.
-    echo "    - skipped tools without documented uninstall: gh-axi chrome-devtools-axi tasks-axi npm-axi pypi-axi homebrew-axi jev-axi slack-axi aws-axi gws-axi notion-axi"
-    touch "$marker"
+    bash scripts/cleanup-axi-hooks.sh
 
 # One-time setup of the FirstMate stack. Re-runnable. Run `gh auth login` after.
 setup-firstmate:

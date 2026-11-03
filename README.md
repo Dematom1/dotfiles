@@ -205,16 +205,18 @@ existing non-symlink at that path.
    Pi packages, and skills to [agent-tooling.json](agent-tooling.json) (see
    [Declarative agent tooling](#declarative-agent-tooling)).
 5. **`just bootstrap`** renders secrets, installs the self-updating
-   FirstMate/Pi/Herdr/No Mistakes/Claude Code stack, registers AXI session
-   hooks, installs Ponytail for Pi and for Claude Code where available,
-   refreshes skills, and wires the generated skill directories.
+   FirstMate/Pi/Herdr/No Mistakes/Claude Code stack, installs Ponytail for Pi
+   and for Claude Code where available, refreshes skills, and wires the
+   generated skill directories. It does not register AXI session hooks.
 
 The AXI hook policy lives in [justfile](justfile) (`axi-tools`,
 `axi-tools-no-hooks`, and the work-only list); `just setup-firstmate` and
 `just update-firstmate` remove superseded npm-global copies of the
-Nix-installed tools. `just rebuild` registers the session hooks of every
-installed hook-enabled tool and removes any hook a no-hook tool left behind
-(see [Declarative agent tooling](#declarative-agent-tooling)). Claude Code has
+Nix-installed tools. `just rebuild` no longer registers AXI session hooks.
+Its first successful activation runs a per-tool, idempotent cleanup that uses
+available tool uninstall commands or removes only that tool's exact
+SessionStart command from Claude and Codex settings (see
+[Declarative agent tooling](#declarative-agent-tooling)). Claude Code has
 one install, the native self-updating one in `~/.local/bin`; it is deliberately
 not a Homebrew cask.
 On macOS, attended `just rebuild` activation installs it when missing or not
@@ -355,7 +357,7 @@ brings each tool's own state to exactly that set:
 |---|---|---|
 | `claude.plugins`, `claude.marketplaces` | Claude's plugin registry | The `claude plugin` CLI uninstalls undeclared user-scope plugins and retired project plugins, removes undeclared marketplaces, and adds and installs missing ones. |
 | `claude.mcpServers` | `~/.claude.json` `mcpServers` | Declared fields are set and undeclared servers are removed; see the credential preservation rules below. `retiredProjectMcpServers` are removed from every project scope; other project servers stay. |
-| `claude.hooks` | `~/.claude/settings.json` and `settings.local.json` hooks | Each installed AXI tool in the justfile's `axi-tools` and (on the work profile) work lists first registers its own hooks with `just _setup-axi-hooks`. Then `ensure` entries are written (replacing any hook that matches them), hooks matching a `keep` substring or a hook-enabled AXI tool name are left to their installers (rtk, herdr, rex, AXI), and every other hook is removed, including those of `axi-tools-no-hooks`. `settings.local.json` only loses hooks. If the justfile lists cannot be read, hooks are left untouched with a warning. |
+| `claude.hooks` | `~/.claude/settings.json` and `settings.local.json` hooks | `ensure` entries are written (replacing any hook that matches them), hooks matching a `keep` substring or a hook-enabled AXI tool name are preserved, and every other hook is removed, including those of `axi-tools-no-hooks`. AXI hooks are no longer registered during activation. The first rebuild runs the separate per-tool cleanup, which removes the old AXI SessionStart entries. `settings.local.json` only loses hooks. If the justfile lists cannot be read, hooks are left untouched with a warning. |
 | `codex.mcpServers` | `~/.codex/config.toml` `[mcp_servers.*]` | As for Claude. Every other table is preserved byte for byte. |
 | `codex.hooks` | `~/.codex/hooks.json` | As for Claude. |
 | `pi.packages` | `~/.pi/agent/settings.json` `packages` | Only declared package sources remain; existing per-package options and ordering are preserved. Pi installs a missing package on its next start. pi-fff and terminal-status-title are Nix-linked extensions, so they are not packages. |
