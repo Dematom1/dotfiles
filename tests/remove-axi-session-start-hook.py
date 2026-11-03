@@ -17,6 +17,7 @@ with tempfile.TemporaryDirectory() as temporary:
                 {"matcher": "", "hooks": [
                     {"type": "command", "command": "gh-axi"},
                     {"type": "command", "command": '"/nix/bin/gh-axi"'},
+                    {"type": "command", "command": "/usr/local/bin/gh-axi"},
                     {"type": "command", "command": "some-other-tool"},
                 ]},
             ],
@@ -28,6 +29,7 @@ with tempfile.TemporaryDirectory() as temporary:
     subprocess.run(["python3", str(script), str(home), "gh-axi"], check=True)
     result = json.loads(path.read_text())
     assert result["hooks"]["SessionStart"] == [{"matcher": "", "hooks": [
+        {"type": "command", "command": "/usr/local/bin/gh-axi"},
         {"type": "command", "command": "some-other-tool"},
     ]}]
     assert result["hooks"]["PreToolUse"] == original["hooks"]["PreToolUse"]

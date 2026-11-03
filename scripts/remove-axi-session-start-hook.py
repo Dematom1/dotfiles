@@ -9,12 +9,17 @@ def owned_command(command: object, tool: str) -> bool:
     if not isinstance(command, str):
         return False
     # gh-axi setup hooks may persist a JSON-quoted absolute executable path.
-    if command.startswith('"'):
+    quoted = command.startswith('"')
+    if quoted:
         try:
             command = json.loads(command)
         except json.JSONDecodeError:
             return False
-    return isinstance(command, str) and not any(c.isspace() for c in command) and Path(command).name == tool
+    if not isinstance(command, str) or any(c.isspace() for c in command):
+        return False
+    return (not quoted and command == tool) or (
+        quoted and tool == "gh-axi" and Path(command).is_absolute() and Path(command).name == tool
+    )
 
 
 def remove_from(value: object, tool: str) -> bool:
