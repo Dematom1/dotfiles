@@ -44,4 +44,5 @@ if [[ "$CURRENT_USER" != "$EXPECTED_USER" ]]; then
   exit 1
 fi
 
-exec sudo darwin-rebuild switch --flake "$HOME/Code/dotfiles#$PROFILE"
+sudo darwin-rebuild switch --flake "$HOME/Code/dotfiles#$PROFILE"
+just --justfile "$DIR/justfile" _cleanup-axi-hooks
