@@ -1,7 +1,8 @@
-# Generated skill content is not committed. See .agents/SKILLS.md for sources,
-# authentication requirements, and regeneration instructions.
+# Generated skills are ignored; local skills are committed. See .agents/SKILLS.md.
 /.agents/skills/*
 !/.agents/skills/.gitkeep
+!/.agents/skills/trim/
+!/.agents/skills/trim/SKILL.md
 /opencode/skills/*
 !/opencode/skills/.gitkeep
 
