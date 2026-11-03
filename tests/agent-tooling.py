@@ -62,7 +62,7 @@ for root in roots:
         (root / skill / "SKILL.md").write_text(f"---\nname: {skill}\ndescription: fixture\n---\n")
 '''
 
-# An AXI tool whose `setup hooks` replaces its own SessionStart hook in both agents.
+# Fake AXI CLI used to detect forbidden hook registration during activation.
 FAKE_AXI = r'''#!/usr/bin/env python3
 import json, os, pathlib, sys
 name = pathlib.Path(sys.argv[0]).name
@@ -356,7 +356,7 @@ def calls(log):
 
 
 def mutating(lines):
-    """Plugin and skill installs; AXI `setup hooks` rerun every time and must converge."""
+    """Plugin and skill installs; AXI hooks are not registered during activation."""
     return [line for line in lines if line.startswith(("claude ", "npx ")) and not line.endswith("--json")]
 
 
@@ -407,12 +407,12 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
     check(settings["effortLevel"] == "high" and settings["statusLine"]["command"] == "/fixture/statusline.sh",
           "unrelated Claude settings changed")
     check(sorted(hook_commands(settings, "SessionStart")) == sorted([
-        json.dumps(str(home / ".nix-profile/bin/gh-axi")), "chrome-devtools-axi", "tasks-axi",
+        "/opt/homebrew/bin/gh-axi", "chrome-devtools-axi",
         "bash '/fixture/.claude/hooks/herdr-agent-state.sh' session",
         "/bin/sh -c 'rex __internal session-start --agent claude 2>/dev/null || true'",
     ]), f"Claude SessionStart hooks: {hook_commands(settings, 'SessionStart')}")
-    for tool in ["gh-axi", "tasks-axi"]:
-        check(f"{tool} setup hooks" in first_calls, f"{tool} hooks were not registered")
+    check(not any(" setup hooks" in line for line in first_calls),
+          f"activation registered AXI hooks: {first_calls}")
     check(not any(line.startswith(("hey-axi", "lavish-axi")) for line in first_calls),
           "a no-hook AXI tool was set up")
     check(hook_commands(settings, "PreToolUse") == ["rtk hook claude"], "Claude PreToolUse hooks")
@@ -432,7 +432,7 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
     check("FIXTURE-SECRET" not in codex_text, "removed Codex server env survived")
     codex_hooks = json.loads((home / ".codex/hooks.json").read_text())
     check(sorted(hook_commands(codex_hooks, "SessionStart")) == sorted([
-        json.dumps(str(home / ".nix-profile/bin/gh-axi")), "chrome-devtools-axi", "tasks-axi",
+        "/opt/homebrew/bin/gh-axi", "chrome-devtools-axi",
         "bash '/fixture/.codex/herdr-agent-state.sh' session",
         "/bin/sh -c 'rex __internal session-start --agent codex 2>/dev/null || true'",
     ]), f"Codex SessionStart hooks: {hook_commands(codex_hooks, 'SessionStart')}")
@@ -515,7 +515,8 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
     check(backups(home) == taken, "second run created another backup")
     check(not mutating(calls(log)), f"second run ran mutating commands: {mutating(calls(log))}")
     check("updated" not in result.stdout and "removed" not in result.stdout, f"second run reported changes: {result.stdout}")
-    check("tasks-axi setup hooks" in calls(log), "second run did not re-register AXI hooks")
+    check(not any(" setup hooks" in line for line in calls(log)),
+          "second run registered AXI hooks")
 
     # Unparsable files are left alone, and the other tools still converge.
     broken = root / "broken"
