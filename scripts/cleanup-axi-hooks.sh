@@ -5,7 +5,10 @@ repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 state="$HOME/.local/state/dotfiles/axi-hooks-cleanup"
 mkdir -p "$state"
 failed=0
-tools=(gh-axi chrome-devtools-axi tasks-axi npm-axi pypi-axi homebrew-axi jev-axi bun-axi hetzner-axi argocd-axi argo-workflows-axi datadog-axi slack-axi aws-axi gws-axi notion-axi)
+tools=(gh-axi chrome-devtools-axi tasks-axi npm-axi pypi-axi homebrew-axi jev-axi bun-axi hetzner-axi argocd-axi argo-workflows-axi datadog-axi)
+profile=personal
+if [[ -f "$HOME/.config/dotfiles-profile" ]]; then profile="$(<"$HOME/.config/dotfiles-profile")"; fi
+if [[ "$profile" == work ]]; then tools+=(slack-axi aws-axi gws-axi notion-axi); fi
 for tool in "${tools[@]}"; do
   marker="$state/$tool"
   [[ -e "$marker" ]] && continue
