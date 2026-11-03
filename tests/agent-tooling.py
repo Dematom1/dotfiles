@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run the agent tooling reconciler against synthetic copies of every tool file."""
 
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -895,6 +896,43 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
         json.loads((broken_home / ".pi/agent/settings.json").read_text())["packages"]
         == manifest["pi"]["packages"],
         "a parse error in one tool blocked the others",
+    )
+
+    unreadable = root / "unreadable/home"
+    (unreadable / ".pi/agent").mkdir(parents=True)
+    (unreadable / ".claude.json").symlink_to(root / "missing-claude.json")
+    write_json(unreadable / ".pi/agent/settings.json", {"packages": []})
+    result = reconcile(
+        unreadable, root / "no-bin", state, root / "unreadable/calls.log"
+    )
+    check(
+        ".claude.json cannot be read" in result.stderr,
+        "unreadable JSON gave no warning",
+    )
+    check(
+        json.loads((unreadable / ".pi/agent/settings.json").read_text())["packages"]
+        == manifest["pi"]["packages"],
+        "unreadable JSON blocked other reconciliation",
+    )
+
+    # Backup failures warn and do not prevent later writes.
+    spec = importlib.util.spec_from_file_location("agent_tooling_test", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    path = root / "unreadable-backup"
+
+    def fail_fingerprint(candidate):
+        if candidate == path:
+            raise PermissionError("synthetic unreadable path")
+        return None
+
+    module.fingerprint = fail_fingerprint
+    run = module.Run(False)
+    run.paths = [path]
+    run.prepare()
+    check(
+        run.prepared and path not in run.originals,
+        "backup failure prevented preparation",
     )
 
     # Codex: declared servers are added or updated in place, keeping their secrets.
