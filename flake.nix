@@ -28,6 +28,15 @@
     # the expected version in tests/terraform.sh to match.
     nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
 
+    # Bun releases lag on the stable release branch above (it still ships
+    # 1.3.13), and tools like bun-axi and the agent-tools checks need a newer
+    # runtime. This input exists solely so bunOverlay (below) can pin just the
+    # bun package to a nixpkgs commit whose bun is 1.4.4. Nothing else is taken
+    # from it, and it does not `follow` nixpkgs. The URL pins a commit, so
+    # `nix flake update` and Renovate cannot move it; bump it by hand to a
+    # newer nixpkgs commit whose bun is the version you want.
+    nixpkgs-bun.url = "github:NixOS/nixpkgs/1d060086d60cb76a40cf37109f979d88a5bd6396";
+
     # Agent-facing Kubernetes and Docker CLIs. Upstream cuts no releases or npm
     # packages, so flake.lock pins the default-branch commit and
     # .github/workflows/flake-update.yml moves it daily;
@@ -55,7 +64,7 @@
     nixpkgs-signoff.url = "github:NixOS/nixpkgs/fc51889f81924f15fba77a3c0b79cfb3f78fe0d4";
   };
 
-  outputs = inputs@{ self, nix-darwin, nix-homebrew, home-manager, nixpkgs, nixpkgs-unstable, nixpkgs-signoff, kubernetes-axi, docker-axi, treehouse }:
+  outputs = inputs@{ self, nix-darwin, nix-homebrew, home-manager, nixpkgs, nixpkgs-unstable, nixpkgs-bun, nixpkgs-signoff, kubernetes-axi, docker-axi, treehouse }:
   let
     supportedSystems = [
       "aarch64-darwin"
@@ -101,7 +110,14 @@
       }).terraform;
     };
 
-    sharedOverlays = [ dotfilesOverlay terraformOverlay ];
+    # Swaps in bun 1.4.4 from nixpkgs-bun. Every consumer that takes pkgs.bun
+    # (home.packages, bun-axi's interpreter, the agent-tools checks) gets this
+    # one version; see the nixpkgs-bun input comment above.
+    bunOverlay = final: _: {
+      bun = (import nixpkgs-bun { system = final.stdenv.hostPlatform.system; }).bun;
+    };
+
+    sharedOverlays = [ dotfilesOverlay terraformOverlay bunOverlay ];
 
     pkgsFor = system: import nixpkgs {
       inherit system;
