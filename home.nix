@@ -71,7 +71,7 @@ in
     pypi-axi homebrew-axi jev-axi bun-axi hetzner-axi argocd-axi argo-workflows-axi datadog-axi terraform-axi search-console-axi
     linear-axi hey-axi lavish-axi
     # dev / build
-    neovim gh prek cmake lld luarocks protobuf shellcheck actionlint
+    neovim gh prek cmake lld luarocks protobuf shellcheck actionlint grype syft
     nodejs_24 (lib.hiPrio pkgs.npm-cli) bun python311 go uv memray
     # upstream pipx 1.8.0 test suite is broken in this nixpkgs pin; skip its checks
     (pipx.overridePythonAttrs (_: { doCheck = false; }))
