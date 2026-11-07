@@ -87,7 +87,6 @@ in
     # Preserve undeclared apps, formulae, and their data during activation.
     onActivation.cleanup = "none";
     onActivation.autoUpdate = true;
-    onActivation.upgrade = true;
     onActivation.extraFlags = [ "--force" ];
     brews = [
       # not in nixpkgs
@@ -127,6 +126,8 @@ in
   # Homebrew owns the app bundle and runs before postActivation. Keep the
   # PATH-visible CLI byte-for-byte aligned with the signed bundle binary.
   system.activationScripts.postActivation.text = ''
+      /usr/bin/sudo -u ${username} /opt/homebrew/bin/brew upgrade --cask automic-vault || true
+
       app="/Applications/Automic Vault.app"
       bundled="$app/Contents/MacOS/av"
       target="/usr/local/bin/av"
