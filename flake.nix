@@ -228,7 +228,7 @@
           mkdir -p "$out" "$TMPDIR/home"
           export HOME="$TMPDIR/home" XDG_CONFIG_HOME="$TMPDIR/home/.config"
           ${pkgs.claude-swap}/bin/cswap --version > "$out/version"
-          grep -F '0.29.0' "$out/version"
+          grep -F '0.30.0' "$out/version"
           ${pkgs.claude-swap}/bin/cswap --help > "$out/help"
           ${pkgs.claude-swap}/bin/cswap auto --help > "$out/auto-help"
           grep -F -- '--interval SECONDS' "$out/auto-help"
@@ -258,9 +258,17 @@
                 home-manager.users.laszlohoranszky.services.claude-swap.autoEnable = lib.mkForce true;
               }) ];
             }).config.home-manager.users.laszlohoranszky;
+            workEnabled = (self.darwinConfigurations.work.extendModules {
+              modules = [ ({ lib, ... }: {
+                home-manager.users.laszlo.services.claude-swap.autoEnable = lib.mkForce true;
+              }) ];
+            }).config.home-manager.users.laszlo;
           in
           assert !disabled.launchd.agents.claude-swap.enable;
           assert enabled.launchd.agents.claude-swap.enable;
+          assert builtins.elem "writeBoundary" enabled.home.activation.claudeSwapLogs.after;
+          assert builtins.elem "setupLaunchAgents" enabled.home.activation.claudeSwapLogs.before;
+          assert workEnabled.launchd.agents.claude-swap.enable;
           pkgs.runCommand "claude-swap-launchd" { } ''
             result="$out"
             out="$TMPDIR/disabled"
@@ -277,7 +285,17 @@
                 agent = plistlib.load(source)
             assert agent["ProgramArguments"][-1].endswith("${pkgs.claude-swap}/bin/cswap auto --interval 60 --threshold 90")
             assert agent["RunAtLoad"] and agent["KeepAlive"]
-            assert agent["StandardOutPath"] == agent["StandardErrorPath"] == "/Users/laszlohoranszky/Library/Logs/claude-swap.log"
+            assert agent["StandardOutPath"] == agent["StandardErrorPath"] == "/Users/laszlohoranszky/Library/Logs/claude-swap/launchd.log"
+            assert agent["ProcessType"] == "Background" and agent["Nice"] == 19
+            PY
+            out="$TMPDIR/work"
+            mkdir -p "$out"
+            ${workEnabled.home.extraBuilderCommands}
+            ${pkgs.python3}/bin/python - "$out/LaunchAgents/org.nix-community.home.claude-swap.plist" <<'PY'
+            import plistlib, sys
+            with open(sys.argv[1], "rb") as source:
+                agent = plistlib.load(source)
+            assert agent["StandardOutPath"] == agent["StandardErrorPath"] == "/Users/laszlo/Library/Logs/claude-swap/launchd.log"
             PY
             mkdir "$result"
           '';
