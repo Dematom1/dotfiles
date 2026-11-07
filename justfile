@@ -4,7 +4,7 @@ skills-dir := ".agents/skills"
 
 # AXI agent tools (https://axi.md). Nix installs every one of them (home.nix,
 # packages/npm/<name>), so these lists only decide whose session hooks are set
-# up. kubernetes-axi is Nix-installed too but registers no hooks.
+# up.
 axi-tools := "gh-axi chrome-devtools-axi tasks-axi npm-axi pypi-axi homebrew-axi jev-axi bun-axi hetzner-axi argocd-axi argo-workflows-axi datadog-axi k8s-axi"
 
 # HEY stays on-demand so session-start hooks cannot inject private email.
