@@ -748,8 +748,9 @@ just refresh-secrets
 
 Automic Vault is declared as the official
 `automic-vault/isotopes/automic-vault` Homebrew cask in `configuration.nix`, so
-both Mac profiles install it during a rebuild. After Homebrew runs, nix-darwin's
-`postActivation` synchronizes `/usr/local/bin/av` with
+both Mac profiles install it during a rebuild. Each rebuild also attempts a
+cask-only upgrade of Automic Vault before nix-darwin's `postActivation`
+synchronizes `/usr/local/bin/av` with
 `/Applications/Automic Vault.app/Contents/MacOS/av`, creating the destination
 directory if needed and replacing a missing or different binary. Every rebuild
 verifies byte identity and matching nonempty `--version` output; activation
