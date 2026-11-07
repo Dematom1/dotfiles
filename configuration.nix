@@ -87,6 +87,7 @@ in
     # Preserve undeclared apps, formulae, and their data during activation.
     onActivation.cleanup = "none";
     onActivation.autoUpdate = true;
+    onActivation.upgrade = true;
     onActivation.extraFlags = [ "--force" ];
     brews = [
       # not in nixpkgs
