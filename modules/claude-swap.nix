@@ -11,7 +11,7 @@
     home.activation.claudeSwapLogs = lib.mkIf
       (pkgs.stdenv.isDarwin && config.services.claude-swap.autoEnable)
       (lib.hm.dag.entryBetween [ "setupLaunchAgents" ] [ "writeBoundary" ] ''
-        run mkdir -p ${lib.escapeShellArg "${config.home.homeDirectory}/Library/Logs"}
+        run mkdir -p ${lib.escapeShellArg "${config.home.homeDirectory}/Library/Logs/claude-swap"}
       '');
 
     launchd.agents.claude-swap = lib.mkIf pkgs.stdenv.isDarwin {
