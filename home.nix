@@ -59,7 +59,7 @@ in
 
   home.packages = with pkgs; [
     # core cli - portable across macOS and the Linux sandbox
-    just doppler tmux jq yq bat fd fzf eza zoxide atuin direnv delta glab
+    just doppler tmux jq yq bat fd fzf eza zoxide atuin direnv delta glab backblaze-b2
     # git
     git git-crypt lazygit lazydocker
     # kubernetes / infra
