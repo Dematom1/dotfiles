@@ -63,13 +63,13 @@ in
     # git
     git git-crypt lazygit lazydocker
     # kubernetes / infra
-    argocd kubectl kubernetes-helm kustomize k9s kubectx kubernetes-axi terraform
+    argocd kubectl kubernetes-helm kustomize k9s kubectx terraform
     # agent tools; npm ones are pinned by packages/npm/<name>/package-lock.json
     m87 backpass acpx treehouse axiApprove
     # AXI agent tools (https://axi.md); the justfile lists decide which get hooks
     gh-axi chrome-devtools-axi tasks-axi quota-axi pg-axi docker-axi npm-axi
     pypi-axi homebrew-axi jev-axi bun-axi hetzner-axi argocd-axi argo-workflows-axi datadog-axi terraform-axi search-console-axi
-    linear-axi hey-axi lavish-axi
+    linear-axi hey-axi lavish-axi k8s-axi
     # dev / build
     neovim gh prek cmake lld luarocks protobuf shellcheck actionlint grype syft
     nodejs_24 (lib.hiPrio pkgs.npm-cli) bun python311 go uv memray

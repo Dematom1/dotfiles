@@ -700,10 +700,9 @@ Macs, the sandbox links live files from a `~/Code/dotfiles` checkout via
 `mkOutOfStoreSymlink`, so clone the repo there.
 
 `kubernetes-axi` is built from the exact upstream commit pinned by
-`flake.lock`. It is in the shared Home Manager package list, so the
-applicable local Mac profiles and every Linux sandbox profile get the same
-executable on `PATH`. The package build runs upstream's unit suite. The flake
-also exposes `packages.<system>.kubernetes-axi` and a bounded
+`flake.lock` and exposed as `packages.<system>.kubernetes-axi`; it is no longer
+installed by the shared Home Manager package list. The package build runs
+upstream's unit suite. The flake also exposes a bounded
 `checks.<system>.kubernetes-axi-doctor` smoke test. That smoke test removes
 `kubectl` from `PATH` before running `kubernetes-axi doctor`, which proves the
 installed executable starts without contacting or mutating a cluster.

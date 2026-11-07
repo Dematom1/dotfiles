@@ -1,0 +1,7 @@
+{
+  "name": "dotfiles-k8s-axi-package",
+  "private": true,
+  "dependencies": {
+    "k8s-axi": "0.1.1"
+  }
+}
