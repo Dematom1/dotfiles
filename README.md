@@ -64,7 +64,7 @@ instructions](docs/axi-approve.md).
 
 ### Claude account auto-balancing
 
-Home Manager installs `claude-swap` 0.29.0 (`cswap`) from pinned PyPI sources,
+Home Manager installs `claude-swap` 0.30.0 (`cswap`) from pinned PyPI sources,
 including Textual 8.2.8 because the nixpkgs version is too old. Rebuild with
 `just rebuild personal` (or `just rebuild work`); this runs `darwin-rebuild
 switch` with Home Manager attached, not a separate `home-manager switch`.
@@ -83,9 +83,9 @@ The macOS auto agent is **off by default**. Set up both accounts manually:
 
 The Home Manager agent `org.nix-community.home.claude-swap` runs
 `cswap auto --interval 60 --threshold 90` at login and restarts if it exits.
-Both stdout and stderr go to `~/Library/Logs/claude-swap.log`
-(`/Users/laszlohoranszky/Library/Logs/claude-swap.log` on personal,
-`/Users/laszlo/Library/Logs/claude-swap.log` on work). It rotates the default
+Both stdout and stderr go to `~/Library/Logs/claude-swap/launchd.log`.
+It polls every 60 seconds, a low-overhead interval for quota windows that
+change over hours, and runs at background priority. It rotates the default
 Claude login; Firstmate stays unpinned. Do not wrap Firstmate in `cswap run`
 or bind it to a particular account. To stop automatic rotation, set the same
 option back to `false` and rebuild.

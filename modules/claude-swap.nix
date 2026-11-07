@@ -20,8 +20,10 @@
         ProgramArguments = [ "${pkgs.claude-swap}/bin/cswap" "auto" "--interval" "60" "--threshold" "90" ];
         RunAtLoad = true;
         KeepAlive = true;
-        StandardOutPath = "${config.home.homeDirectory}/Library/Logs/claude-swap.log";
-        StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/claude-swap.log";
+        StandardOutPath = "${config.home.homeDirectory}/Library/Logs/claude-swap/launchd.log";
+        StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/claude-swap/launchd.log";
+        ProcessType = "Background";
+        Nice = 19;
         EnvironmentVariables = {
           PATH = "${config.home.homeDirectory}/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
           PYTHONUNBUFFERED = "1";

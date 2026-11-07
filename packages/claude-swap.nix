@@ -14,13 +14,13 @@ let
 in
 python3Packages.buildPythonApplication rec {
   pname = "claude-swap";
-  version = "0.29.0";
+  version = "0.30.0";
   pyproject = true;
 
   src = fetchPypi {
     pname = "claude_swap";
     inherit version;
-    hash = "sha256-F1kyKZt/YnuEDdzmPa/AWuzC010Wh5K06fK5ThkqOXg=";
+    hash = "sha256-bBuS8Nbgm4I2HlbFG3J1r8ZN4Igg+5SWTOBNK9AaPCc=";
   };
 
   build-system = [ python3Packages.hatchling ];

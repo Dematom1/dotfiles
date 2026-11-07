@@ -228,7 +228,7 @@
           mkdir -p "$out" "$TMPDIR/home"
           export HOME="$TMPDIR/home" XDG_CONFIG_HOME="$TMPDIR/home/.config"
           ${pkgs.claude-swap}/bin/cswap --version > "$out/version"
-          grep -F '0.29.0' "$out/version"
+          grep -F '0.30.0' "$out/version"
           ${pkgs.claude-swap}/bin/cswap --help > "$out/help"
           ${pkgs.claude-swap}/bin/cswap auto --help > "$out/auto-help"
           grep -F -- '--interval SECONDS' "$out/auto-help"
@@ -277,7 +277,8 @@
                 agent = plistlib.load(source)
             assert agent["ProgramArguments"][-1].endswith("${pkgs.claude-swap}/bin/cswap auto --interval 60 --threshold 90")
             assert agent["RunAtLoad"] and agent["KeepAlive"]
-            assert agent["StandardOutPath"] == agent["StandardErrorPath"] == "/Users/laszlohoranszky/Library/Logs/claude-swap.log"
+            assert agent["StandardOutPath"] == agent["StandardErrorPath"] == "/Users/laszlohoranszky/Library/Logs/claude-swap/launchd.log"
+            assert agent["ProcessType"] == "Background" and agent["Nice"] == 19
             PY
             mkdir "$result"
           '';
