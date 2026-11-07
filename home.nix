@@ -19,6 +19,9 @@ let
   # tool to it. See README.md "Declarative agent tooling".
   agentTooling = lib.importJSON ./agent-tooling.json;
   piSignedExecutable = "/Applications/Pi Launcher.app/Contents/MacOS/pi-launcher";
+  b2 = pkgs.writeShellScriptBin "b2" ''
+    exec ${pkgs.backblaze-b2}/bin/b2v4 "$@"
+  '';
   avProjectPolicy = pkgs.writeShellScriptBin "av" ''
     unset AV_VENDOR_CLI
     exec ${pkgs.bash}/bin/bash ${./scripts/av-firstmate-policy.sh} "$@"
@@ -59,7 +62,7 @@ in
 
   home.packages = with pkgs; [
     # core cli - portable across macOS and the Linux sandbox
-    just doppler tmux jq yq bat fd fzf eza zoxide atuin direnv delta glab
+    just doppler tmux jq yq bat fd fzf eza zoxide atuin direnv delta glab backblaze-b2 b2
     # git
     git git-crypt lazygit lazydocker
     # kubernetes / infra
