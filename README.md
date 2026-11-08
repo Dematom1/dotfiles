@@ -377,12 +377,11 @@ activation cleanup removes hooks installed by the previous setup. `argocd-axi`
 requires a reachable Argo CD server; connection setup for
 https://argocd.dematom1.com with SSO or per-agent read-only tokens is pending a
 separate change. Rex is an explicit exception: the app owns its skill and hook,
-and this repository preserves them. If the Rex CLI advertises `setup hooks`,
-activation can invoke it after validating the agent hook settings.
+and this repository preserves them. Rebuilds do not invoke Rex hook setup.
 
-The run is idempotent: a second run changes nothing. Before its first mutation,
-it snapshots tool configurations, plugin registries, skill locks, existing
-skill directories, and known project settings to
+The reconciler is idempotent: a second run changes nothing. Before its first
+mutation, it snapshots tool configurations, plugin registries, skill locks,
+existing skill directories, and known project settings to
 `$XDG_STATE_HOME/dotfiles/agent-tooling-backups/<UTC timestamp>/` (default:
 `~/.local/state/dotfiles/agent-tooling-backups/<UTC timestamp>/`). Paths inside
 `~` retain their home-relative location; external project paths retain their
@@ -404,7 +403,10 @@ existing fields omitted from the declaration, including `headers` and `env`,
 survive. A server that lists `requiredHeaders` (uidotsh) is created without credentials when absent, for
 example after `~/.claude.json` is lost. While it lacks its header, each run warns that it needs
 re-authentication and prints the `claude mcp add` command that adds the header. Tokens are never copied back
-from backup snapshots, so a token you remove stays removed.
+from backup snapshots, so a token you remove stays removed. Separately, the
+one-time AXI hook cleanup snapshots Claude and Codex hook settings to
+`~/.local/state/dotfiles/axi-hooks-cleanup-v2/snapshot` before removing old
+SessionStart entries; if that snapshot fails, cleanup is deferred.
 Never put the token in this repository.
 
 To add a tool, declare it in `agent-tooling.json` and run `just rebuild`. To
