@@ -75,8 +75,15 @@ for tool in "${tools[@]}"; do
       fi
       ;;
     *)
-      if ! python3 "$remover" "$HOME" "$tool"; then
-        echo "    - $tool cleanup failed; retry next rebuild" >&2
+      if python3 "$remover" "$HOME" "$tool"; then
+        :
+      else
+        status=$?
+        if [[ "$tool" == tasks-axi && "$status" -eq 3 ]]; then
+          echo "    - $tool has unconfirmed user hooks; leaving it for review" >&2
+        else
+          echo "    - $tool cleanup failed; retry next rebuild" >&2
+        fi
         failed=1
         continue
       fi

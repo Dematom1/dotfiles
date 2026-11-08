@@ -26,6 +26,7 @@ with tempfile.TemporaryDirectory() as temporary:
                         {"type": "command", "command": '"/nix/bin/gh-axi"'},
                         {"type": "command", "command": '"gh-axi" --session-start'},
                         {"type": "command", "command": "/usr/local/bin/gh-axi"},
+                        {"type": "command", "command": "tasks-axi"},
                         {"type": "command", "command": "/nix/store/abc/bin/tasks-axi --session-start"},
                         {"type": "command", "command": "tasks-axi list --state queued"},
                         {"type": "command", "command": "some-other-tool"},
@@ -39,7 +40,8 @@ with tempfile.TemporaryDirectory() as temporary:
     }
     path.write_text(json.dumps(original))
     subprocess.run(["python3", str(script), str(home), "gh-axi"], check=True)
-    subprocess.run(["python3", str(script), str(home), "tasks-axi"], check=True)
+    tasks_cleanup = subprocess.run(["python3", str(script), str(home), "tasks-axi"])
+    assert tasks_cleanup.returncode == 3
     result = json.loads(path.read_text())
     assert result["hooks"]["SessionStart"] == [
         {
@@ -47,6 +49,7 @@ with tempfile.TemporaryDirectory() as temporary:
             "hooks": [
                 {"type": "command", "command": "gh-axi --other"},
                 {"type": "command", "command": "my-wrapper --session-start"},
+                {"type": "command", "command": "/nix/store/abc/bin/tasks-axi --session-start"},
                 {"type": "command", "command": "tasks-axi list --state queued"},
                 {"type": "command", "command": "some-other-tool"},
             ],
@@ -76,7 +79,8 @@ with tempfile.TemporaryDirectory() as temporary:
     symlink_target.write_text(json.dumps({"hooks": {"SessionStart": [{"hooks": [{"command": "tasks-axi"}, {"command": "keep"}]}]}}))
     symlink_path = home / ".claude/settings.local.json"
     symlink_path.symlink_to(symlink_target)
-    subprocess.run(["python3", str(script), str(home), "tasks-axi"], check=True)
+    symlink_cleanup = subprocess.run(["python3", str(script), str(home), "tasks-axi"])
+    assert symlink_cleanup.returncode == 3
     assert symlink_path.is_symlink()
     assert json.loads(symlink_target.read_text())["hooks"]["SessionStart"][0]["hooks"] == [{"command": "keep"}]
 
@@ -191,7 +195,7 @@ with tempfile.TemporaryDirectory() as temporary:
     assert failed_backup_settings.read_text() == before_failed_backup
     assert not failed_backup_log.exists()
     failed_backup_markers = failed_backup_home / ".local/state/dotfiles/axi-hooks-cleanup-v2"
-    assert not any(failed_backup_markers.glob("*.axi"))
+    assert not any(failed_backup_markers.glob("*-axi"))
 
     failed_target_home = home / "failed-target-home"
     failed_target_settings = failed_target_home / ".claude/settings.local.json"
@@ -211,7 +215,20 @@ with tempfile.TemporaryDirectory() as temporary:
     assert failed_target_settings.is_symlink()
     assert failed_target_file.read_text() == before_failed_target
     assert not failed_backup_log.exists()
-    assert not list((failed_target_home / ".local/state/dotfiles/axi-hooks-cleanup-v2").glob("*.axi"))
+    assert not list((failed_target_home / ".local/state/dotfiles/axi-hooks-cleanup-v2").glob("*-axi"))
+
+    user_owned_home = home / "user-owned-home"
+    user_owned_settings = user_owned_home / ".claude/settings.json"
+    user_owned_settings.parent.mkdir(parents=True)
+    user_owned_command = "/home/me/bin/tasks-axi --session-start"
+    user_owned_settings.write_text(json.dumps({"hooks": {"SessionStart": [{"hooks": [{"command": user_owned_command}, {"command": "keep"}]}]}}))
+    user_owned_env = {**env, "HOME": str(user_owned_home)}
+    user_owned_cleanup = subprocess.run([str(cleanup)], env=user_owned_env, capture_output=True, text=True)
+    assert user_owned_cleanup.returncode != 0
+    assert json.loads(user_owned_settings.read_text())["hooks"]["SessionStart"][0]["hooks"] == [
+        {"command": user_owned_command}, {"command": "keep"}
+    ]
+    assert not (user_owned_home / ".local/state/dotfiles/axi-hooks-cleanup-v2/tasks-axi").exists()
 
     personal_home = home / "personal-home"
     incomplete = personal_home / ".local/state/dotfiles/axi-hooks-cleanup-v2/snapshot"

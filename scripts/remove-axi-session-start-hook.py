@@ -10,24 +10,44 @@ import tempfile
 from pathlib import Path
 
 
+LEGACY_TASKS_HOOK_COMMAND = "tasks-axi"
+
+
 def owned_command(command: object, tool: str) -> bool:
     if not isinstance(command, str):
         return False
+    if tool == "tasks-axi":
+        return command == LEGACY_TASKS_HOOK_COMMAND
     try:
         argv = shlex.split(command)
     except ValueError:
         return False
-    if not argv:
-        return False
-    if Path(argv[0]).name == tool and not argv[1:]:
-        return True
-    if tool == "gh-axi" and Path(argv[0]).name == "gh-axi" and argv[1:] == ["--session-start"]:
-        return True
-    return (
-        tool == "tasks-axi"
-        and Path(argv[0]).name == "tasks-axi"
-        and argv[1:] in ([], ["--session-start"])
+    return bool(argv) and (
+        (Path(argv[0]).name == tool and not argv[1:])
+        or (tool == "gh-axi" and Path(argv[0]).name == "gh-axi" and argv[1:] == ["--session-start"])
     )
+
+
+def has_unconfirmed_tasks_hook(value: object) -> bool:
+    if not isinstance(value, dict) or not isinstance(value.get("hooks"), dict):
+        return False
+    entries = value["hooks"].get("SessionStart")
+    if not isinstance(entries, list):
+        return False
+    for entry in entries:
+        if not isinstance(entry, dict) or not isinstance(entry.get("hooks"), list):
+            continue
+        for hook in entry["hooks"]:
+            command = hook.get("command") if isinstance(hook, dict) else None
+            if not isinstance(command, str) or command == LEGACY_TASKS_HOOK_COMMAND:
+                continue
+            try:
+                argv = shlex.split(command)
+            except ValueError:
+                continue
+            if argv and Path(argv[0]).name == "tasks-axi":
+                return True
+    return False
 
 
 def write_atomic(path: Path, data: dict) -> None:
@@ -88,6 +108,7 @@ def main() -> int:
         return 2
     home, tool = Path(sys.argv[1]), sys.argv[2]
     failed = False
+    unconfirmed = False
     for relative in (
         ".claude/settings.json",
         ".claude/settings.local.json",
@@ -106,13 +127,17 @@ def main() -> int:
             print(f"{path}: cannot parse settings: {error}", file=sys.stderr)
             failed = True
             continue
+        if tool == "tasks-axi":
+            unconfirmed |= has_unconfirmed_tasks_hook(data)
         if remove_from(data, tool):
             try:
                 write_atomic(path, data)
             except OSError as error:
                 print(f"{path}: cannot update settings: {error}", file=sys.stderr)
                 failed = True
-    return int(failed)
+    if failed:
+        return 1
+    return 3 if unconfirmed else 0
 
 
 if __name__ == "__main__":
