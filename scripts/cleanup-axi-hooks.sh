@@ -18,6 +18,14 @@ if [[ ! -f "$backup/.complete" ]]; then
       echo "    - could not snapshot $source; deferring AXI hook cleanup" >&2
       exit 1
     fi
+    if [[ -L "$source" ]]; then
+      mkdir -p "$snapshot_tmp/.targets/$(dirname "$file")"
+      if ! cp -p "$source" "$snapshot_tmp/.targets/$file"; then
+        rm -rf "$snapshot_tmp"
+        echo "    - could not snapshot $source target; deferring AXI hook cleanup" >&2
+        exit 1
+      fi
+    fi
   done
   touch "$snapshot_tmp/.complete"
   mv "$snapshot_tmp" "$backup"

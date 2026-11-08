@@ -145,6 +145,11 @@ with tempfile.TemporaryDirectory() as temporary:
         "PATH": f"{bin_dir}:{utils}",
         "CALL_LOG": str(call_log),
     }
+    shared_settings = cleanup_home / "shared-settings.json"
+    shared_settings.write_text(json.dumps({"hooks": {"SessionStart": [{"hooks": [{"command": "tasks-axi"}, {"command": "preserve"}]}]}}))
+    (cleanup_home / ".claude/settings.local.json").unlink()
+    (cleanup_home / ".claude/settings.local.json").symlink_to(shared_settings)
+
     personal_home = home / "personal-home"
     incomplete = personal_home / ".local/state/dotfiles/axi-hooks-cleanup-v2/snapshot"
     incomplete.mkdir(parents=True)
@@ -161,9 +166,14 @@ with tempfile.TemporaryDirectory() as temporary:
     assert not any((personal_markers / tool).exists() for tool in ["slack-axi", "aws-axi", "gws-axi", "notion-axi"])
     call_log.write_text("")
     first = subprocess.run([str(cleanup)], env=env, capture_output=True, text=True)
-    assert first.returncode == 1 and "bun-axi cleanup failed" in first.stderr
+    assert first.returncode == 1 and "bun-axi cleanup failed" in first.stderr, first.stderr
     assert "datadog-axi unavailable" in first.stderr
     assert len(call_log.read_text().splitlines()) == 5
+    snapshot = cleanup_home / ".local/state/dotfiles/axi-hooks-cleanup-v2/snapshot"
+    assert (snapshot / ".claude/settings.local.json").is_symlink()
+    assert json.loads((snapshot / ".targets/.claude/settings.local.json").read_text())["hooks"]["SessionStart"][0]["hooks"] == [
+        {"command": "tasks-axi"}, {"command": "preserve"}
+    ]
     markers = cleanup_home / ".local/state/dotfiles/axi-hooks-cleanup-v2"
     assert len(list(markers.iterdir())) == 16
     bun = bin_dir / "bun-axi"
