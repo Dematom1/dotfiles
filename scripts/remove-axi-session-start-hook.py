@@ -13,25 +13,17 @@ from pathlib import Path
 def owned_command(command: object, tool: str) -> bool:
     if not isinstance(command, str):
         return False
-    quoted = command.startswith('"')
-    if quoted:
-        try:
-            command = json.loads(command)
-        except json.JSONDecodeError:
-            return False
     try:
         argv = shlex.split(command)
     except ValueError:
         return False
     if not argv:
         return False
-    if argv[0] == tool and not argv[1:]:
+    if Path(argv[0]).name == tool and not argv[1:]:
         return True
-    return (
-        tool == "gh-axi"
-        and Path(argv[0]).name == tool
-        and argv[1:] in ([], ["--session-start"])
-    )
+    if tool == "gh-axi" and argv[1:] == ["--session-start"]:
+        return True
+    return tool == "tasks-axi" and Path(argv[0]).name == "tasks-axi"
 
 
 def write_atomic(path: Path, data: dict) -> None:
@@ -91,7 +83,11 @@ def main() -> int:
         print("usage: remove-axi-session-start-hook.py HOME TOOL", file=sys.stderr)
         return 2
     home, tool = Path(sys.argv[1]), sys.argv[2]
-    for relative in (".claude/settings.json", ".codex/hooks.json"):
+    for relative in (
+        ".claude/settings.json",
+        ".claude/settings.local.json",
+        ".codex/hooks.json",
+    ):
         path = home / relative
         if not path.is_file():
             continue

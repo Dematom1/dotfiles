@@ -377,7 +377,8 @@ activation cleanup removes hooks installed by the previous setup. `argocd-axi`
 requires a reachable Argo CD server; connection setup for
 https://argocd.dematom1.com with SSO or per-agent read-only tokens is pending a
 separate change. Rex is an explicit exception: the app owns its skill and hook,
-and this repository preserves them. The rebuild does not invoke Rex hook setup.
+and this repository preserves them. If the Rex CLI advertises `setup hooks`,
+activation can invoke it after validating the agent hook settings.
 
 The run is idempotent: a second run changes nothing. Before its first mutation,
 it snapshots tool configurations, plugin registries, skill locks, existing
