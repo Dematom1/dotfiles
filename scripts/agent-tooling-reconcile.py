@@ -938,6 +938,7 @@ def main() -> int:
     run = Run(args.dry_run, stream=args.refresh_skills, manifest=manifest)
     if args.update_only:
         update_declared_claude_plugins(run, manifest)
+        run.finish()
     elif args.refresh_skills:
         install_skills(run, manifest, refresh=True)
         # An explicit refresh fails loudly; activation below only warns.
@@ -992,7 +993,8 @@ def main() -> int:
                 step()
             except Exception as error:  # one broken tool must not block the others
                 warn(f"{name} failed: {error!r}")
-    run.finish()
+    if not args.update_only:
+        run.finish()
     if warnings:
         print(
             f"agent-tooling: finished with {len(warnings)} warning(s)", file=sys.stderr
