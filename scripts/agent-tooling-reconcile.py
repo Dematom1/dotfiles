@@ -769,17 +769,29 @@ def reconcile_claude_plugins(run: Run, manifest: dict) -> None:
                 [claude, "plugin", "marketplace", "add", "--scope", "user", repo],
                 "add marketplace",
             )
+        else:
+            run.command(
+                [claude, "plugin", "marketplace", "update", name],
+                f"update marketplace {name}",
+            )
     for plugin_id in declared_plugins:
         if plugin_id not in user:
             run.command(
                 [claude, "plugin", "install", "--scope", "user", plugin_id],
                 "install plugin",
             )
-        elif user[plugin_id].get("enabled") is False:
-            run.command(
-                [claude, "plugin", "enable", plugin_id, "--scope", "user"],
-                "enable plugin",
-            )
+        else:
+            old_version = user[plugin_id].get("version", "unknown")
+            if run.command([claude, "plugin", "update", plugin_id], f"update plugin {plugin_id}"):
+                updated = claude_json(claude, ["plugin", "list"])
+                current = next((p for p in updated or [] if p.get("id") == plugin_id and p.get("scope") == "user"), {})
+                new_version = current.get("version", "unknown")
+                note(f"{plugin_id}: {old_version} -> {new_version}")
+            if user[plugin_id].get("enabled") is False:
+                run.command(
+                    [claude, "plugin", "enable", plugin_id, "--scope", "user"],
+                    "enable plugin",
+                )
 
 
 def reconcile_project_hooks(run: Run, manifest: dict) -> None:

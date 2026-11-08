@@ -844,9 +844,10 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
     result = reconcile(home, bin_dir, state, log)
     check(snapshot(home) == converged, "second run changed files")
     check(backups(home) == taken, "second run created another backup")
+    updates = [line for line in mutating(calls(log)) if " update " in f" {line} "]
     check(
-        not mutating(calls(log)),
-        f"second run ran mutating commands: {mutating(calls(log))}",
+        mutating(calls(log)) == updates,
+        f"second run ran unexpected mutating commands: {mutating(calls(log))}",
     )
     check(
         "updated" not in result.stdout and "removed" not in result.stdout,
