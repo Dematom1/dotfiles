@@ -213,10 +213,12 @@ The AXI hook policy lives in [justfile](justfile) (`axi-tools`,
 `axi-tools-no-hooks`, and the work-only list); `just setup-firstmate` and
 `just update-firstmate` remove superseded npm-global copies of the
 Nix-installed tools. `just rebuild` no longer registers AXI session hooks.
-Its first successful activation runs a per-tool, idempotent cleanup that uses
-available tool uninstall commands or removes only that tool's exact
-SessionStart command from Claude and Codex settings (see
-[Declarative agent tooling](#declarative-agent-tooling)). Claude Code has
+Each activation retries per-tool cleanup until that tool's success marker is
+written. It uses available tool uninstall commands or removes only that tool's
+exact SessionStart command from Claude and Codex settings (see
+[Declarative agent tooling](#declarative-agent-tooling)). Unconfirmed user-owned
+`tasks-axi` hooks are left in place for review and prevent that tool's marker
+from being written. Claude Code has
 one install, the native self-updating one in `~/.local/bin`; it is deliberately
 not a Homebrew cask.
 On macOS, attended `just rebuild` activation installs it when missing or not
@@ -357,7 +359,7 @@ brings each tool's own state to exactly that set:
 |---|---|---|
 | `claude.plugins`, `claude.marketplaces` | Claude's plugin registry | The `claude plugin` CLI uninstalls undeclared user-scope plugins and retired project plugins, removes undeclared marketplaces, and adds and installs missing ones. |
 | `claude.mcpServers` | `~/.claude.json` `mcpServers` | Declared fields are set and undeclared servers are removed; see the credential preservation rules below. `retiredProjectMcpServers` are removed from every project scope; other project servers stay. |
-| `claude.hooks` | `~/.claude/settings.json` and `settings.local.json` hooks | `ensure` entries are written (replacing any hook that matches them), hooks matching a `keep` substring or a name in `axi-tools` are preserved, and other hooks are removed, including those of `axi-tools-no-hooks`. Rebuilds do not register AXI hooks; the per-tool cleanup runs after reconciliation and removes their old SessionStart entries once. `settings.local.json` only loses hooks. If the justfile lists cannot be read, hooks are left untouched with a warning. |
+| `claude.hooks` | `~/.claude/settings.json` and `settings.local.json` hooks | `ensure` entries are written (replacing any hook that matches them), hooks matching a `keep` substring or a name in `axi-tools` are preserved, and other hooks are removed, including those of `axi-tools-no-hooks`. Rebuilds do not register AXI hooks; cleanup targets old SessionStart entries per tool, retrying on later activations until cleanup succeeds. `settings.local.json` only loses hooks. If the justfile lists cannot be read, hooks are left untouched with a warning. |
 | `codex.mcpServers` | `~/.codex/config.toml` `[mcp_servers.*]` | As for Claude. Every other table is preserved byte for byte. |
 | `codex.hooks` | `~/.codex/hooks.json` | As for Claude. |
 | `pi.packages` | `~/.pi/agent/settings.json` `packages` | Only declared package sources remain; existing per-package options and ordering are preserved. Pi installs a missing package on its next start. pi-fff and terminal-status-title are Nix-linked extensions, so they are not packages. |
@@ -372,8 +374,10 @@ skill. Home Manager links the vendored `pi/extensions/terminal-status-title.js`.
 
 AXI binaries are installed from pinned npm releases by Home Manager. Rebuilds
 and Home Manager activations do not register AXI hooks; `axi-tools` preserves
-existing hooks, while `axi-tools-no-hooks` removes them. A one-time Home Manager
-activation cleanup removes hooks installed by the previous setup. `argocd-axi`
+existing hooks, while `axi-tools-no-hooks` excludes them from preservation and
+selects tools for legacy cleanup. Home Manager activation retries per-tool
+cleanup until its success marker is written. Unconfirmed user-owned `tasks-axi`
+hooks are left for review and prevent that tool's marker. `argocd-axi`
 requires a reachable Argo CD server; connection setup for
 https://argocd.dematom1.com with SSO or per-agent read-only tokens is pending a
 separate change. Rex is an explicit exception: the app owns its skill and hook,
@@ -405,8 +409,8 @@ existing fields omitted from the declaration, including `headers` and `env`,
 survive. A server that lists `requiredHeaders` (uidotsh) is created without credentials when absent, for
 example after `~/.claude.json` is lost. While it lacks its header, each run warns that it needs
 re-authentication and prints the `claude mcp add` command that adds the header. Tokens are never copied back
-from backup snapshots, so a token you remove stays removed. The one-time AXI
-hook cleanup removes old SessionStart entries from Claude and Codex settings.
+from backup snapshots, so a token you remove stays removed. AXI cleanup removes
+old SessionStart entries from Claude and Codex settings per tool.
 Never put the token in this repository.
 
 To add a tool, declare it in `agent-tooling.json` and run `just rebuild`. To
@@ -419,7 +423,8 @@ remove one, delete its entry and rebuild.
 - **Hook:** add an `ensure` entry for a hook dotfiles defines, or a `keep`
   substring for one an installer writes. Rebuilds do not register AXI hooks.
   Listing a tool in `axi-tools` preserves existing hooks; listing it in
-  `axi-tools-no-hooks` removes them.
+  `axi-tools-no-hooks` excludes it from preservation and makes it a cleanup
+  target.
 - **Pi package:** add its source string to `pi.packages`.
 - **Skill:** follow [the skill reference](.agents/SKILLS.md#adding-or-removing-a-skill).
 
