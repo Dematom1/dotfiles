@@ -23,7 +23,11 @@ def owned_command(command: object, tool: str) -> bool:
         return True
     if tool == "gh-axi" and Path(argv[0]).name == "gh-axi" and argv[1:] == ["--session-start"]:
         return True
-    return tool == "tasks-axi" and Path(argv[0]).name == "tasks-axi"
+    return (
+        tool == "tasks-axi"
+        and Path(argv[0]).name == "tasks-axi"
+        and argv[1:] in ([], ["--session-start"])
+    )
 
 
 def write_atomic(path: Path, data: dict) -> None:
@@ -83,22 +87,32 @@ def main() -> int:
         print("usage: remove-axi-session-start-hook.py HOME TOOL", file=sys.stderr)
         return 2
     home, tool = Path(sys.argv[1]), sys.argv[2]
+    failed = False
     for relative in (
         ".claude/settings.json",
         ".claude/settings.local.json",
         ".codex/hooks.json",
     ):
         path = home / relative
+        if path.is_symlink() and not path.exists():
+            print(f"{path}: settings symlink target is unavailable", file=sys.stderr)
+            failed = True
+            continue
         if not path.is_file():
             continue
         try:
             data = json.loads(path.read_text())
         except (OSError, json.JSONDecodeError) as error:
             print(f"{path}: cannot parse settings: {error}", file=sys.stderr)
-            return 1
+            failed = True
+            continue
         if remove_from(data, tool):
-            write_atomic(path, data)
-    return 0
+            try:
+                write_atomic(path, data)
+            except OSError as error:
+                print(f"{path}: cannot update settings: {error}", file=sys.stderr)
+                failed = True
+    return int(failed)
 
 
 if __name__ == "__main__":

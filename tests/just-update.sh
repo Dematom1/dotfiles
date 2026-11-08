@@ -216,7 +216,7 @@ nm_output=$(cd "$sandbox" && \
 [[ "$nm_output" == *"checksum mismatch"* ]] || fail "the no-mistakes failure output was hidden"
 [[ "$nm_output" != *"FirstMate stack updated."* && "$nm_output" != *"skipped no-mistakes update"* ]] \
   || fail "a failed no-mistakes update reported success"
-[[ "$(grep -Ec 'setup hooks' "$stack_log" || true)" -eq 0 ]] \
+[[ "$(grep -Ec '^(npm root -g|npm update -g gnhf|herdr integration install pi)$' "$stack_log" || true)" -eq 0 ]] \
   || fail "update continued after a failed no-mistakes update"
 
 printf '%s\n' "just update checks passed"

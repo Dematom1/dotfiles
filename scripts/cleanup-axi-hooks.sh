@@ -40,18 +40,29 @@ for tool in "${tools[@]}"; do
   [[ -e "$marker" ]] && continue
   case "$tool" in
     bun-axi|k8s-axi)
+      if ! python3 "$remover" "$HOME" "$tool"; then
+        echo "    - $tool hook removal failed; retry next rebuild" >&2
+        failed=1
+        continue
+      fi
       if ! command -v "$tool" >/dev/null 2>&1; then
         echo "    - $tool unavailable; retry next rebuild" >&2
         failed=1
         continue
       fi
-      if ! "$tool" setup hooks --uninstall; then
+      if [[ "$tool" == k8s-axi ]]; then
+        if ! "$tool" setup uninstall; then
+          echo "    - $tool cleanup failed; retry next rebuild" >&2
+          failed=1
+          continue
+        fi
+      elif ! "$tool" setup hooks --uninstall; then
         echo "    - $tool cleanup failed; retry next rebuild" >&2
         failed=1
         continue
       fi
       ;;
-    hetzner-axi|argocd-axi|argo-workflows-axi|datadog-axi)
+    hetzner-axi|argo-workflows-axi)
       if ! command -v "$tool" >/dev/null 2>&1; then
         echo "    - $tool unavailable; retry next rebuild" >&2
         failed=1
