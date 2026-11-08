@@ -21,7 +21,7 @@ def owned_command(command: object, tool: str) -> bool:
         return False
     if Path(argv[0]).name == tool and not argv[1:]:
         return True
-    if tool == "gh-axi" and argv[1:] == ["--session-start"]:
+    if tool == "gh-axi" and Path(argv[0]).name == "gh-axi" and argv[1:] == ["--session-start"]:
         return True
     return tool == "tasks-axi" and Path(argv[0]).name == "tasks-axi"
 

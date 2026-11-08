@@ -22,6 +22,7 @@ with tempfile.TemporaryDirectory() as temporary:
                         {"type": "command", "command": "gh-axi"},
                         {"type": "command", "command": "gh-axi --session-start"},
                         {"type": "command", "command": "gh-axi --other"},
+                        {"type": "command", "command": "my-wrapper --session-start"},
                         {"type": "command", "command": '"/nix/bin/gh-axi"'},
                         {"type": "command", "command": '"gh-axi" --session-start'},
                         {"type": "command", "command": "/usr/local/bin/gh-axi"},
@@ -43,6 +44,7 @@ with tempfile.TemporaryDirectory() as temporary:
             "matcher": "",
             "hooks": [
                 {"type": "command", "command": "gh-axi --other"},
+                {"type": "command", "command": "my-wrapper --session-start"},
                 {"type": "command", "command": "some-other-tool"},
             ],
         }
