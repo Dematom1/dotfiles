@@ -97,7 +97,7 @@ class Run:
                     copy_private_tree(path, self.backup_target(path))
             except OSError as error:
                 warn(f"{path} cannot be backed up ({error}); left untouched")
-                continue
+                raise
             self.originals[path] = original
         self.prepared = True
 

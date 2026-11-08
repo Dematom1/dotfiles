@@ -915,7 +915,7 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
         "unreadable JSON blocked other reconciliation",
     )
 
-    # Backup failures warn and do not prevent later writes.
+    # Backup failures must block mutations.
     spec = importlib.util.spec_from_file_location("agent_tooling_test", script)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -929,11 +929,13 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
     module.fingerprint = fail_fingerprint
     run = module.Run(False)
     run.paths = [path]
-    run.prepare()
-    check(
-        run.prepared and path not in run.originals,
-        "backup failure prevented preparation",
-    )
+    try:
+        run.write_text(path, "replacement", "test")
+    except PermissionError:
+        pass
+    else:
+        raise AssertionError("backup failure allowed a write")
+    check(not path.exists(), "write changed a path whose backup failed")
 
     # Codex: declared servers are added or updated in place, keeping their secrets.
     codex_home = root / "codex/home"
