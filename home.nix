@@ -143,8 +143,8 @@ in
 
     # AI tooling - one AGENTS.md shared across Claude + Codex
     ".config/herdr".source         = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/herdr";
-    # ~/.claude/settings.json is intentionally NOT linked: AXI setup hooks and
-    # Claude's plugin manager mutate it. See README.md "Declarative agent tooling"
+    # ~/.claude/settings.json is intentionally NOT linked: Claude's plugin
+    # manager mutates it. See README.md "Declarative agent tooling"
     # for activation's reconciliation policy.
     # Claude gets a composition entrypoint (shared AGENTS.md + Claude-only RTK)
     ".claude/CLAUDE.md".source     = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/claude/CLAUDE.md";
