@@ -197,17 +197,15 @@ with tempfile.TemporaryDirectory() as temporary:
     assert len(call_log.read_text().splitlines()) == 4, call_log.read_text().splitlines()
     assert not (cleanup_home / ".local/state/dotfiles/axi-hooks-cleanup-v2/snapshot").exists()
     markers = cleanup_home / ".local/state/dotfiles/axi-hooks-cleanup-v2"
-    assert (markers / "bun-axi.attempted").is_file()
     bun = bin_dir / "bun-axi"
     bun.write_text('#!/bin/sh\nprintf "%s %s\\n" "${0##*/}" "$*" >> "$CALL_LOG"\n')
     missing = bin_dir / "datadog-axi"
     missing.write_text('#!/bin/sh\nprintf "%s %s\\n" "${0##*/}" "$*" >> "$CALL_LOG"\n')
     missing.chmod(0o755)
     subprocess.run([str(cleanup)], env=env, check=True, capture_output=True, text=True)
-    assert len(call_log.read_text().splitlines()) == 4
-    assert (markers / "bun-axi.attempted").is_file()
+    assert len(call_log.read_text().splitlines()) == 5
     subprocess.run([str(cleanup)], env=env, check=True, capture_output=True, text=True)
-    assert len(call_log.read_text().splitlines()) == 4
+    assert len(call_log.read_text().splitlines()) == 5
     assert json.loads(settings.read_text())["hooks"]["SessionStart"][0]["hooks"] == [
         {"command": "keep-me"}
     ]
@@ -225,6 +223,7 @@ with tempfile.TemporaryDirectory() as temporary:
         "bun-axi setup hooks --uninstall",
         "hetzner-axi setup uninstall",
         "argo-workflows-axi setup uninstall",
+        "bun-axi setup hooks --uninstall",
     ], call_log.read_text().splitlines()
 
 print("AXI SessionStart cleanup passed")

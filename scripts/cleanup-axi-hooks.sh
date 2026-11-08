@@ -12,7 +12,7 @@ if [[ -f "$HOME/.config/dotfiles-profile" ]]; then profile="$(<"$HOME/.config/do
 if [[ "$profile" == work ]]; then tools+=(slack-axi aws-axi gws-axi notion-axi); fi
 for tool in "${tools[@]}"; do
   marker="$state/$tool"
-  [[ -e "$marker" || -e "$state/$tool.attempted" ]] && continue
+  [[ -e "$marker" ]] && continue
   case "$tool" in
     bun-axi|k8s-axi)
       if ! python3 "$remover" "$HOME" "$tool"; then
@@ -25,19 +25,14 @@ for tool in "${tools[@]}"; do
         failed=1
         continue
       fi
-      if ! touch "$state/$tool.attempted"; then
-        echo "    - $tool attempt marker failed; skipping uninstall" >&2
-        failed=1
-        continue
-      fi
       if [[ "$tool" == k8s-axi ]]; then
         if ! "$tool" setup uninstall; then
-          echo "    - $tool cleanup failed; not retrying uncertain uninstall" >&2
+          echo "    - $tool cleanup failed; retry next rebuild" >&2
           failed=1
           continue
         fi
       elif ! "$tool" setup hooks --uninstall; then
-        echo "    - $tool cleanup failed; not retrying uncertain uninstall" >&2
+        echo "    - $tool cleanup failed; retry next rebuild" >&2
         failed=1
         continue
       fi
@@ -48,13 +43,8 @@ for tool in "${tools[@]}"; do
         failed=1
         continue
       fi
-      if ! touch "$state/$tool.attempted"; then
-        echo "    - $tool attempt marker failed; skipping uninstall" >&2
-        failed=1
-        continue
-      fi
       if ! "$tool" setup uninstall; then
-        echo "    - $tool cleanup failed; not retrying uncertain uninstall" >&2
+        echo "    - $tool cleanup failed; retry next rebuild" >&2
         failed=1
         continue
       fi

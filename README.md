@@ -405,10 +405,8 @@ existing fields omitted from the declaration, including `headers` and `env`,
 survive. A server that lists `requiredHeaders` (uidotsh) is created without credentials when absent, for
 example after `~/.claude.json` is lost. While it lacks its header, each run warns that it needs
 re-authentication and prints the `claude mcp add` command that adds the header. Tokens are never copied back
-from backup snapshots, so a token you remove stays removed. Separately, the
-one-time AXI hook cleanup snapshots Claude and Codex hook settings to
-`~/.local/state/dotfiles/axi-hooks-cleanup-v2/snapshot` before removing old
-SessionStart entries; if that snapshot fails, cleanup is deferred.
+from backup snapshots, so a token you remove stays removed. The one-time AXI
+hook cleanup removes old SessionStart entries from Claude and Codex settings.
 Never put the token in this repository.
 
 To add a tool, declare it in `agent-tooling.json` and run `just rebuild`. To
