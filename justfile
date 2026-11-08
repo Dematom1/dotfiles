@@ -3,8 +3,8 @@
 skills-dir := ".agents/skills"
 
 # AXI agent tools (https://axi.md). Nix installs every one of them (home.nix,
-# packages/npm/<name>), so these lists only decide whose session hooks are set
-# up.
+# packages/npm/<name>); the list identifies hooks to clean up. kubernetes-axi
+# is Nix-installed too but registers no hooks.
 axi-tools := "gh-axi chrome-devtools-axi tasks-axi npm-axi pypi-axi homebrew-axi jev-axi bun-axi hetzner-axi argocd-axi argo-workflows-axi datadog-axi k8s-axi"
 
 # HEY stays on-demand so session-start hooks cannot inject private email.
@@ -14,9 +14,7 @@ axi-tools-no-hooks := "hey-axi lavish-axi quota-axi pg-axi docker-axi linear-axi
 
 # Argo CD connectivity for this Mac is pending a separate maintainer setup.
 
-# work-machine-only AXI tools - Nix installs them on the work profile only, and
-# their hooks are set up only when ~/.config/dotfiles-profile says "work" (the
-# same marker rebuild.sh reads).
+# Work-machine-only AXI tools. Nix installs them only on the work profile.
 axi-tools-work := "slack-axi aws-axi gws-axi notion-axi"
 
 # Reviewed upstream agent package/plugin identities. Keep these user-scoped and
@@ -208,65 +206,9 @@ _update-ponytail: _setup-ponytail
     claude plugin marketplace update ponytail
     claude plugin update {{ ponytail-claude-plugin }}
 
-# Run setup hooks only when the AXI tool advertises them, and preserve failures.
-_setup-axi-hooks tool:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    tool='{{ tool }}'
-    # Prefer the Nix-managed copy over a stale npm or Homebrew global earlier on PATH.
-    for dir in "/etc/profiles/per-user/${USER:-$(id -un)}/bin" "$HOME/.nix-profile/bin"; do
-      [[ "$tool" == */* || ! -x "$dir/$tool" ]] || tool=$dir/$tool
-    done
-    if help=$("$tool" setup --help 2>&1); then
-      probe_status=0
-    else
-      probe_status=$?
-    fi
-    normalized_help=${help//$'\r'/}
-    if [[ "$normalized_help" != *$'\n'* ]] \
-      && { grep -Eiq "^[[:space:]]*((error|fatal):[[:space:]]*)?(unknown|unrecognized|invalid|unsupported|no such)[[:space:]]+(sub)?command[[:space:]]*(:[[:space:]]*|[[:space:]]+)['\"]?setup([[:space:]]+hooks)?['\"]?\.?[[:space:]]*$" <<<"$normalized_help" \
-        || grep -Eiq "^[[:space:]]*((error|fatal):[[:space:]]*)?['\"]?setup([[:space:]]+hooks)?['\"]?[[:space:]]+(is[[:space:]]+)?(an?[[:space:]]+)?(unknown|unrecognized|invalid|unsupported|no such)[[:space:]]+(sub)?command\.?[[:space:]]*$" <<<"$normalized_help"; }; then
-      echo "    - $tool (no setup hooks)"
-      exit 0
-    fi
-    if [[ $probe_status -ne 0 ]]; then
-      [[ -z "$help" ]] || printf '%s\n' "$help" >&2
-      echo "ERROR: $tool setup hook capability probe failed (exit $probe_status)" >&2
-      exit "$probe_status"
-    fi
-    if ! grep -Eq '(^|[[:space:]])setup[[:space:]]+hooks([[:space:]]|$)' <<<"$help"; then
-      [[ -z "$help" ]] || printf '%s\n' "$help" >&2
-      echo "ERROR: $tool setup hook capability probe returned unrecognized output" >&2
-      exit 1
-    fi
-    if output=$("$tool" setup hooks 2>&1); then
-      if [[ "$tool" == /*/gh-axi ]]; then
-        # gh-axi setup persists a bare command even when invoked by absolute path.
-        GH_AXI_PATH=$tool node -e '
-          const fs = require("node:fs");
-          for (const relative of [".claude/settings.json", ".codex/hooks.json"]) {
-            const path = `${process.env.HOME}/${relative}`;
-            const settings = JSON.parse(fs.readFileSync(path, "utf8"));
-            let changed = false;
-            for (const group of settings.hooks?.SessionStart ?? []) {
-              for (const hook of group.hooks ?? []) {
-                if (hook.type === "command" && hook.command === "gh-axi") {
-                  hook.command = JSON.stringify(process.env.GH_AXI_PATH);
-                  changed = true;
-                }
-              }
-            }
-            if (changed) fs.writeFileSync(path, JSON.stringify(settings, null, 2) + "\n");
-          }
-        '
-      fi
-      echo "    ✓ $tool"
-    else
-      status=$?
-      [[ -z "$output" ]] || printf '%s\n' "$output" >&2
-      echo "ERROR: $tool setup hooks failed (exit $status)" >&2
-      exit "$status"
-    fi
+# One-time removal of hooks previously registered by AXI setup commands.
+_cleanup-axi-hooks:
+    bash scripts/cleanup-axi-hooks.sh
 
 # One-time setup of the FirstMate stack. Re-runnable. Run `gh auth login` after.
 setup-firstmate:
@@ -293,23 +235,6 @@ setup-firstmate:
     echo "==> No Mistakes"
     curl -fsSL https://raw.githubusercontent.com/kunchenguid/no-mistakes/main/docs/install.sh | sh
     just _retire-superseded-installs
-    # Nix installs the AXI tools; hook-enabled ones register via `setup hooks`,
-    # reported per tool (a few legitimately have no such subcommand)
-    echo "==> AXI setup hooks"
-    for t in {{ axi-tools }}; do
-      just _setup-axi-hooks "$t"
-    done
-
-    # work-only AXI tools (same ~/.config/dotfiles-profile marker rebuild.sh reads)
-    profile=personal
-    if [[ -f ~/.config/dotfiles-profile ]]; then profile="$(<~/.config/dotfiles-profile)"; fi
-    if [[ "$profile" == work ]]; then
-      echo "==> work-only AXI setup hooks (slack/aws/gws/notion)"
-      for t in {{ axi-tools-work }}; do
-        just _setup-axi-hooks "$t"
-      done
-    fi
-
     echo "==> extra global npm tools"
     npm install -g gnhf
 
@@ -387,10 +312,6 @@ update-firstmate:
     # pins and `just rebuild` activates them, so only their hooks refresh here.
     just _retire-superseded-installs
     npm update -g gnhf
-    for t in {{ axi-tools }}; do just _setup-axi-hooks "$t"; done   # refresh hooks
-    if [[ -f ~/.config/dotfiles-profile && "$(<~/.config/dotfiles-profile)" == work ]]; then
-      for t in {{ axi-tools-work }}; do just _setup-axi-hooks "$t"; done
-    fi
     herdr integration install pi   # refresh Pi integration after a herdr update
     just report-pi-signed-drift
     echo "FirstMate stack updated."

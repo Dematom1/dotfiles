@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
-python3 "$repo/tests/gh-axi-hooks.py"
+python3 "$repo/tests/remove-axi-session-start-hook.py"
 just_bin=$(command -v just)
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
@@ -148,10 +148,8 @@ done
 [[ "$(grep -Fc 'warning: unsupported agent' "$skills_log" || true)" -eq 0 ]] \
   || fail "unsupported-agent warnings entered the skills invocation log"
 
-for tool in jev-axi bun-axi hetzner-axi argocd-axi argo-workflows-axi datadog-axi; do
-  [[ "$(grep -Fxc "$tool setup hooks" "$stack_log")" -eq 2 ]] \
-    || fail "update did not refresh $tool hooks"
-done
+[[ "$(grep -Ec 'setup hooks' "$stack_log" || true)" -eq 0 ]] \
+  || fail "update registered AXI hooks"
 [[ "$(grep -Ec '^npm (update|install) .*-axi( |$)' "$stack_log" || true)" -eq 0 ]] \
   || fail "update npm-installed an AXI tool that Nix pins"
 [[ "$(grep -Fxc 'lavish-axi setup hooks' "$stack_log" || true)" -eq 0 ]] \
@@ -187,10 +185,8 @@ done
   || fail "setup curl-installed the Nix-pinned Treehouse"
 [[ "$(grep -Ec '^hey-axi ' "$stack_log" || true)" -eq 0 ]] \
   || fail "setup invoked hey-axi instead of keeping it on-demand"
-for tool in jev-axi bun-axi hetzner-axi argocd-axi argo-workflows-axi datadog-axi; do
-  [[ "$(grep -Fxc "$tool setup hooks" "$stack_log")" -eq 1 ]] \
-    || fail "setup did not register $tool hooks"
-done
+[[ "$(grep -Ec 'setup hooks' "$stack_log" || true)" -eq 0 ]] \
+  || fail "setup registered AXI hooks"
 
 # Active pipeline runs make `no-mistakes update` refuse; the rest of the stack
 # must still update and the refusal must stay visible.
@@ -206,8 +202,8 @@ nm_output=$(cd "$sandbox" && \
 [[ "$nm_output" == *"skipped no-mistakes update: 2 active pipeline runs"*"never --force"* ]] \
   || fail "a refused no-mistakes update was not reported"
 [[ "$(grep -Fc -- '--force' "$stack_log" || true)" -eq 0 ]] || fail "update forced a no-mistakes update"
-[[ "$(grep -Fxc 'gh-axi setup hooks' "$stack_log")" -eq 1 ]] \
-  || fail "update stopped after the refused no-mistakes update"
+[[ "$(grep -Ec 'setup hooks' "$stack_log" || true)" -eq 0 ]] \
+  || fail "update registered AXI hooks after the refused no-mistakes update"
 
 # Any other no-mistakes update failure must fail the update with its status.
 : > "$stack_log"
@@ -220,7 +216,7 @@ nm_output=$(cd "$sandbox" && \
 [[ "$nm_output" == *"checksum mismatch"* ]] || fail "the no-mistakes failure output was hidden"
 [[ "$nm_output" != *"FirstMate stack updated."* && "$nm_output" != *"skipped no-mistakes update"* ]] \
   || fail "a failed no-mistakes update reported success"
-[[ "$(grep -Fxc 'gh-axi setup hooks' "$stack_log" || true)" -eq 0 ]] \
+[[ "$(grep -Ec '^(npm root -g|npm update -g gnhf|herdr integration install pi)$' "$stack_log" || true)" -eq 0 ]] \
   || fail "update continued after a failed no-mistakes update"
 
 printf '%s\n' "just update checks passed"

@@ -8,18 +8,18 @@ time. Secrets are never read from the manifest: an MCP server's existing
 headers and env survive, and a server that needs auth is never created
 without it.
 
-AXI tools are the exception: their lists stay in the justfile (`axi-tools`,
-`axi-tools-work`; `axi-tools-no-hooks` get none). Each installed hook tool
-registers its own hooks through `just _setup-axi-hooks`, and those hooks are
-kept.
+AXI hook ownership is recorded by the justfile lists (`axi-tools`,
+`axi-tools-work`; `axi-tools-no-hooks` get none). Rebuilds no longer register
+AXI session hooks; existing entries are preserved during normal reconciliation
+and removed once by the dedicated cleanup recipe.
 
 Home Manager activation runs the full reconcile; `just update-skills` runs
 `--refresh-skills`, which only reinstalls every declared skill source.
 """
+
 from __future__ import annotations
 
 import argparse
-import getpass
 import json
 import os
 import re
@@ -46,19 +46,32 @@ def note(message: str) -> None:
 
 
 class Run:
-    def __init__(self, dry_run: bool, stream: bool = False, manifest: dict | None = None) -> None:
+    def __init__(
+        self, dry_run: bool, stream: bool = False, manifest: dict | None = None
+    ) -> None:
         self.dry_run = dry_run
         self.stream = stream  # show command output live instead of only on failure
         self.backup_root: Path | None = None
         self.prepared = False
+        self.backup_failed = False
         self.originals = {}
-        self.paths = [HOME / name for name in [
-            ".claude.json", ".claude/settings.json", ".claude/settings.local.json",
-            ".claude/plugins/installed_plugins.json", ".claude/plugins/known_marketplaces.json",
-            ".codex/config.toml", ".codex/hooks.json", ".pi/agent/settings.json",
-            ".agents/.skill-lock.json", ".claude/hooks/herdr-agent-state.sh",
-            ".codex/herdr-agent-state.sh", ".pi/agent/extensions/herdr-agent-state.ts",
-        ]]
+        self.paths = [
+            HOME / name
+            for name in [
+                ".claude.json",
+                ".claude/settings.json",
+                ".claude/settings.local.json",
+                ".claude/plugins/installed_plugins.json",
+                ".claude/plugins/known_marketplaces.json",
+                ".codex/config.toml",
+                ".codex/hooks.json",
+                ".pi/agent/settings.json",
+                ".agents/.skill-lock.json",
+                ".claude/hooks/herdr-agent-state.sh",
+                ".codex/herdr-agent-state.sh",
+                ".pi/agent/extensions/herdr-agent-state.ts",
+            ]
+        ]
         if manifest is not None:
             for root, _ in skill_roots(manifest).values():
                 if root.is_dir():
@@ -66,25 +79,36 @@ class Run:
             root = HOME / ".config/opencode/skills"
             if root.is_dir():
                 self.paths.extend(root.iterdir())
-            self.paths.extend(project / ".claude/settings.local.json"
-                              for project in project_paths(manifest))
+            self.paths.extend(
+                project / ".claude/settings.local.json"
+                for project in project_paths(manifest)
+            )
 
     def prepare(self) -> None:
+        if self.backup_failed:
+            raise OSError("backup preparation previously failed")
         if self.prepared or self.dry_run:
             return
         for path in dict.fromkeys(self.paths):
-            self.originals[path] = fingerprint(path)
-            if path.is_file():
-                shutil.copy2(path, self.backup_target(path))
-            elif path.is_symlink():
-                self.backup_target(path).symlink_to(os.readlink(path))
-            elif path.is_dir():
-                copy_private_tree(path, self.backup_target(path))
+            try:
+                original = fingerprint(path)
+                if path.is_file():
+                    shutil.copy2(path, self.backup_target(path))
+                elif path.is_symlink():
+                    self.backup_target(path).symlink_to(os.readlink(path))
+                elif path.is_dir():
+                    copy_private_tree(path, self.backup_target(path))
+            except OSError as error:
+                self.backup_failed = True
+                warn(f"{path} cannot be backed up ({error}); left untouched")
+                raise
+            self.originals[path] = original
         self.prepared = True
 
     def finish(self) -> None:
-        if self.backup_root and all(fingerprint(path) == original
-                                    for path, original in self.originals.items()):
+        if self.backup_root and all(
+            fingerprint(path) == original for path, original in self.originals.items()
+        ):
             shutil.rmtree(self.backup_root)
 
     def backup_dir(self) -> Path:
@@ -142,7 +166,9 @@ class Run:
             path.unlink()
         note(f"removed {path} ({why})")
 
-    def command(self, argv: list[str], why: str, timeout: int = 120, cwd: Path | None = None) -> bool:
+    def command(
+        self, argv: list[str], why: str, timeout: int = 120, cwd: Path | None = None
+    ) -> bool:
         if self.dry_run:
             note(f"would run: {' '.join(argv)}")
             return True
@@ -150,13 +176,22 @@ class Run:
         note(f"{why}: {' '.join(argv)}")
         output = None if self.stream else subprocess.PIPE
         try:
-            result = subprocess.run(argv, cwd=cwd or HOME, timeout=timeout, stdin=subprocess.DEVNULL,
-                                    stdout=output, stderr=subprocess.STDOUT, text=True)
+            result = subprocess.run(
+                argv,
+                cwd=cwd or HOME,
+                timeout=timeout,
+                stdin=subprocess.DEVNULL,
+                stdout=output,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
         except (OSError, subprocess.TimeoutExpired) as error:
             warn(f"{' '.join(argv)} failed: {error}")
             return False
         if result.returncode != 0:
-            warn(f"{' '.join(argv)} exited {result.returncode}: {(result.stdout or '').strip()[-500:]}")
+            warn(
+                f"{' '.join(argv)} exited {result.returncode}: {(result.stdout or '').strip()[-500:]}"
+            )
             return False
         return True
 
@@ -175,7 +210,11 @@ def copy_private_tree(source: Path, target: Path) -> None:
 
 def fingerprint(path: Path):
     if path.is_symlink():
-        return ("link", os.readlink(path), path.read_bytes() if path.is_file() else None)
+        return (
+            "link",
+            os.readlink(path),
+            path.read_bytes() if path.is_file() else None,
+        )
     if path.is_dir():
         return {p.name: fingerprint(p) for p in path.iterdir()}
     if path.is_file():
@@ -195,7 +234,11 @@ def load_json(path: Path, create: bool = False):
     """Return data and text, or None; create supplies an empty object only if absent."""
     if not path.exists() and not path.is_symlink():
         return ({}, "\n") if create else None
-    text = path.read_text(encoding="utf-8")
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as error:
+        warn(f"{path} cannot be read ({error}); left untouched")
+        return None
     try:
         data = json.loads(text)
         if not isinstance(data, dict):
@@ -229,13 +272,22 @@ def desired_servers(current: dict, declared: dict, where: str) -> dict:
     for name, spec in declared.items():
         fields = {k: expand(v) for k, v in spec.items() if k != "requiredHeaders"}
         merged = {**current[name], **fields} if name in current else fields
-        missing = [h for h in spec.get("requiredHeaders", []) if h not in merged.get("headers", {})]
+        missing = [
+            h
+            for h in spec.get("requiredHeaders", [])
+            if h not in merged.get("headers", {})
+        ]
         if missing:
             headers = " ".join(f"-H '{h}: Bearer <token>'" for h in missing)
-            fix = (f"run `claude mcp remove -s user {name} && claude mcp add -s user -t {merged.get('type', 'http')} "
-                   f"{name} '{merged['url']}' {headers}`"
-                   if where == "Claude" and "url" in merged else "re-run its auth setup")
-            warn(f"{where} MCP server {name} needs re-authentication (lacks {', '.join(missing)}); {fix}")
+            fix = (
+                f"run `claude mcp remove -s user {name} && claude mcp add -s user -t {merged.get('type', 'http')} "
+                f"{name} '{merged['url']}' {headers}`"
+                if where == "Claude" and "url" in merged
+                else "re-run its auth setup"
+            )
+            warn(
+                f"{where} MCP server {name} needs re-authentication (lacks {', '.join(missing)}); {fix}"
+            )
         result[name] = merged
     return result
 
@@ -253,7 +305,11 @@ def reconcile_claude_json(run: Run, manifest: dict) -> None:
     if desired != current:
         removed = sorted(set(current) - set(desired))
         added = sorted(set(desired) - set(current))
-        changes.append(f"user MCP servers -{removed} +{added}" if removed or added else "user MCP servers updated")
+        changes.append(
+            f"user MCP servers -{removed} +{added}"
+            if removed or added
+            else "user MCP servers updated"
+        )
         data["mcpServers"] = desired
     retired = set(claude["retiredProjectMcpServers"])
     for project, settings in (data.get("projects") or {}).items():
@@ -283,7 +339,14 @@ def reconcile_hooks(hooks: dict, policy: dict) -> dict:
             kept = []
             for hook in group.get("hooks", []) if isinstance(group, dict) else []:
                 text = hook_text(hook) if isinstance(hook, dict) else ""
-                owner = next((i for i, e in enumerate(ensure) if e["event"] == event and e["match"] in text), None)
+                owner = next(
+                    (
+                        i
+                        for i, e in enumerate(ensure)
+                        if e["event"] == event and e["match"] in text
+                    ),
+                    None,
+                )
                 if owner is not None:
                     slots.setdefault(owner, (event, len(new_groups)))
                 elif any(pattern in text for pattern in keep):
@@ -294,9 +357,20 @@ def reconcile_hooks(hooks: dict, policy: dict) -> dict:
     # Insert from the back so earlier slot positions stay valid.
     placements = []
     for index, entry in enumerate(ensure):
-        event, position = slots.get(index, (entry["event"], len(result.get(entry["event"], []))))
-        placements.append((event, position, index, {"matcher": entry["matcher"], "hooks": [entry["hook"]]}))
-    for event, position, _, group in sorted(placements, key=lambda p: (p[0], p[1], p[2]), reverse=True):
+        event, position = slots.get(
+            index, (entry["event"], len(result.get(entry["event"], [])))
+        )
+        placements.append(
+            (
+                event,
+                position,
+                index,
+                {"matcher": entry["matcher"], "hooks": [entry["hook"]]},
+            )
+        )
+    for event, position, _, group in sorted(
+        placements, key=lambda p: (p[0], p[1], p[2]), reverse=True
+    ):
         result.setdefault(event, []).insert(position, group)
     return {event: groups for event, groups in result.items() if groups}
 
@@ -314,16 +388,33 @@ def reconcile_hook_file(run: Run, path: Path, policy: dict) -> None:
     desired = reconcile_hooks(hooks, policy)
     if desired == hooks:
         return
-    before = sorted({hook_text(h) for g in hooks.values() for grp in g for h in grp.get("hooks", [])})
-    after = sorted({hook_text(h) for g in desired.values() for grp in g for h in grp.get("hooks", [])})
+    before = sorted(
+        {
+            hook_text(h)
+            for g in hooks.values()
+            for grp in g
+            for h in grp.get("hooks", [])
+        }
+    )
+    after = sorted(
+        {
+            hook_text(h)
+            for g in desired.values()
+            for grp in g
+            for h in grp.get("hooks", [])
+        }
+    )
     data["hooks"] = desired
-    summary = f"hooks -{sorted(set(before) - set(after))} +{sorted(set(after) - set(before))}"
+    summary = (
+        f"hooks -{sorted(set(before) - set(after))} +{sorted(set(after) - set(before))}"
+    )
     run.write_text(path, dump_json(data, original), summary)
 
 
 TABLE_HEADER = re.compile(r"^\s*\[")
 SERVER_HEADER = re.compile(
-    r"""^\s*\[\s*mcp_servers\s*\.\s*(?:"([^"]+)"|'([^']+)'|([A-Za-z0-9_-]+))\s*[.\]]""")
+    r"""^\s*\[\s*mcp_servers\s*\.\s*(?:"([^"]+)"|'([^']+)'|([A-Za-z0-9_-]+))\s*[.\]]"""
+)
 
 
 def toml_value(value) -> str:
@@ -339,12 +430,20 @@ def toml_value(value) -> str:
 
 
 def toml_key(key: str) -> str:
-    return key if re.fullmatch(r"[A-Za-z0-9_-]+", key) else json.dumps(key, ensure_ascii=False)
+    return (
+        key
+        if re.fullmatch(r"[A-Za-z0-9_-]+", key)
+        else json.dumps(key, ensure_ascii=False)
+    )
 
 
 def toml_table(path: str, table: dict) -> str:
     lines = [f"[{path}]"]
-    lines += [f"{toml_key(k)} = {toml_value(v)}" for k, v in table.items() if not isinstance(v, dict)]
+    lines += [
+        f"{toml_key(k)} = {toml_value(v)}"
+        for k, v in table.items()
+        if not isinstance(v, dict)
+    ]
     text = "\n".join(lines) + "\n"
     for key, value in table.items():
         if isinstance(value, dict):
@@ -387,7 +486,9 @@ def reconcile_codex_config(run: Run, manifest: dict) -> None:
             try:
                 rendered = toml_table(f"mcp_servers.{toml_key(name)}", spec)
             except TypeError as error:
-                warn(f"cannot render Codex MCP server {name} ({error}); {path} left untouched")
+                warn(
+                    f"cannot render Codex MCP server {name} ({error}); {path} left untouched"
+                )
                 return
             text = text.rstrip("\n") + "\n\n" + rendered
     try:
@@ -396,8 +497,12 @@ def reconcile_codex_config(run: Run, manifest: dict) -> None:
         warn(f"edited {path} would not parse ({error}); left untouched")
         return
     others = {k: v for k, v in parsed.items() if k != "mcp_servers"}
-    if (result.get("mcp_servers") or {}) != desired or {k: v for k, v in result.items() if k != "mcp_servers"} != others:
-        warn(f"{path} declares MCP servers in a layout this reconciler does not edit; left untouched")
+    if (result.get("mcp_servers") or {}) != desired or {
+        k: v for k, v in result.items() if k != "mcp_servers"
+    } != others:
+        warn(
+            f"{path} declares MCP servers in a layout this reconciler does not edit; left untouched"
+        )
         return
     removed = sorted(set(current) - set(desired))
     added = sorted(set(desired) - set(current))
@@ -417,7 +522,9 @@ def reconcile_pi_settings(run: Run, manifest: dict) -> None:
     declared = manifest["pi"]["packages"]
     current = data.get("packages") or []
     present = {source_of(p) for p in current}
-    desired = [p for p in current if source_of(p) in declared] + [p for p in declared if p not in present]
+    desired = [p for p in current if source_of(p) in declared] + [
+        p for p in declared if p not in present
+    ]
     if desired == current:
         return
     data["packages"] = desired
@@ -428,11 +535,19 @@ def reconcile_pi_settings(run: Run, manifest: dict) -> None:
 
 def skill_roots(manifest: dict) -> dict[str, tuple[Path, set[str]]]:
     skills = manifest["skills"]
-    claude = {s for src in skills["sources"] if "claude-code" in src["agents"] for s in src["skills"]}
+    claude = {
+        s
+        for src in skills["sources"]
+        if "claude-code" in src["agents"]
+        for s in src["skills"]
+    }
     shared = {s for src in skills["sources"] for s in src["skills"]}
     return {
         "claude": (HOME / ".claude/skills", claude | set(skills["keep"]["claude"])),
-        ALL_AGENTS_ROOT: (HOME / ".agents/skills", shared | set(skills["keep"]["shared"])),
+        ALL_AGENTS_ROOT: (
+            HOME / ".agents/skills",
+            shared | set(skills["keep"]["shared"]),
+        ),
         "codex": (HOME / ".codex/skills", set(skills["keep"]["codex"])),
         "pi": (HOME / ".pi/agent/skills", set(manifest["pi"]["skills"])),
     }
@@ -454,7 +569,11 @@ def reconcile_skill_roots(run: Run, manifest: dict) -> None:
     opencode = HOME / ".config/opencode/skills"
     if opencode.is_dir():
         for entry in sorted(opencode.iterdir()):
-            if entry.is_symlink() and not entry.exists() and ".agents/skills/" in os.readlink(entry):
+            if (
+                entry.is_symlink()
+                and not entry.exists()
+                and ".agents/skills/" in os.readlink(entry)
+            ):
                 run.move_away(entry, "dangling skill link")
     lock_path = HOME / ".agents/.skill-lock.json"
     loaded = load_json(lock_path)
@@ -476,15 +595,34 @@ def install_skills(run: Run, manifest: dict, refresh: bool) -> None:
         targets = [roots[ALL_AGENTS_ROOT][0]]
         if "claude-code" in source["agents"]:
             targets.append(roots["claude"][0])
-        missing = [s for s in source["skills"] for t in targets if not (t / s / "SKILL.md").is_file()]
+        missing = [
+            s
+            for s in source["skills"]
+            for t in targets
+            if not (t / s / "SKILL.md").is_file()
+        ]
         if not refresh and not missing:
             continue
         if npx is None:
             warn(f"npx not found; cannot install {source['source']}")
             continue
-        argv = [npx, "-y", "skills", "add", source["source"], "--skill", *source["skills"],
-                "-g", "-y", "--agent", *source["agents"], "--copy"]
-        run.command(argv, "install skills" if missing else "refresh skills", INSTALL_TIMEOUT)
+        argv = [
+            npx,
+            "-y",
+            "skills",
+            "add",
+            source["source"],
+            "--skill",
+            *source["skills"],
+            "-g",
+            "-y",
+            "--agent",
+            *source["agents"],
+            "--copy",
+        ]
+        run.command(
+            argv, "install skills" if missing else "refresh skills", INSTALL_TIMEOUT
+        )
 
 
 HOOK_FILES = [HOME / ".claude/settings.json", HOME / ".codex/hooks.json"]
@@ -494,55 +632,69 @@ def axi_hook_tools(justfile: Path | None, profile: str) -> list[str] | None:
     """Hook-enabled AXI tools from the justfile, or None when they cannot be read."""
     just = shutil.which("just")
     if justfile is None or not justfile.is_file() or just is None:
-        warn("cannot read the AXI tool lists (no justfile or just); skipped AXI and hook reconciliation")
+        warn(
+            "cannot read the AXI tool lists (no justfile or just); skipped AXI and hook reconciliation"
+        )
         return None
     names = ["axi-tools"] + (["axi-tools-work"] if profile == "work" else [])
     tools: list[str] = []
     for name in names:
         try:
-            value = subprocess.run([just, "--justfile", str(justfile), "--evaluate", name], cwd=HOME,
-                                   timeout=60, check=True, capture_output=True, text=True).stdout
+            value = subprocess.run(
+                [just, "--justfile", str(justfile), "--evaluate", name],
+                cwd=HOME,
+                timeout=60,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout
         except (OSError, subprocess.SubprocessError) as error:
-            warn(f"just --evaluate {name} failed ({error}); skipped AXI and hook reconciliation")
+            warn(
+                f"just --evaluate {name} failed ({error}); skipped AXI and hook reconciliation"
+            )
             return None
         tools += value.split()
     return tools
 
 
-def register_axi_hooks(run: Run, justfile: Path, tools: list[str]) -> None:
-    just = shutil.which("just")
-    if any(load_json(path, create=True) is None for path in HOOK_FILES):
-        return
-    # The Nix profiles `_setup-axi-hooks` prefers over PATH.
-    profiles = [Path("/etc/profiles/per-user") / getpass.getuser() / "bin", HOME / ".nix-profile/bin"]
-    for tool in tools:
-        if not (any(os.access(profile / tool, os.X_OK) for profile in profiles) or shutil.which(tool)):
-            note(f"{tool} is not installed; its hooks register on the next rebuild once installed")
-            continue
-        run.command([just, "--justfile", str(justfile), "_setup-axi-hooks", tool], "register AXI hooks")
-
 def claude_json(claude: str, args: list[str]):
     try:
         # Even inventory commands initialize and migrate Claude's configuration.
         # Query copies so preview and pre-backup discovery leave the real home intact.
-        with tempfile.TemporaryDirectory(prefix="agent-tooling-inventory-") as temporary:
+        with tempfile.TemporaryDirectory(
+            prefix="agent-tooling-inventory-"
+        ) as temporary:
             home = Path(temporary)
-            for relative in [".claude.json", ".claude/settings.json", ".claude/settings.local.json",
-                             ".claude/plugins/installed_plugins.json",
-                             ".claude/plugins/known_marketplaces.json"]:
+            for relative in [
+                ".claude.json",
+                ".claude/settings.json",
+                ".claude/settings.local.json",
+                ".claude/plugins/installed_plugins.json",
+                ".claude/plugins/known_marketplaces.json",
+            ]:
                 source = HOME / relative
                 if source.is_file():
                     target = home / relative
                     target.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(source, target)
-            env = {**os.environ, "HOME": str(home),
-                   "XDG_CONFIG_HOME": str(home / ".config"),
-                   "XDG_CACHE_HOME": str(home / ".cache"),
-                   "XDG_STATE_HOME": str(home / ".state")}
+            env = {
+                **os.environ,
+                "HOME": str(home),
+                "XDG_CONFIG_HOME": str(home / ".config"),
+                "XDG_CACHE_HOME": str(home / ".cache"),
+                "XDG_STATE_HOME": str(home / ".state"),
+            }
             env.pop("CLAUDE_CONFIG_DIR", None)
-            output = subprocess.run([claude, *args, "--json"], cwd=home, env=env,
-                                    timeout=120, check=True, stdin=subprocess.DEVNULL,
-                                    capture_output=True, text=True).stdout
+            output = subprocess.run(
+                [claude, *args, "--json"],
+                cwd=home,
+                env=env,
+                timeout=120,
+                check=True,
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+            ).stdout
         return json.loads(output)
     except (OSError, subprocess.SubprocessError, json.JSONDecodeError) as error:
         warn(f"claude {' '.join(args)} --json failed ({error}); skipped Claude plugins")
@@ -561,42 +713,73 @@ def reconcile_claude_plugins(run: Run, manifest: dict) -> None:
     if plugins is None or markets is None:
         return
     for plugin in plugins:
-        if plugin.get("scope") != "project" or plugin["id"] not in manifest["claude"].get("retiredProjectPlugins", []):
+        if plugin.get("scope") != "project" or plugin["id"] not in manifest[
+            "claude"
+        ].get("retiredProjectPlugins", []):
             continue
         project = Path(plugin.get("projectPath") or "")
         if not project.is_absolute() or not project.is_dir():
             continue
-        paths = [project / ".claude" / name for name in ["settings.json", "settings.local.json"]]
+        paths = [
+            project / ".claude" / name
+            for name in ["settings.json", "settings.local.json"]
+        ]
         run.paths.extend(paths)
-    if any(load_json(path, create=True) is None for path in [
-        HOME / ".claude/settings.json", HOME / ".claude/plugins/installed_plugins.json",
-        HOME / ".claude/plugins/known_marketplaces.json",
-    ]):
+    if any(
+        load_json(path, create=True) is None
+        for path in [
+            HOME / ".claude/settings.json",
+            HOME / ".claude/plugins/installed_plugins.json",
+            HOME / ".claude/plugins/known_marketplaces.json",
+        ]
+    ):
         return
     for plugin in plugins:
         project = Path(plugin.get("projectPath") or "")
-        if (plugin.get("scope") == "project"
-                and plugin["id"] in manifest["claude"].get("retiredProjectPlugins", [])
-                and project.is_absolute() and project.is_dir()
-                and all(load_json(project / ".claude" / name, create=True) is not None
-                        for name in ["settings.json", "settings.local.json"])):
-            run.command([claude, "plugin", "uninstall", plugin["id"], "--scope", "project"],
-                        "uninstall project plugin", cwd=project)
+        if (
+            plugin.get("scope") == "project"
+            and plugin["id"] in manifest["claude"].get("retiredProjectPlugins", [])
+            and project.is_absolute()
+            and project.is_dir()
+            and all(
+                load_json(project / ".claude" / name, create=True) is not None
+                for name in ["settings.json", "settings.local.json"]
+            )
+        ):
+            run.command(
+                [claude, "plugin", "uninstall", plugin["id"], "--scope", "project"],
+                "uninstall project plugin",
+                cwd=project,
+            )
     user = {p["id"]: p for p in plugins if p.get("scope") == "user"}
     for plugin_id in user:
         if plugin_id not in declared_plugins:
-            run.command([claude, "plugin", "uninstall", plugin_id, "--scope", "user"], "uninstall plugin")
+            run.command(
+                [claude, "plugin", "uninstall", plugin_id, "--scope", "user"],
+                "uninstall plugin",
+            )
     names = {m["name"] for m in markets}
     for name in sorted(names - set(declared_markets)):
-        run.command([claude, "plugin", "marketplace", "remove", name], "remove marketplace")
+        run.command(
+            [claude, "plugin", "marketplace", "remove", name], "remove marketplace"
+        )
     for name, repo in declared_markets.items():
         if name not in names:
-            run.command([claude, "plugin", "marketplace", "add", "--scope", "user", repo], "add marketplace")
+            run.command(
+                [claude, "plugin", "marketplace", "add", "--scope", "user", repo],
+                "add marketplace",
+            )
     for plugin_id in declared_plugins:
         if plugin_id not in user:
-            run.command([claude, "plugin", "install", "--scope", "user", plugin_id], "install plugin")
+            run.command(
+                [claude, "plugin", "install", "--scope", "user", plugin_id],
+                "install plugin",
+            )
         elif user[plugin_id].get("enabled") is False:
-            run.command([claude, "plugin", "enable", plugin_id, "--scope", "user"], "enable plugin")
+            run.command(
+                [claude, "plugin", "enable", plugin_id, "--scope", "user"],
+                "enable plugin",
+            )
 
 
 def reconcile_project_hooks(run: Run, manifest: dict) -> None:
@@ -614,28 +797,39 @@ def reconcile_project_hooks(run: Run, manifest: dict) -> None:
         for event, groups in hooks.items():
             desired[event] = []
             for group in groups:
-                kept = [h for h in group.get("hooks", [])
-                        if not any(pattern in hook_text(h) for pattern in retired)]
+                kept = [
+                    h
+                    for h in group.get("hooks", [])
+                    if not any(pattern in hook_text(h) for pattern in retired)
+                ]
                 if kept == group.get("hooks", []):
                     desired[event].append(group)
                 elif kept:
                     desired[event].append({**group, "hooks": kept})
         if desired != hooks:
             data["hooks"] = desired
-            run.write_text(path, dump_json(data, original), "retired project hooks removed")
+            run.write_text(
+                path, dump_json(data, original), "retired project hooks removed"
+            )
 
 
 def install_integrations(run: Run) -> None:
     rtk = shutil.which("rtk")
     if rtk is None:
-        warn("rtk is not installed; its Claude hook installs on the next rebuild once installed")
+        warn(
+            "rtk is not installed; its Claude hook installs on the next rebuild once installed"
+        )
     elif load_json(HOME / ".claude/settings.json", create=True) is not None:
         if not run.dry_run:
             (HOME / ".claude").mkdir(parents=True, exist_ok=True)
-        run.command([rtk, "init", "-g", "--hook-only", "--auto-patch"], "install rtk hook")
+        run.command(
+            [rtk, "init", "-g", "--hook-only", "--auto-patch"], "install rtk hook"
+        )
     herdr = shutil.which("herdr")
     if herdr is None:
-        warn("herdr is not installed; its integrations install on the next rebuild once installed")
+        warn(
+            "herdr is not installed; its integrations install on the next rebuild once installed"
+        )
     else:
         for agent, directory, settings in [
             ("claude", ".claude", ".claude/settings.json"),
@@ -646,6 +840,7 @@ def install_integrations(run: Run) -> None:
                 continue
             if agent == "codex" and (HOME / ".codex/config.toml").exists():
                 import tomllib
+
                 try:
                     tomllib.loads((HOME / ".codex/config.toml").read_text())
                 except tomllib.TOMLDecodeError:
@@ -653,28 +848,48 @@ def install_integrations(run: Run) -> None:
                     continue
             if not run.dry_run:
                 (HOME / directory).mkdir(parents=True, exist_ok=True)
-            run.command([herdr, "integration", "install", agent], f"install herdr {agent}")
+            run.command(
+                [herdr, "integration", "install", agent], f"install herdr {agent}"
+            )
     rex = shutil.which("rex")
     if rex is None:
         note("Rex app owns its skill and hook; no Rex CLI installer is available")
     else:
-        result = subprocess.run([rex, "setup", "--help"], capture_output=True, text=True, timeout=30)
-        if result.returncode == 0 and re.search(r"^\s+hooks\b", result.stdout, re.MULTILINE):
+        result = subprocess.run(
+            [rex, "setup", "--help"], capture_output=True, text=True, timeout=30
+        )
+        if result.returncode == 0 and re.search(
+            r"^\s+hooks\b", result.stdout, re.MULTILINE
+        ):
             if all(load_json(path, create=True) is not None for path in HOOK_FILES):
                 run.command([rex, "setup", "hooks"], "install Rex hooks")
         else:
-            note("Rex CLI exposes no supported hook installer; preserving app-owned integration")
+            note(
+                "Rex CLI exposes no supported hook installer; preserving app-owned integration"
+            )
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--manifest", required=True, type=Path)
-    parser.add_argument("--dry-run", action="store_true", help="report changes without making them")
-    parser.add_argument("--refresh-skills", action="store_true",
-                        help="only reinstall every declared skill source")
-    parser.add_argument("--justfile", type=Path,
-                        help="justfile with the AXI tool lists (default: next to the manifest)")
-    parser.add_argument("--profile", default="personal", help="dotfiles profile (work adds axi-tools-work)")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="report changes without making them"
+    )
+    parser.add_argument(
+        "--refresh-skills",
+        action="store_true",
+        help="only reinstall every declared skill source",
+    )
+    parser.add_argument(
+        "--justfile",
+        type=Path,
+        help="justfile with the AXI tool lists (default: next to the manifest)",
+    )
+    parser.add_argument(
+        "--profile",
+        default="personal",
+        help="dotfiles profile (work adds axi-tools-work)",
+    )
     args = parser.parse_args()
     justfile = args.justfile or args.manifest.parent / "justfile"
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
@@ -689,23 +904,38 @@ def main() -> int:
 
         def hook_policy(agent: str, local: bool = False) -> dict:
             policy = manifest[agent]["hooks"]
-            return {"ensure": [] if local else policy["ensure"], "keep": policy["keep"] + (tools or [])}
+            return {
+                "ensure": [] if local else policy["ensure"],
+                "keep": policy["keep"] + (tools or []),
+            }
 
         def hooks(path: Path, policy: dict) -> None:
-            if tools is not None:  # without the AXI lists, a kept AXI hook could look undeclared
+            if (
+                tools is not None
+            ):  # without the AXI lists, a kept AXI hook could look undeclared
                 reconcile_hook_file(run, path, policy)
 
         # Plugin and AXI CLI calls rewrite the tools' files, so they go first.
         steps = [
             ("Claude plugins", lambda: reconcile_claude_plugins(run, manifest)),
             ("project hooks", lambda: reconcile_project_hooks(run, manifest)),
-            ("AXI hooks", lambda: tools is not None and register_axi_hooks(run, justfile, tools)),
             ("Claude MCP servers", lambda: reconcile_claude_json(run, manifest)),
-            ("Claude hooks", lambda: hooks(HOME / ".claude/settings.json", hook_policy("claude"))),
+            (
+                "Claude hooks",
+                lambda: hooks(HOME / ".claude/settings.json", hook_policy("claude")),
+            ),
             # Local settings only ever lose undeclared hooks; the declared ones live in settings.json.
-            ("Claude local hooks", lambda: hooks(HOME / ".claude/settings.local.json", hook_policy("claude", True))),
+            (
+                "Claude local hooks",
+                lambda: hooks(
+                    HOME / ".claude/settings.local.json", hook_policy("claude", True)
+                ),
+            ),
             ("Codex MCP servers", lambda: reconcile_codex_config(run, manifest)),
-            ("Codex hooks", lambda: hooks(HOME / ".codex/hooks.json", hook_policy("codex"))),
+            (
+                "Codex hooks",
+                lambda: hooks(HOME / ".codex/hooks.json", hook_policy("codex")),
+            ),
             # Installers must see ensured hooks on the first run too, so their
             # final ordering and serialization are stable on subsequent runs.
             ("integrations", lambda: install_integrations(run)),
@@ -720,7 +950,9 @@ def main() -> int:
                 warn(f"{name} failed: {error!r}")
     run.finish()
     if warnings:
-        print(f"agent-tooling: finished with {len(warnings)} warning(s)", file=sys.stderr)
+        print(
+            f"agent-tooling: finished with {len(warnings)} warning(s)", file=sys.stderr
+        )
     return 0
 
 

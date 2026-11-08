@@ -16,20 +16,14 @@
     "retiredProjectHooks": ["headroom"],
     "projectPaths": ["~/Code/firstmate", "~/Code/dotfiles", "~/Code/bytebytego-ebook"],
     "hooks": {
-      "ensure": [
-        {"event": "SessionStart", "matcher": "", "match": "chrome-devtools-axi",
-         "hook": {"type": "command", "command": "chrome-devtools-axi", "timeout": 10}}
-      ],
+      "ensure": [],
       "keep": ["rtk hook claude", "herdr-agent-state.sh", "rex __internal session-start"]
     }
   },
   "codex": {
     "mcpServers": {},
     "hooks": {
-      "ensure": [
-        {"event": "SessionStart", "matcher": "", "match": "chrome-devtools-axi",
-         "hook": {"type": "command", "command": "chrome-devtools-axi", "timeout": 10}}
-      ],
+      "ensure": [],
       "keep": ["herdr-agent-state.sh", "rex __internal session-start"]
     }
   },
