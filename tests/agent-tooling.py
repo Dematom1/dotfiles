@@ -33,11 +33,15 @@ elif args[:3] == ["plugin", "marketplace", "remove"]:
     state["marketplaces"] = [m for m in state["marketplaces"] if m["name"] != args[3]]
 elif args[:3] == ["plugin", "marketplace", "add"]:
     state["marketplaces"].append({"name": args[-1].split("/")[-1], "repo": args[-1]})
+elif args[:3] == ["plugin", "marketplace", "update"]:
+    pass
+elif args[:2] == ["plugin", "update"]:
+    pass
 elif args[:2] == ["plugin", "install"]:
     state["plugins"].append({"id": args[-1], "scope": "user", "projectPath": None, "enabled": True})
 else:
     sys.exit("unexpected claude call: " + " ".join(args))
-if not args[-1] == "--json":
+if args[-1] != "--json" and args[:2] != ["plugin", "update"] and args[:3] != ["plugin", "marketplace", "update"]:
     home = __import__("pathlib").Path(os.environ["HOME"])
     registry = home / ".claude/plugins/installed_plugins.json"
     registry.parent.mkdir(parents=True, exist_ok=True)
@@ -551,6 +555,22 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
     (nested_skill / "reference").symlink_to("private.txt")
     initial = snapshot(home)
 
+    # Scheduled update mode must not reconcile absent or undeclared entries.
+    update_state_path = root / "update-only/state.json"
+    update_state = json.loads(state.read_text())
+    update_state["plugins"] = [p for p in update_state["plugins"] if p["id"] != "pstack@pstack-claude"]
+    update_state["plugins"].append({"id": "ponytail@ponytail", "scope": "user", "enabled": True})
+    update_state["marketplaces"].append({"name": "unexpected", "repo": "fixture/unexpected"})
+    update_state_path.parent.mkdir(parents=True)
+    update_state_path.write_text(json.dumps(update_state))
+    update_home = root / "update-only/home"
+    shutil.copytree(home, update_home, symlinks=True)
+    update_log = root / "update-only/calls.log"
+    update_result = reconcile(update_home, bin_dir, update_state_path, update_log, "--update-only")
+    check("unexpected" in {m["name"] for m in json.loads(update_state_path.read_text())["marketplaces"]}, "update-only removed an undeclared marketplace")
+    check(not any("install" in line or "remove" in line or "uninstall" in line or "enable" in line for line in calls(update_log)), f"update-only reconciled state: {calls(update_log)}")
+    check(any("plugin update ponytail@ponytail" in line for line in calls(update_log)), "update-only skipped installed declared plugin")
+    check(not any("pstack@pstack-claude" in line for line in calls(update_log)), "update-only installed absent declared plugin")
     # Dry run: reports, changes nothing, calls nothing that mutates.
     result = reconcile(home, bin_dir, state, log, "--dry-run")
     check(snapshot(home) == initial, "dry run changed files")

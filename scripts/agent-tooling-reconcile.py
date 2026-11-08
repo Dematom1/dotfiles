@@ -701,6 +701,39 @@ def claude_json(claude: str, args: list[str]):
         return None
 
 
+def update_claude_plugins(
+    run: Run, claude: str, declared_plugins: dict, declared_markets: dict,
+    plugins: list[dict], markets: list[dict],
+) -> None:
+    user = {p["id"]: p for p in plugins if p.get("scope") == "user"}
+    names = {m["name"] for m in markets}
+    for name in sorted(set(declared_markets) & names):
+        run.command(
+            [claude, "plugin", "marketplace", "update", name],
+            f"update marketplace {name}",
+        )
+    for plugin_id in sorted(set(declared_plugins) & set(user)):
+        old_version = user[plugin_id].get("version", "unknown")
+        if run.command([claude, "plugin", "update", plugin_id], f"update plugin {plugin_id}"):
+            updated = claude_json(claude, ["plugin", "list"])
+            current = next((p for p in updated or [] if p.get("id") == plugin_id and p.get("scope") == "user"), {})
+            note(f"{plugin_id}: {old_version} -> {current.get('version', 'unknown')}")
+
+
+def update_declared_claude_plugins(run: Run, manifest: dict) -> None:
+    claude = shutil.which("claude")
+    if claude is None:
+        note("claude not on PATH; skipped Claude plugins and marketplaces")
+        return
+    plugins = claude_json(claude, ["plugin", "list"])
+    markets = claude_json(claude, ["plugin", "marketplace", "list"])
+    if plugins is not None and markets is not None:
+        update_claude_plugins(
+            run, claude, manifest["claude"]["plugins"],
+            manifest["claude"]["marketplaces"], plugins, markets,
+        )
+
+
 def reconcile_claude_plugins(run: Run, manifest: dict) -> None:
     claude = shutil.which("claude")
     if claude is None:
@@ -769,29 +802,20 @@ def reconcile_claude_plugins(run: Run, manifest: dict) -> None:
                 [claude, "plugin", "marketplace", "add", "--scope", "user", repo],
                 "add marketplace",
             )
-        else:
-            run.command(
-                [claude, "plugin", "marketplace", "update", name],
-                f"update marketplace {name}",
-            )
     for plugin_id in declared_plugins:
         if plugin_id not in user:
             run.command(
                 [claude, "plugin", "install", "--scope", "user", plugin_id],
                 "install plugin",
             )
-        else:
-            old_version = user[plugin_id].get("version", "unknown")
-            if run.command([claude, "plugin", "update", plugin_id], f"update plugin {plugin_id}"):
-                updated = claude_json(claude, ["plugin", "list"])
-                current = next((p for p in updated or [] if p.get("id") == plugin_id and p.get("scope") == "user"), {})
-                new_version = current.get("version", "unknown")
-                note(f"{plugin_id}: {old_version} -> {new_version}")
-            if user[plugin_id].get("enabled") is False:
-                run.command(
-                    [claude, "plugin", "enable", plugin_id, "--scope", "user"],
-                    "enable plugin",
-                )
+        elif user[plugin_id].get("enabled") is False:
+            run.command(
+                [claude, "plugin", "enable", plugin_id, "--scope", "user"],
+                "enable plugin",
+            )
+    update_claude_plugins(
+        run, claude, declared_plugins, declared_markets, plugins, markets
+    )
 
 
 def reconcile_project_hooks(run: Run, manifest: dict) -> None:
@@ -913,7 +937,7 @@ def main() -> int:
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
     run = Run(args.dry_run, stream=args.refresh_skills, manifest=manifest)
     if args.update_only:
-        reconcile_claude_plugins(run, manifest)
+        update_declared_claude_plugins(run, manifest)
     elif args.refresh_skills:
         install_skills(run, manifest, refresh=True)
         # An explicit refresh fails loudly; activation below only warns.
