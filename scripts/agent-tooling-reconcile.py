@@ -53,6 +53,7 @@ class Run:
         self.stream = stream  # show command output live instead of only on failure
         self.backup_root: Path | None = None
         self.prepared = False
+        self.backup_failed = False
         self.originals = {}
         self.paths = [
             HOME / name
@@ -84,6 +85,8 @@ class Run:
             )
 
     def prepare(self) -> None:
+        if self.backup_failed:
+            raise OSError("backup preparation previously failed")
         if self.prepared or self.dry_run:
             return
         for path in dict.fromkeys(self.paths):
@@ -96,6 +99,7 @@ class Run:
                 elif path.is_dir():
                     copy_private_tree(path, self.backup_target(path))
             except OSError as error:
+                self.backup_failed = True
                 warn(f"{path} cannot be backed up ({error}); left untouched")
                 raise
             self.originals[path] = original

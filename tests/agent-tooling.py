@@ -928,6 +928,7 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
 
     module.fingerprint = fail_fingerprint
     run = module.Run(False)
+    later_path = root / "later-mutation"
     run.paths = [path]
     try:
         run.write_text(path, "replacement", "test")
@@ -935,7 +936,13 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
         pass
     else:
         raise AssertionError("backup failure allowed a write")
-    check(not path.exists(), "write changed a path whose backup failed")
+    try:
+        run.write_text(later_path, "replacement", "test")
+    except OSError:
+        pass
+    else:
+        raise AssertionError("later write followed a backup failure")
+    check(not path.exists() and not later_path.exists(), "failed backup allowed a write")
 
     # Codex: declared servers are added or updated in place, keeping their secrets.
     codex_home = root / "codex/home"

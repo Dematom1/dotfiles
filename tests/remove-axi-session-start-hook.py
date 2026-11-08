@@ -40,7 +40,6 @@ with tempfile.TemporaryDirectory() as temporary:
             "matcher": "",
             "hooks": [
                 {"type": "command", "command": "gh-axi --other"},
-                {"type": "command", "command": "/usr/local/bin/gh-axi"},
                 {"type": "command", "command": "some-other-tool"},
             ],
         }
