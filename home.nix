@@ -226,7 +226,7 @@ in
         "--justfile" "${config.home.homeDirectory}/Code/dotfiles/justfile"
         "--profile" profile
       ];
-      EnvironmentVariables.PATH = "${lib.makeBinPath [ pkgs.nodejs_24 pkgs.git pkgs.just pkgs.bash pkgs.coreutils pkgs.gnugrep ]}:${config.home.homeDirectory}/.local/bin:${lib.concatMapStrings (path: "${path}:") homebrewPath}:/usr/bin:/bin";
+      EnvironmentVariables.PATH = "${lib.makeBinPath [ pkgs.nodejs_24 pkgs.git pkgs.just pkgs.bash pkgs.coreutils pkgs.gnugrep ]}:${config.home.homeDirectory}/.local/bin:${lib.concatMapStrings (path: "${path}:") homebrewPath}:/usr/local/bin:/usr/bin:/bin";
       StartCalendarInterval = [{ Weekday = 1; Hour = 9; Minute = 0; }];
       Nice = 10;
       LowPriorityIO = true;

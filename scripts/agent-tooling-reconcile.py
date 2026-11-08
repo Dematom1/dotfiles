@@ -33,6 +33,7 @@ from pathlib import Path
 HOME = Path(os.environ["HOME"])
 ALL_AGENTS_ROOT = "shared"
 INSTALL_TIMEOUT = 600
+CLAUDE_UPDATE_TIMEOUT = 120
 warnings: list[str] = []
 
 
@@ -657,7 +658,8 @@ def axi_hook_tools(justfile: Path | None, profile: str) -> list[str] | None:
     return tools
 
 
-def claude_json(claude: str, args: list[str]):
+def claude_json(claude: str, args: list[str], timeout: int = 120):
+    """Query Claude with a private copy of its configuration."""
     try:
         # Even inventory commands initialize and migrate Claude's configuration.
         # Query copies so preview and pre-backup discovery leave the real home intact.
@@ -689,7 +691,7 @@ def claude_json(claude: str, args: list[str]):
                 [claude, *args, "--json"],
                 cwd=home,
                 env=env,
-                timeout=120,
+                timeout=timeout,
                 check=True,
                 stdin=subprocess.DEVNULL,
                 capture_output=True,
@@ -701,37 +703,99 @@ def claude_json(claude: str, args: list[str]):
         return None
 
 
+def marketplace_source(market: dict) -> str | None:
+    """Return a normalized repository identity from marketplace metadata."""
+    source = market.get("source")
+    repo = market.get("repo") or market.get("url")
+    if isinstance(source, dict):
+        repo = source.get("repo") or source.get("url") or repo
+    if not isinstance(repo, str):
+        return None
+    return (
+        repo.strip()
+        .removeprefix("https://github.com/")
+        .removeprefix("http://github.com/")
+        .removeprefix("git@github.com:")
+        .removesuffix(".git")
+        .strip("/")
+        .casefold()
+    )
+
+
 def update_claude_plugins(
     run: Run, claude: str, declared_plugins: dict, declared_markets: dict,
-    plugins: list[dict], markets: list[dict],
+    plugins: list[dict], markets: list[dict], source_markets: list[dict] | None = None,
 ) -> None:
+    """Update installed declared items only when marketplace sources match."""
     user = {p["id"]: p for p in plugins if p.get("scope") == "user"}
-    names = {m["name"] for m in markets}
-    for name in sorted(set(declared_markets) & names):
+    registered = {m["name"]: m for m in markets}
+    sources = {m["name"]: m for m in (source_markets or markets)}
+    valid_markets = set()
+    deadline = time.monotonic() + CLAUDE_UPDATE_TIMEOUT
+    for name, repo in sorted(declared_markets.items()):
+        market = sources.get(name)
+        if market is None:
+            continue
+        if marketplace_source(market) != repo.casefold():
+            warn(f"marketplace {name} source does not match its manifest; skipped updates")
+            continue
+        valid_markets.add(name)
+        if name not in registered:
+            continue
+        timeout = max(0, int(deadline - time.monotonic()))
+        if not timeout:
+            warn("Claude updates exceeded the 120-second activation limit")
+            break
         run.command(
             [claude, "plugin", "marketplace", "update", name],
-            f"update marketplace {name}",
+            f"update marketplace {name}", timeout=timeout,
         )
     for plugin_id in sorted(set(declared_plugins) & set(user)):
+        _, separator, marketplace = plugin_id.partition("@")
+        if not separator or marketplace not in valid_markets:
+            continue
         old_version = user[plugin_id].get("version", "unknown")
-        if run.command([claude, "plugin", "update", plugin_id], f"update plugin {plugin_id}"):
-            updated = claude_json(claude, ["plugin", "list"])
-            current = next((p for p in updated or [] if p.get("id") == plugin_id and p.get("scope") == "user"), {})
+        timeout = max(0, int(deadline - time.monotonic()))
+        if not timeout:
+            warn("Claude updates exceeded the 120-second activation limit")
+            break
+        if run.command(
+            [claude, "plugin", "update", plugin_id, "--scope", "user"],
+            f"update plugin {plugin_id}", timeout=timeout,
+        ) and not run.dry_run:
+            timeout = max(0, int(deadline - time.monotonic()))
+            if not timeout:
+                warn("Claude updates exceeded the 120-second activation limit")
+                break
+            updated = claude_json(claude, ["plugin", "list"], timeout=timeout)
+            current = next(
+                (p for p in updated or [] if p.get("id") == plugin_id and p.get("scope") == "user"),
+                {},
+            )
             note(f"{plugin_id}: {old_version} -> {current.get('version', 'unknown')}")
 
 
 def update_declared_claude_plugins(run: Run, manifest: dict) -> None:
+    """Update available declared Claude plugins and marketplaces independently."""
     claude = shutil.which("claude")
     if claude is None:
         note("claude not on PATH; skipped Claude plugins and marketplaces")
         return
     plugins = claude_json(claude, ["plugin", "list"])
     markets = claude_json(claude, ["plugin", "marketplace", "list"])
-    if plugins is not None and markets is not None:
-        update_claude_plugins(
-            run, claude, manifest["claude"]["plugins"],
-            manifest["claude"]["marketplaces"], plugins, markets,
-        )
+    source_markets = markets
+    if source_markets is None:
+        loaded = load_json(HOME / ".claude/plugins/known_marketplaces.json")
+        source_markets = [
+            {"name": name, **details}
+            for name, details in (loaded[0].items() if loaded else [])
+            if isinstance(details, dict)
+        ]
+    update_claude_plugins(
+        run, claude, manifest["claude"]["plugins"],
+        manifest["claude"]["marketplaces"], plugins or [], markets or [],
+        source_markets=source_markets,
+    )
 
 
 def reconcile_claude_plugins(run: Run, manifest: dict) -> None:
@@ -999,7 +1063,7 @@ def main() -> int:
         print(
             f"agent-tooling: finished with {len(warnings)} warning(s)", file=sys.stderr
         )
-    return 0
+    return 1 if args.update_only and warnings else 0
 
 
 if __name__ == "__main__":
