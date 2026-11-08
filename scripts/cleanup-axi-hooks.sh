@@ -6,18 +6,20 @@ remover="${AXI_HOOK_REMOVER:-$repo_dir/scripts/remove-axi-session-start-hook.py}
 state="$HOME/.local/state/dotfiles/axi-hooks-cleanup-v2"
 mkdir -p "$state"
 backup="$state/snapshot"
-if [[ ! -d "$backup" ]]; then
+if [[ ! -f "$backup/.complete" ]]; then
+  rm -rf "$backup"
   snapshot_tmp="$(mktemp -d "$state/.snapshot.XXXXXX")"
   for file in .claude/settings.json .claude/settings.local.json .codex/hooks.json; do
     source="$HOME/$file"
     [[ -f "$source" ]] || continue
     mkdir -p "$snapshot_tmp/$(dirname "$file")"
-    if ! cp -p "$source" "$snapshot_tmp/$file"; then
+    if ! cp -pP "$source" "$snapshot_tmp/$file"; then
       rm -rf "$snapshot_tmp"
       echo "    - could not snapshot $source; deferring AXI hook cleanup" >&2
       exit 1
     fi
   done
+  touch "$snapshot_tmp/.complete"
   mv "$snapshot_tmp" "$backup"
 fi
 failed=0

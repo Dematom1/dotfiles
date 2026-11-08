@@ -52,6 +52,14 @@ with tempfile.TemporaryDirectory() as temporary:
     assert result["hooks"]["PreToolUse"] == original["hooks"]["PreToolUse"]
     assert result["unrelated"]
 
+    symlink_target = home / "shared-settings.json"
+    symlink_target.write_text(json.dumps({"hooks": {"SessionStart": [{"hooks": [{"command": "tasks-axi"}, {"command": "keep"}]}]}}))
+    symlink_path = home / ".claude/settings.local.json"
+    symlink_path.symlink_to(symlink_target)
+    subprocess.run(["python3", str(script), str(home), "tasks-axi"], check=True)
+    assert symlink_path.is_symlink()
+    assert json.loads(symlink_target.read_text())["hooks"]["SessionStart"][0]["hooks"] == [{"command": "keep"}]
+
     import runpy
     from unittest.mock import patch
 
@@ -138,11 +146,16 @@ with tempfile.TemporaryDirectory() as temporary:
         "CALL_LOG": str(call_log),
     }
     personal_home = home / "personal-home"
+    incomplete = personal_home / ".local/state/dotfiles/axi-hooks-cleanup-v2/snapshot"
+    incomplete.mkdir(parents=True)
+    (incomplete / "partial").write_text("incomplete")
     personal_env = {**env, "HOME": str(personal_home)}
     personal = subprocess.run(
         [str(cleanup)], env=personal_env, capture_output=True, text=True
     )
     assert personal.returncode == 1
+    assert (incomplete / ".complete").is_file()
+    assert not (incomplete / "partial").exists()
     assert all(tool not in personal.stderr for tool in ["slack-axi", "aws-axi", "gws-axi", "notion-axi"])
     personal_markers = personal_home / ".local/state/dotfiles/axi-hooks-cleanup-v2"
     assert not any((personal_markers / tool).exists() for tool in ["slack-axi", "aws-axi", "gws-axi", "notion-axi"])
