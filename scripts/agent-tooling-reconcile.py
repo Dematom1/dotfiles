@@ -887,10 +887,16 @@ def main() -> int:
     parser.add_argument(
         "--dry-run", action="store_true", help="report changes without making them"
     )
-    parser.add_argument(
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument(
         "--refresh-skills",
         action="store_true",
         help="only reinstall every declared skill source",
+    )
+    modes.add_argument(
+        "--update-only",
+        action="store_true",
+        help="only update declared Claude marketplaces and plugins",
     )
     parser.add_argument(
         "--justfile",
@@ -906,7 +912,9 @@ def main() -> int:
     justfile = args.justfile or args.manifest.parent / "justfile"
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
     run = Run(args.dry_run, stream=args.refresh_skills, manifest=manifest)
-    if args.refresh_skills:
+    if args.update_only:
+        reconcile_claude_plugins(run, manifest)
+    elif args.refresh_skills:
         install_skills(run, manifest, refresh=True)
         # An explicit refresh fails loudly; activation below only warns.
         run.finish()

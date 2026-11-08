@@ -222,6 +222,7 @@ in
         "${lib.getExe pkgs.python311}"
         "${./scripts/agent-tooling-reconcile.py}"
         "--manifest" "${./agent-tooling.json}"
+        "--update-only"
         "--justfile" "${config.home.homeDirectory}/Code/dotfiles/justfile"
         "--profile" profile
       ];
