@@ -27,14 +27,10 @@ def owned_command(command: object, tool: str) -> bool:
         return False
     if argv[0] == tool and not argv[1:]:
         return True
-    if tool == "gh-axi" and argv[0] == tool and argv[1:] == ["--session-start"]:
-        return True
     return (
-        quoted
-        and tool == "gh-axi"
-        and len(argv) == 1
-        and Path(argv[0]).is_absolute()
+        tool == "gh-axi"
         and Path(argv[0]).name == tool
+        and argv[1:] in ([], ["--session-start"])
     )
 
 
