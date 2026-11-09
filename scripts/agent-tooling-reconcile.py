@@ -736,8 +736,12 @@ def update_claude_plugins(
         market = sources.get(name)
         if market is None:
             continue
-        if marketplace_source(market) != repo.casefold():
-            warn(f"marketplace {name} source does not match its manifest; skipped updates")
+        registered_source = marketplace_source(market)
+        if registered_source != repo.casefold():
+            warn(
+                f"marketplace {name} source mismatch (manifest: {repo}; "
+                f"registered: {registered_source or 'unknown'}); skipped updates"
+            )
             continue
         valid_markets.add(name)
         if name not in registered:

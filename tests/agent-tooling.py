@@ -598,6 +598,7 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
     )
     check(any("plugin update ponytail@ponytail --scope user" in line for line in calls(update_log)), "update-only skipped installed declared plugin")
     check("claude plugin marketplace update pstack-claude" in calls(update_log), "update-only skipped installed declared marketplace")
+    check("claude plugin marketplace update ponytail" in calls(update_log), "update-only skipped source-matched marketplace")
     check(not any("pstack@pstack-claude" in line for line in calls(update_log)), "update-only installed absent declared plugin")
     check("ponytail@ponytail: 1.0 -> 2.0" in update_result.stdout, update_result.stdout)
 
@@ -613,6 +614,15 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
     check(
         not any("ponytail" in line and "update" in line for line in calls(mismatch_log)),
         "updated a plugin from a marketplace with a mismatched source",
+    )
+    mismatch_warnings = reconcile(
+        mismatch_home, bin_dir, mismatch_state_path, root / "update-only/mismatch-retry.log",
+        "--update-only", expected_status=1,
+    ).stderr
+    check(
+        "DietrichGebert/ponytail" in mismatch_warnings
+        and "untrusted/fork" in mismatch_warnings,
+        mismatch_warnings,
     )
 
     failed_plugins_log = root / "update-only/failed-plugins.log"
