@@ -723,8 +723,13 @@ def marketplace_source(market: dict) -> str | None:
 
 
 def update_claude_plugins(
-    run: Run, claude: str, declared_plugins: dict, declared_markets: dict,
-    plugins: list[dict], markets: list[dict], source_markets: list[dict] | None = None,
+    run: Run,
+    claude: str,
+    declared_plugins: dict,
+    declared_markets: dict,
+    plugins: list[dict],
+    markets: list[dict],
+    source_markets: list[dict] | None = None,
 ) -> None:
     """Update installed declared items only when marketplace sources match."""
     user = {p["id"]: p for p in plugins if p.get("scope") == "user"}
@@ -752,7 +757,8 @@ def update_claude_plugins(
             break
         run.command(
             [claude, "plugin", "marketplace", "update", name],
-            f"update marketplace {name}", timeout=timeout,
+            f"update marketplace {name}",
+            timeout=timeout,
         )
     for plugin_id in sorted(set(declared_plugins) & set(user)):
         _, separator, marketplace = plugin_id.partition("@")
@@ -763,17 +769,25 @@ def update_claude_plugins(
         if not timeout:
             warn("Claude updates exceeded the 120-second activation limit")
             break
-        if run.command(
-            [claude, "plugin", "update", plugin_id, "--scope", "user"],
-            f"update plugin {plugin_id}", timeout=timeout,
-        ) and not run.dry_run:
+        if (
+            run.command(
+                [claude, "plugin", "update", plugin_id, "--scope", "user"],
+                f"update plugin {plugin_id}",
+                timeout=timeout,
+            )
+            and not run.dry_run
+        ):
             timeout = max(0, int(deadline - time.monotonic()))
             if not timeout:
                 warn("Claude updates exceeded the 120-second activation limit")
                 break
             updated = claude_json(claude, ["plugin", "list"], timeout=timeout)
             current = next(
-                (p for p in updated or [] if p.get("id") == plugin_id and p.get("scope") == "user"),
+                (
+                    p
+                    for p in updated or []
+                    if p.get("id") == plugin_id and p.get("scope") == "user"
+                ),
                 {},
             )
             note(f"{plugin_id}: {old_version} -> {current.get('version', 'unknown')}")
@@ -796,8 +810,12 @@ def update_declared_claude_plugins(run: Run, manifest: dict) -> None:
             if isinstance(details, dict)
         ]
     update_claude_plugins(
-        run, claude, manifest["claude"]["plugins"],
-        manifest["claude"]["marketplaces"], plugins or [], markets or [],
+        run,
+        claude,
+        manifest["claude"]["plugins"],
+        manifest["claude"]["marketplaces"],
+        plugins or [],
+        markets or [],
         source_markets=source_markets,
     )
 
