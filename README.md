@@ -357,7 +357,7 @@ brings each tool's own state to exactly that set:
 
 | Manifest key | Tool state | Reconciliation |
 |---|---|---|
-| `claude.plugins`, `claude.marketplaces` | Claude's plugin registry | The `claude plugin` CLI uninstalls undeclared user-scope plugins and retired project plugins, removes undeclared marketplaces, and adds and installs missing ones. |
+| `claude.plugins`, `claude.marketplaces` | Claude's plugin registry | The `claude plugin` CLI uninstalls undeclared user-scope plugins and retired project plugins, removes undeclared marketplaces, and adds and installs missing ones. Existing declared marketplaces and user-scope plugins are updated to their latest versions on each reconciliation. |
 | `claude.mcpServers` | `~/.claude.json` `mcpServers` | Declared fields are set and undeclared servers are removed; see the credential preservation rules below. `retiredProjectMcpServers` are removed from every project scope; other project servers stay. |
 | `claude.hooks` | `~/.claude/settings.json` and `settings.local.json` hooks | `ensure` entries are written (replacing any hook that matches them), hooks matching a `keep` substring or a name in `axi-tools` are preserved, and other hooks are removed, including those of `axi-tools-no-hooks`. Rebuilds do not register AXI hooks; cleanup targets old SessionStart entries per tool, retrying on later activations until cleanup succeeds. `settings.local.json` only loses hooks. If the justfile lists cannot be read, hooks are left untouched with a warning. |
 | `codex.mcpServers` | `~/.codex/config.toml` `[mcp_servers.*]` | As for Claude. Every other table is preserved byte for byte. |
@@ -365,6 +365,8 @@ brings each tool's own state to exactly that set:
 | `pi.packages` | `~/.pi/agent/settings.json` `packages` | Only declared package sources remain; existing per-package options and ordering are preserved. Pi installs a missing package on its next start. pi-fff and terminal-status-title are Nix-linked extensions, so they are not packages. |
 | `pi.skills` | `~/.pi/agent/skills` | Pi-root skills allowed to stay; everything else there is removed. None are declared: the pstack skills come with the kept `pstack-claude` Pi package and Claude plugin. |
 | `skills.sources`, `skills.keep` | `~/.claude/skills`, `~/.agents/skills`, `~/.codex/skills`, `~/.pi/agent/skills` | Non-hidden undeclared entries and broken links are removed, stale skill-lock entries are dropped, and missing declared skills are installed with the skills CLI. See [the skill reference](.agents/SKILLS.md). |
+
+On macOS, a Home Manager LaunchAgent updates existing declared Claude marketplaces and plugins every Monday at 09:00, without reconciling other agent-tooling state. Its log is `~/Library/Logs/agent-tooling-update.log`.
 
 Activation invokes `rtk init -g --hook-only --auto-patch` and
 `herdr integration install claude`, `codex`, and `pi` when their CLIs are

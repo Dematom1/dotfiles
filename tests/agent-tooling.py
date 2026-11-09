@@ -23,21 +23,45 @@ state = json.load(open(state_path))
 args = sys.argv[1:]
 with open(os.environ["FAKE_LOG"], "a") as log:
     log.write("claude " + " ".join(args) + "\n")
+if os.environ.get("FAKE_CONFIG_LOG"):
+    with open(os.environ["FAKE_CONFIG_LOG"], "a") as log:
+        log.write(" ".join(args) + "|" + os.environ.get("CLAUDE_CONFIG_DIR", "<unset>") + "\n")
 if args == ["plugin", "list", "--json"]:
+    if os.environ.get("FAKE_CLAUDE_FAIL_INVENTORY") == "plugins":
+        sys.exit("plugin inventory unavailable")
     print(json.dumps(state["plugins"]))
 elif args == ["plugin", "marketplace", "list", "--json"]:
-    print(json.dumps(state["marketplaces"]))
+    if os.environ.get("FAKE_CLAUDE_FAIL_INVENTORY") == "marketplaces":
+        sys.exit("marketplace inventory unavailable")
+    registry = __import__("pathlib").Path(os.environ.get("CLAUDE_CONFIG_DIR", "")) / "plugins/known_marketplaces.json"
+    if os.environ.get("CLAUDE_CONFIG_DIR") and registry.is_file():
+        entries = json.loads(registry.read_text())
+        print(json.dumps([{"name": name, **details} for name, details in entries.items()]))
+    else:
+        print(json.dumps(state["marketplaces"]))
 elif args[:2] == ["plugin", "uninstall"]:
     state["plugins"] = [p for p in state["plugins"] if not (p["id"] == args[2] and p["scope"] == args[-1] and (args[-1] != "project" or p["projectPath"] == os.getcwd()))]
 elif args[:3] == ["plugin", "marketplace", "remove"]:
     state["marketplaces"] = [m for m in state["marketplaces"] if m["name"] != args[3]]
 elif args[:3] == ["plugin", "marketplace", "add"]:
     state["marketplaces"].append({"name": args[-1].split("/")[-1], "repo": args[-1]})
+elif args[:3] == ["plugin", "marketplace", "update"]:
+    pass
+elif args[:2] == ["plugin", "update"]:
+    plugin_id = args[2]
+    assert args[-2:] == ["--scope", "user"], args
+    for plugin in state["plugins"]:
+        if (
+            plugin["id"] == plugin_id
+            and plugin["scope"] == "user"
+            and plugin_id in state.get("updatedVersions", {})
+        ):
+            plugin["version"] = state["updatedVersions"][plugin_id]
 elif args[:2] == ["plugin", "install"]:
     state["plugins"].append({"id": args[-1], "scope": "user", "projectPath": None, "enabled": True})
 else:
     sys.exit("unexpected claude call: " + " ".join(args))
-if not args[-1] == "--json":
+if args[-1] != "--json" and args[:2] != ["plugin", "update"] and args[:3] != ["plugin", "marketplace", "update"]:
     home = __import__("pathlib").Path(os.environ["HOME"])
     registry = home / ".claude/plugins/installed_plugins.json"
     registry.parent.mkdir(parents=True, exist_ok=True)
@@ -470,7 +494,18 @@ def fake_bin(root):
     return bin_dir, state
 
 
-def reconcile(home, bin_dir, state, log, *extra, manifest_file=manifest_path):
+def reconcile(
+    home,
+    bin_dir,
+    state,
+    log,
+    *extra,
+    manifest_file=manifest_path,
+    expected_status=0,
+    fail_inventory=None,
+    config_dir=None,
+    config_log=None,
+):
     # USER keeps the real /etc/profiles Nix profile out of the AXI tool lookup.
     env = {
         "HOME": str(home),
@@ -478,6 +513,9 @@ def reconcile(home, bin_dir, state, log, *extra, manifest_file=manifest_path):
         "PATH": f"{bin_dir}:/usr/bin:/bin",
         "FAKE_CLAUDE_STATE": str(state),
         "FAKE_LOG": str(log),
+        **({"FAKE_CLAUDE_FAIL_INVENTORY": fail_inventory} if fail_inventory else {}),
+        **({"CLAUDE_CONFIG_DIR": str(config_dir)} if config_dir else {}),
+        **({"FAKE_CONFIG_LOG": str(config_log)} if config_log else {}),
     }
     result = subprocess.run(
         [sys.executable, script, "--manifest", manifest_file, *extra],
@@ -487,8 +525,9 @@ def reconcile(home, bin_dir, state, log, *extra, manifest_file=manifest_path):
         umask=0o022,
     )
     check(
-        result.returncode == 0,
-        f"reconciler exited {result.returncode}: {result.stderr}",
+        result.returncode == expected_status,
+        f"reconciler exited {result.returncode}, expected {expected_status}: "
+        f"{result.stderr}",
     )
     return result
 
@@ -551,6 +590,209 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
     (nested_skill / "reference").symlink_to("private.txt")
     initial = snapshot(home)
 
+    # Scheduled update mode must not reconcile absent or undeclared entries.
+    update_state_path = root / "update-only/state.json"
+    update_state = json.loads(state.read_text())
+    update_state["plugins"] = [
+        p for p in update_state["plugins"] if p["id"] != "pstack@pstack-claude"
+    ]
+    update_state["plugins"].append(
+        {"id": "ponytail@ponytail", "scope": "user", "enabled": True, "version": "1.0"}
+    )
+    update_state["updatedVersions"] = {"ponytail@ponytail": "2.0"}
+    update_state["marketplaces"].append(
+        {"name": "unexpected", "repo": "fixture/unexpected"}
+    )
+    update_state["marketplaces"].append(
+        {"name": "ponytail", "repo": "DietrichGebert/ponytail"}
+    )
+    update_state_path.parent.mkdir(parents=True)
+    update_state_path.write_text(json.dumps(update_state))
+    update_home = root / "update-only/home"
+    shutil.copytree(home, update_home, symlinks=True)
+    update_pi_settings = update_home / ".pi/agent/settings.json"
+    update_pi_before = update_pi_settings.read_bytes()
+    update_log = root / "update-only/calls.log"
+    update_result = reconcile(
+        update_home, bin_dir, update_state_path, update_log, "--update-only"
+    )
+    check(
+        "unexpected"
+        in {
+            m["name"] for m in json.loads(update_state_path.read_text())["marketplaces"]
+        },
+        "update-only removed an undeclared marketplace",
+    )
+    check(
+        not any(
+            any(
+                action in line
+                for action in ("install", "remove", "uninstall", "enable")
+            )
+            for line in calls(update_log)
+        ),
+        f"update-only reconciled state: {calls(update_log)}",
+    )
+    check(
+        any(
+            "plugin update ponytail@ponytail --scope user" in line
+            for line in calls(update_log)
+        ),
+        "update-only skipped installed declared plugin",
+    )
+    check(
+        "claude plugin marketplace update pstack-claude" in calls(update_log),
+        "update-only skipped installed declared marketplace",
+    )
+    check(
+        "claude plugin marketplace update ponytail" in calls(update_log),
+        "update-only skipped source-matched marketplace",
+    )
+    check(
+        not any("pstack@pstack-claude" in line for line in calls(update_log)),
+        "update-only installed absent declared plugin",
+    )
+    check("ponytail@ponytail: 1.0 -> 2.0" in update_result.stdout, update_result.stdout)
+    check(update_pi_settings.read_bytes() == update_pi_before, "update-only changed Pi settings")
+
+    custom_config = root / "custom-claude-config"
+    write_json(
+        custom_config / "plugins/known_marketplaces.json",
+        {
+            "pstack-claude": {
+                "source": {"source": "github", "repo": "michael-denyer/pstack-claude"}
+            },
+            "ponytail": {
+                "source": {"source": "github", "repo": "untrusted/fork"}
+            },
+        },
+    )
+    custom_state_path = root / "update-only/custom-state.json"
+    custom_state = json.loads(state.read_text())
+    custom_state["plugins"].append(
+        {"id": "ponytail@ponytail", "scope": "user", "enabled": True}
+    )
+    custom_state_path.write_text(json.dumps(custom_state))
+    custom_home = root / "update-only/custom-home"
+    shutil.copytree(home, custom_home, symlinks=True)
+    custom_log = root / "update-only/custom.log"
+    config_log = root / "update-only/config.log"
+    custom_result = reconcile(
+        custom_home, bin_dir, custom_state_path, custom_log, "--update-only",
+        expected_status=1, config_dir=custom_config, config_log=config_log,
+    )
+    check(
+        not any("ponytail" in line and "update" in line for line in calls(custom_log)),
+        "custom-config source mismatch did not block marketplace and plugin updates",
+    )
+    check("untrusted/fork" in custom_result.stderr, custom_result.stderr)
+    check(
+        any(
+            line.startswith("plugin update pstack@pstack-claude --scope user|")
+            and line.endswith(str(custom_config))
+            for line in calls(config_log)
+        ),
+        f"plugin update did not target CLAUDE_CONFIG_DIR: {calls(config_log)}",
+    )
+
+    no_claude = root / "no-claude"
+    no_claude.mkdir()
+    unavailable_result = reconcile(
+        update_home, no_claude, state, root / "update-only/no-claude.log",
+        "--update-only", expected_status=1,
+    )
+    check("claude not on PATH" in unavailable_result.stderr, unavailable_result.stderr)
+
+    mismatch_state_path = root / "update-only/mismatch.json"
+    mismatch_state = json.loads(state.read_text())
+    mismatch_state["plugins"].append(
+        {"id": "ponytail@ponytail", "scope": "user", "enabled": True}
+    )
+    mismatch_state["marketplaces"].append(
+        {"name": "ponytail", "repo": "untrusted/fork"}
+    )
+    mismatch_state_path.write_text(json.dumps(mismatch_state))
+    mismatch_home = root / "update-only/mismatch-home"
+    shutil.copytree(home, mismatch_home, symlinks=True)
+    mismatch_log = root / "update-only/mismatch.log"
+    reconcile(
+        mismatch_home,
+        bin_dir,
+        mismatch_state_path,
+        mismatch_log,
+        "--update-only",
+        expected_status=1,
+    )
+    check(
+        not any(
+            "ponytail" in line and "update" in line for line in calls(mismatch_log)
+        ),
+        "updated a plugin from a marketplace with a mismatched source",
+    )
+    mismatch_warnings = reconcile(
+        mismatch_home,
+        bin_dir,
+        mismatch_state_path,
+        root / "update-only/mismatch-retry.log",
+        "--update-only",
+        expected_status=1,
+    ).stderr
+    check(
+        "DietrichGebert/ponytail" in mismatch_warnings
+        and "untrusted/fork" in mismatch_warnings,
+        mismatch_warnings,
+    )
+
+    failed_plugins_log = root / "update-only/failed-plugins.log"
+    reconcile(
+        update_home,
+        bin_dir,
+        update_state_path,
+        failed_plugins_log,
+        "--update-only",
+        expected_status=1,
+        fail_inventory="plugins",
+    )
+    check(
+        "claude plugin marketplace update pstack-claude" in calls(failed_plugins_log),
+        "plugin inventory failure blocked marketplace updates",
+    )
+
+    failed_markets_home = root / "update-only/failed-markets-home"
+    shutil.copytree(home, failed_markets_home, symlinks=True)
+    write_json(
+        failed_markets_home / ".claude/plugins/known_marketplaces.json",
+        {
+            "pstack-claude": {
+                "source": {"source": "github", "repo": "michael-denyer/pstack-claude"}
+            },
+            "ponytail": {
+                "source": {"source": "github", "repo": "DietrichGebert/ponytail"}
+            },
+        },
+    )
+    failed_markets_log = root / "update-only/failed-markets.log"
+    reconcile(
+        failed_markets_home,
+        bin_dir,
+        state,
+        failed_markets_log,
+        "--update-only",
+        expected_status=1,
+        fail_inventory="marketplaces",
+    )
+    check(
+        any(
+            "plugin update pstack@pstack-claude --scope user" in line
+            for line in calls(failed_markets_log)
+        ),
+        "marketplace inventory failure blocked plugins with verified cached sources",
+    )
+    check(
+        not any("marketplace update" in line for line in calls(failed_markets_log)),
+        "updated marketplaces without a successful marketplace inventory",
+    )
+
     # Dry run: reports, changes nothing, calls nothing that mutates.
     result = reconcile(home, bin_dir, state, log, "--dry-run")
     check(snapshot(home) == initial, "dry run changed files")
@@ -563,6 +805,7 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
         "would update" in result.stdout and "would remove" in result.stdout,
         "dry run reported no plan",
     )
+    check(" -> " not in result.stdout, "dry run reported an update that did not happen")
     log.unlink()
 
     # First run: converge on the manifest.
@@ -844,9 +1087,18 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
     result = reconcile(home, bin_dir, state, log)
     check(snapshot(home) == converged, "second run changed files")
     check(backups(home) == taken, "second run created another backup")
+    updates = [line for line in mutating(calls(log)) if " update " in f" {line} "]
     check(
-        not mutating(calls(log)),
-        f"second run ran mutating commands: {mutating(calls(log))}",
+        mutating(calls(log)) == updates,
+        f"second run ran unexpected mutating commands: {mutating(calls(log))}",
+    )
+    check(
+        "claude plugin marketplace update pstack-claude" in calls(log),
+        "normal reconciliation skipped marketplace updates",
+    )
+    check(
+        any("plugin update pstack@pstack-claude --scope user" in line for line in calls(log)),
+        "normal reconciliation skipped declared user plugin updates",
     )
     check(
         "updated" not in result.stdout and "removed" not in result.stdout,
@@ -942,7 +1194,9 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
         pass
     else:
         raise AssertionError("later write followed a backup failure")
-    check(not path.exists() and not later_path.exists(), "failed backup allowed a write")
+    check(
+        not path.exists() and not later_path.exists(), "failed backup allowed a write"
+    )
 
     # Codex: declared servers are added or updated in place, keeping their secrets.
     codex_home = root / "codex/home"

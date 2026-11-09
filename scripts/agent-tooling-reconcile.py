@@ -33,6 +33,7 @@ from pathlib import Path
 HOME = Path(os.environ["HOME"])
 ALL_AGENTS_ROOT = "shared"
 INSTALL_TIMEOUT = 600
+CLAUDE_UPDATE_TIMEOUT = 120
 warnings: list[str] = []
 
 
@@ -657,7 +658,8 @@ def axi_hook_tools(justfile: Path | None, profile: str) -> list[str] | None:
     return tools
 
 
-def claude_json(claude: str, args: list[str]):
+def claude_json(claude: str, args: list[str], timeout: int = 120):
+    """Query Claude with a private copy of its configuration."""
     try:
         # Even inventory commands initialize and migrate Claude's configuration.
         # Query copies so preview and pre-backup discovery leave the real home intact.
@@ -665,6 +667,7 @@ def claude_json(claude: str, args: list[str]):
             prefix="agent-tooling-inventory-"
         ) as temporary:
             home = Path(temporary)
+            config_source = Path(os.environ.get("CLAUDE_CONFIG_DIR") or HOME / ".claude").expanduser()
             for relative in [
                 ".claude.json",
                 ".claude/settings.json",
@@ -672,7 +675,11 @@ def claude_json(claude: str, args: list[str]):
                 ".claude/plugins/installed_plugins.json",
                 ".claude/plugins/known_marketplaces.json",
             ]:
-                source = HOME / relative
+                source = (
+                    HOME / relative
+                    if relative == ".claude.json"
+                    else config_source / Path(relative).relative_to(".claude")
+                )
                 if source.is_file():
                     target = home / relative
                     target.parent.mkdir(parents=True, exist_ok=True)
@@ -684,12 +691,15 @@ def claude_json(claude: str, args: list[str]):
                 "XDG_CACHE_HOME": str(home / ".cache"),
                 "XDG_STATE_HOME": str(home / ".state"),
             }
-            env.pop("CLAUDE_CONFIG_DIR", None)
+            if os.environ.get("CLAUDE_CONFIG_DIR"):
+                env["CLAUDE_CONFIG_DIR"] = str(home / ".claude")
+            else:
+                env.pop("CLAUDE_CONFIG_DIR", None)
             output = subprocess.run(
                 [claude, *args, "--json"],
                 cwd=home,
                 env=env,
-                timeout=120,
+                timeout=timeout,
                 check=True,
                 stdin=subprocess.DEVNULL,
                 capture_output=True,
@@ -699,6 +709,123 @@ def claude_json(claude: str, args: list[str]):
     except (OSError, subprocess.SubprocessError, json.JSONDecodeError) as error:
         warn(f"claude {' '.join(args)} --json failed ({error}); skipped Claude plugins")
         return None
+
+
+def marketplace_source(market: dict) -> str | None:
+    """Return a normalized repository identity from marketplace metadata."""
+    source = market.get("source")
+    repo = market.get("repo") or market.get("url")
+    if isinstance(source, dict):
+        repo = source.get("repo") or source.get("url") or repo
+    if not isinstance(repo, str):
+        return None
+    return (
+        repo.strip()
+        .removeprefix("https://github.com/")
+        .removeprefix("http://github.com/")
+        .removeprefix("git@github.com:")
+        .removesuffix(".git")
+        .strip("/")
+        .casefold()
+    )
+
+
+def update_claude_plugins(
+    run: Run,
+    claude: str,
+    declared_plugins: dict,
+    declared_markets: dict,
+    plugins: list[dict],
+    markets: list[dict],
+    source_markets: list[dict] | None = None,
+) -> None:
+    """Update installed declared items only when marketplace sources match."""
+    user = {p["id"]: p for p in plugins if p.get("scope") == "user"}
+    registered = {m["name"]: m for m in markets}
+    sources = {m["name"]: m for m in (source_markets or markets)}
+    valid_markets = set()
+    deadline = time.monotonic() + CLAUDE_UPDATE_TIMEOUT
+    for name, repo in sorted(declared_markets.items()):
+        market = sources.get(name)
+        if market is None:
+            continue
+        registered_source = marketplace_source(market)
+        if registered_source != repo.casefold():
+            warn(
+                f"marketplace {name} source mismatch (manifest: {repo}; "
+                f"registered: {registered_source or 'unknown'}); skipped updates"
+            )
+            continue
+        valid_markets.add(name)
+        if name not in registered:
+            continue
+        timeout = max(0, int(deadline - time.monotonic()))
+        if not timeout:
+            warn("Claude updates exceeded the 120-second activation limit")
+            break
+        run.command(
+            [claude, "plugin", "marketplace", "update", name],
+            f"update marketplace {name}",
+            timeout=timeout,
+        )
+    for plugin_id in sorted(set(declared_plugins) & set(user)):
+        _, separator, marketplace = plugin_id.partition("@")
+        if not separator or marketplace not in valid_markets:
+            continue
+        old_version = user[plugin_id].get("version", "unknown")
+        timeout = max(0, int(deadline - time.monotonic()))
+        if not timeout:
+            warn("Claude updates exceeded the 120-second activation limit")
+            break
+        if (
+            run.command(
+                [claude, "plugin", "update", plugin_id, "--scope", "user"],
+                f"update plugin {plugin_id}",
+                timeout=timeout,
+            )
+            and not run.dry_run
+        ):
+            timeout = max(0, int(deadline - time.monotonic()))
+            if not timeout:
+                warn("Claude updates exceeded the 120-second activation limit")
+                break
+            updated = claude_json(claude, ["plugin", "list"], timeout=timeout)
+            current = next(
+                (
+                    p
+                    for p in updated or []
+                    if p.get("id") == plugin_id and p.get("scope") == "user"
+                ),
+                {},
+            )
+            note(f"{plugin_id}: {old_version} -> {current.get('version', 'unknown')}")
+
+
+def update_declared_claude_plugins(run: Run, manifest: dict) -> None:
+    """Update available declared Claude plugins and marketplaces independently."""
+    claude = shutil.which("claude")
+    if claude is None:
+        warn("claude not on PATH; skipped Claude plugins and marketplaces")
+        return
+    plugins = claude_json(claude, ["plugin", "list"])
+    markets = claude_json(claude, ["plugin", "marketplace", "list"])
+    source_markets = markets
+    if source_markets is None:
+        loaded = load_json(HOME / ".claude/plugins/known_marketplaces.json")
+        source_markets = [
+            {"name": name, **details}
+            for name, details in (loaded[0].items() if loaded else [])
+            if isinstance(details, dict)
+        ]
+    update_claude_plugins(
+        run,
+        claude,
+        manifest["claude"]["plugins"],
+        manifest["claude"]["marketplaces"],
+        plugins or [],
+        markets or [],
+        source_markets=source_markets,
+    )
 
 
 def reconcile_claude_plugins(run: Run, manifest: dict) -> None:
@@ -780,6 +907,9 @@ def reconcile_claude_plugins(run: Run, manifest: dict) -> None:
                 [claude, "plugin", "enable", plugin_id, "--scope", "user"],
                 "enable plugin",
             )
+    update_claude_plugins(
+        run, claude, declared_plugins, declared_markets, plugins, markets
+    )
 
 
 def reconcile_project_hooks(run: Run, manifest: dict) -> None:
@@ -875,10 +1005,16 @@ def main() -> int:
     parser.add_argument(
         "--dry-run", action="store_true", help="report changes without making them"
     )
-    parser.add_argument(
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument(
         "--refresh-skills",
         action="store_true",
         help="only reinstall every declared skill source",
+    )
+    modes.add_argument(
+        "--update-only",
+        action="store_true",
+        help="only update declared Claude marketplaces and plugins",
     )
     parser.add_argument(
         "--justfile",
@@ -894,7 +1030,10 @@ def main() -> int:
     justfile = args.justfile or args.manifest.parent / "justfile"
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
     run = Run(args.dry_run, stream=args.refresh_skills, manifest=manifest)
-    if args.refresh_skills:
+    if args.update_only:
+        update_declared_claude_plugins(run, manifest)
+        run.finish()
+    elif args.refresh_skills:
         install_skills(run, manifest, refresh=True)
         # An explicit refresh fails loudly; activation below only warns.
         run.finish()
@@ -948,12 +1087,13 @@ def main() -> int:
                 step()
             except Exception as error:  # one broken tool must not block the others
                 warn(f"{name} failed: {error!r}")
-    run.finish()
+    if not args.update_only:
+        run.finish()
     if warnings:
         print(
             f"agent-tooling: finished with {len(warnings)} warning(s)", file=sys.stderr
         )
-    return 0
+    return 1 if args.update_only and warnings else 0
 
 
 if __name__ == "__main__":
