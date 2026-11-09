@@ -63,9 +63,11 @@ if args[:4] == ["access", "list", "packages", "Dematom1"]:
     if os.environ.get("DISCOVERY_FAIL"):
         sys.exit(1)
     print(os.environ.get("PACKAGES", json.dumps({
-        "argo-workflows-axi": {}, "argocd-axi": {}, "datadog-axi": {},
-        "terraform-axi": {}, "k8s-axi": {}, "search-console-axi": {},
-        "axi-verify": {}, "not-a-package": {},
+        "argo-workflows-axi": "read-write", "argocd-axi": "read-write",
+        "datadog-axi": "read-write", "terraform-axi": "read-write",
+        "k8s-axi": "read-write", "search-console-axi": "read-write",
+        "axi-verify": "read-write", "not-a-package": "read-write",
+        "readonly-axi": "read-only",
     })))
 elif args[:2] == ["stage", "list"]:
     print(json.dumps([item for item in items if item["packageName"] == args[2]] if os.environ.get("PENDING") and args[2] == items[0]["packageName"] else []))
@@ -135,7 +137,7 @@ print("123456")
     assert result.returncode == 0 and "nothing pending" in result.stdout
     listed = [line for line in trace.splitlines() if line.startswith("stage list ")]
     assert len(listed) == 7 and "op read" not in trace
-    assert "not-a-package" not in trace and "stage approve" not in trace
+    assert "not-a-package" not in trace and "readonly-axi" not in trace and "stage approve" not in trace
     assert "stage list axi-verify --json" in trace and "stage list terraform-axi --json" in trace
     result, trace = run({"DISCOVERY_FAIL": "1"})
     assert result.returncode == 1 and "npm access list failed" in result.stdout

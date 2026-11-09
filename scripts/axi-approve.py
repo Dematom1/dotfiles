@@ -213,6 +213,7 @@ def compare_versions(left, right):
 
 
 def main():
+    """Discover writable packages and interactively approve pending releases."""
     parser = argparse.ArgumentParser(
         description=__doc__,
         epilog=(
@@ -235,8 +236,9 @@ def main():
         raise ValueError("unexpected npm package listing (expected an object)")
     packages = sorted(
         package
-        for package in packages
-        if package.endswith("-axi") or package == "axi-verify"
+        for package, access in packages.items()
+        if access == "read-write"
+        and (package.endswith("-axi") or package == "axi-verify")
     )
     pending = []
     for package in packages:
