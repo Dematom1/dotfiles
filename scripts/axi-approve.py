@@ -12,7 +12,6 @@ import tempfile
 import uuid
 from functools import cmp_to_key
 
-PACKAGES = ("argo-workflows-axi", "argocd-axi", "datadog-axi")
 REGISTRY = "https://registry.npmjs.org/"
 
 
@@ -231,8 +230,16 @@ def main():
         raise ValueError(
             "npm >= 11.19 is required on PATH; rebuild dotfiles and reopen the terminal"
         )
+    packages = npm("access", "list", "packages", "Dematom1", "--json")
+    if not isinstance(packages, dict):
+        raise ValueError("unexpected npm package listing (expected an object)")
+    packages = sorted(
+        package
+        for package in packages
+        if package.endswith("-axi") or package == "axi-verify"
+    )
     pending = []
-    for package in PACKAGES:
+    for package in packages:
         items = npm("stage", "list", package, "--json")
         if not isinstance(items, list):
             raise ValueError("unexpected npm stage list response (expected an array)")
