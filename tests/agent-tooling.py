@@ -23,6 +23,9 @@ state = json.load(open(state_path))
 args = sys.argv[1:]
 with open(os.environ["FAKE_LOG"], "a") as log:
     log.write("claude " + " ".join(args) + "\n")
+if os.environ.get("FAKE_CONFIG_LOG"):
+    with open(os.environ["FAKE_CONFIG_LOG"], "a") as log:
+        log.write(" ".join(args) + "|" + os.environ.get("CLAUDE_CONFIG_DIR", "<unset>") + "\n")
 if args == ["plugin", "list", "--json"]:
     if os.environ.get("FAKE_CLAUDE_FAIL_INVENTORY") == "plugins":
         sys.exit("plugin inventory unavailable")
@@ -30,7 +33,12 @@ if args == ["plugin", "list", "--json"]:
 elif args == ["plugin", "marketplace", "list", "--json"]:
     if os.environ.get("FAKE_CLAUDE_FAIL_INVENTORY") == "marketplaces":
         sys.exit("marketplace inventory unavailable")
-    print(json.dumps(state["marketplaces"]))
+    registry = __import__("pathlib").Path(os.environ.get("CLAUDE_CONFIG_DIR", "")) / "plugins/known_marketplaces.json"
+    if os.environ.get("CLAUDE_CONFIG_DIR") and registry.is_file():
+        entries = json.loads(registry.read_text())
+        print(json.dumps([{"name": name, **details} for name, details in entries.items()]))
+    else:
+        print(json.dumps(state["marketplaces"]))
 elif args[:2] == ["plugin", "uninstall"]:
     state["plugins"] = [p for p in state["plugins"] if not (p["id"] == args[2] and p["scope"] == args[-1] and (args[-1] != "project" or p["projectPath"] == os.getcwd()))]
 elif args[:3] == ["plugin", "marketplace", "remove"]:
@@ -495,6 +503,8 @@ def reconcile(
     manifest_file=manifest_path,
     expected_status=0,
     fail_inventory=None,
+    config_dir=None,
+    config_log=None,
 ):
     # USER keeps the real /etc/profiles Nix profile out of the AXI tool lookup.
     env = {
@@ -504,6 +514,8 @@ def reconcile(
         "FAKE_CLAUDE_STATE": str(state),
         "FAKE_LOG": str(log),
         **({"FAKE_CLAUDE_FAIL_INVENTORY": fail_inventory} if fail_inventory else {}),
+        **({"CLAUDE_CONFIG_DIR": str(config_dir)} if config_dir else {}),
+        **({"FAKE_CONFIG_LOG": str(config_log)} if config_log else {}),
     }
     result = subprocess.run(
         [sys.executable, script, "--manifest", manifest_file, *extra],
@@ -598,6 +610,8 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
     update_state_path.write_text(json.dumps(update_state))
     update_home = root / "update-only/home"
     shutil.copytree(home, update_home, symlinks=True)
+    update_pi_settings = update_home / ".pi/agent/settings.json"
+    update_pi_before = update_pi_settings.read_bytes()
     update_log = root / "update-only/calls.log"
     update_result = reconcile(
         update_home, bin_dir, update_state_path, update_log, "--update-only"
@@ -639,6 +653,55 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
         "update-only installed absent declared plugin",
     )
     check("ponytail@ponytail: 1.0 -> 2.0" in update_result.stdout, update_result.stdout)
+    check(update_pi_settings.read_bytes() == update_pi_before, "update-only changed Pi settings")
+
+    custom_config = root / "custom-claude-config"
+    write_json(
+        custom_config / "plugins/known_marketplaces.json",
+        {
+            "pstack-claude": {
+                "source": {"source": "github", "repo": "michael-denyer/pstack-claude"}
+            },
+            "ponytail": {
+                "source": {"source": "github", "repo": "untrusted/fork"}
+            },
+        },
+    )
+    custom_state_path = root / "update-only/custom-state.json"
+    custom_state = json.loads(state.read_text())
+    custom_state["plugins"].append(
+        {"id": "ponytail@ponytail", "scope": "user", "enabled": True}
+    )
+    custom_state_path.write_text(json.dumps(custom_state))
+    custom_home = root / "update-only/custom-home"
+    shutil.copytree(home, custom_home, symlinks=True)
+    custom_log = root / "update-only/custom.log"
+    config_log = root / "update-only/config.log"
+    custom_result = reconcile(
+        custom_home, bin_dir, custom_state_path, custom_log, "--update-only",
+        expected_status=1, config_dir=custom_config, config_log=config_log,
+    )
+    check(
+        not any("ponytail" in line and "update" in line for line in calls(custom_log)),
+        "custom-config source mismatch did not block marketplace and plugin updates",
+    )
+    check("untrusted/fork" in custom_result.stderr, custom_result.stderr)
+    check(
+        any(
+            line.startswith("plugin update pstack@pstack-claude --scope user|")
+            and line.endswith(str(custom_config))
+            for line in calls(config_log)
+        ),
+        f"plugin update did not target CLAUDE_CONFIG_DIR: {calls(config_log)}",
+    )
+
+    no_claude = root / "no-claude"
+    no_claude.mkdir()
+    unavailable_result = reconcile(
+        update_home, no_claude, state, root / "update-only/no-claude.log",
+        "--update-only", expected_status=1,
+    )
+    check("claude not on PATH" in unavailable_result.stderr, unavailable_result.stderr)
 
     mismatch_state_path = root / "update-only/mismatch.json"
     mismatch_state = json.loads(state.read_text())
@@ -1028,6 +1091,14 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
     check(
         mutating(calls(log)) == updates,
         f"second run ran unexpected mutating commands: {mutating(calls(log))}",
+    )
+    check(
+        "claude plugin marketplace update pstack-claude" in calls(log),
+        "normal reconciliation skipped marketplace updates",
+    )
+    check(
+        any("plugin update pstack@pstack-claude --scope user" in line for line in calls(log)),
+        "normal reconciliation skipped declared user plugin updates",
     )
     check(
         "updated" not in result.stdout and "removed" not in result.stdout,

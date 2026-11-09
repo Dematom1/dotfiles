@@ -667,6 +667,7 @@ def claude_json(claude: str, args: list[str], timeout: int = 120):
             prefix="agent-tooling-inventory-"
         ) as temporary:
             home = Path(temporary)
+            config_source = Path(os.environ.get("CLAUDE_CONFIG_DIR") or HOME / ".claude").expanduser()
             for relative in [
                 ".claude.json",
                 ".claude/settings.json",
@@ -674,7 +675,11 @@ def claude_json(claude: str, args: list[str], timeout: int = 120):
                 ".claude/plugins/installed_plugins.json",
                 ".claude/plugins/known_marketplaces.json",
             ]:
-                source = HOME / relative
+                source = (
+                    HOME / relative
+                    if relative == ".claude.json"
+                    else config_source / Path(relative).relative_to(".claude")
+                )
                 if source.is_file():
                     target = home / relative
                     target.parent.mkdir(parents=True, exist_ok=True)
@@ -686,7 +691,10 @@ def claude_json(claude: str, args: list[str], timeout: int = 120):
                 "XDG_CACHE_HOME": str(home / ".cache"),
                 "XDG_STATE_HOME": str(home / ".state"),
             }
-            env.pop("CLAUDE_CONFIG_DIR", None)
+            if os.environ.get("CLAUDE_CONFIG_DIR"):
+                env["CLAUDE_CONFIG_DIR"] = str(home / ".claude")
+            else:
+                env.pop("CLAUDE_CONFIG_DIR", None)
             output = subprocess.run(
                 [claude, *args, "--json"],
                 cwd=home,
@@ -797,7 +805,7 @@ def update_declared_claude_plugins(run: Run, manifest: dict) -> None:
     """Update available declared Claude plugins and marketplaces independently."""
     claude = shutil.which("claude")
     if claude is None:
-        note("claude not on PATH; skipped Claude plugins and marketplaces")
+        warn("claude not on PATH; skipped Claude plugins and marketplaces")
         return
     plugins = claude_json(claude, ["plugin", "list"])
     markets = claude_json(claude, ["plugin", "marketplace", "list"])
