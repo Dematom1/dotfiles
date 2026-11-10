@@ -258,7 +258,8 @@
           assert agent.StartInterval == 600;
           assert agent.RunAtLoad;
           assert agent.ProgramArguments == [ "${pkgs.berth}/bin/berth" "sweep" "--confirm" ];
-          assert agent.StandardOutPath == agent.StandardErrorPath;
+          assert agent.StandardOutPath == "/Users/laszlohoranszky/Library/Logs/berth-sweep.log";
+          assert agent.StandardErrorPath == "/Users/laszlohoranszky/Library/Logs/berth-sweep.log";
           pkgs.runCommand "berth-sweep-launchd" { } ''
             touch "$out"
           '';
