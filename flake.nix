@@ -256,7 +256,8 @@
       } // nixpkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
         berth-version = pkgs.runCommand "berth-version" { } ''
           ${pkgs.berth}/bin/berth --version > "$out"
-          test "$(cat "$out")" = "0.2.1"
+          test "$(cat "$out")" = "${pkgs.berth.version}"
+          test "$(cat "$out")" != "devel"
         '';
 
         berth-sweep-launchd =
