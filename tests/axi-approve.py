@@ -49,7 +49,7 @@ import json, os, sys
 from pathlib import Path
 args = sys.argv[1:]
 with open(os.environ["TRACE"], "a") as trace:
-    trace.write(("version" if args == ["--version"] else " ".join(args[:3])) + "\\n")
+    trace.write(("version" if args == ["--version"] else " ".join(args[:4] if args[:2] in (["access", "list"], ["stage", "list"]) else args[:3])) + "\\n")
 if args == ["--version"]:
     print(os.environ.get("VERSION", "11.19.0"))
     sys.exit(0)
@@ -59,7 +59,17 @@ assert args[args.index("--registry") + 1] == "https://registry.npmjs.org/"
 command = args[1:] if args[:1] == ["--auth-type=web"] else args
 items = json.loads(os.environ.get("STAGES", json.dumps([json.loads(os.environ["STAGE"])])))
 item = next((item for item in items if item["id"] in args), items[0])
-if args[:2] == ["stage", "list"]:
+if args[:4] == ["access", "list", "packages", "Dematom1"]:
+    if os.environ.get("DISCOVERY_FAIL"):
+        sys.exit(1)
+    print(os.environ.get("PACKAGES", json.dumps({
+        "argo-workflows-axi": "read-write", "argocd-axi": "read-write",
+        "datadog-axi": "read-write", "terraform-axi": "read-write",
+        "k8s-axi": "read-write", "search-console-axi": "read-write",
+        "axi-verify": "read-write", "not-a-package": "read-write",
+        "readonly-axi": "read-only",
+    })))
+elif args[:2] == ["stage", "list"]:
     print(json.dumps([item for item in items if item["packageName"] == args[2]] if os.environ.get("PENDING") and args[2] == items[0]["packageName"] else []))
 elif args[:2] == ["stage", "view"]:
     print(json.dumps(item))
@@ -125,7 +135,13 @@ print("123456")
 
     result, trace = run()
     assert result.returncode == 0 and "nothing pending" in result.stdout
-    assert trace.count("stage list") == 3 and "op read" not in trace
+    listed = [line for line in trace.splitlines() if line.startswith("stage list ")]
+    assert len(listed) == 7 and "op read" not in trace
+    assert "not-a-package" not in trace and "readonly-axi" not in trace and "stage approve" not in trace
+    assert "stage list axi-verify --json" in trace and "stage list terraform-axi --json" in trace
+    result, trace = run({"DISCOVERY_FAIL": "1"})
+    assert result.returncode == 1 and "npm access list failed" in result.stdout
+    assert "stage list argo-workflows-axi" not in trace
     result, trace = run({"VERSION": "11.18.0"})
     assert result.returncode == 1 and "npm >= 11.19" in result.stdout
     assert "stage" not in trace
