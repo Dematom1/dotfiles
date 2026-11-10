@@ -88,6 +88,7 @@
         kubernetes-axi = final.callPackage ./packages/node-source-tool.nix { src = kubernetes-axi; };
         docker-axi = final.callPackage ./packages/node-source-tool.nix { src = docker-axi; };
         treehouse = treehouse.packages.${final.stdenv.hostPlatform.system}.default;
+        berth = final.callPackage ./packages/berth.nix { };
         claude-swap = final.callPackage ./packages/claude-swap.nix { };
         # A Pi extension, not a CLI: home.nix links its entrypoint directory.
         pi-fff = (final.callPackage ./packages/npm-tool.nix { npmRoot = ./packages/npm/pi-fff; }).overrideAttrs (old: {
@@ -204,7 +205,7 @@
         inherit (pkgs) kubernetes-axi docker-axi treehouse claude-swap;
         default = pkgs.kubernetes-axi;
       } // nixpkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
-        inherit (pkgs) signoff;
+        inherit (pkgs) signoff berth;
       });
 
     # The package build runs upstream's unit suite. This additional bounded
@@ -250,6 +251,19 @@
           mkdir "$out"
         '';
       } // nixpkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
+        berth-sweep-launchd =
+          let
+            agent = self.darwinConfigurations.personal.config.launchd.user.agents.berth-sweep.serviceConfig;
+          in
+          assert agent.StartInterval == 600;
+          assert agent.RunAtLoad;
+          assert agent.ProgramArguments == [ "${pkgs.berth}/bin/berth" "sweep" "--confirm" ];
+          assert agent.StandardOutPath == "/Users/laszlohoranszky/Library/Logs/berth-sweep.log";
+          assert agent.StandardErrorPath == "/Users/laszlohoranszky/Library/Logs/berth-sweep.log";
+          pkgs.runCommand "berth-sweep-launchd" { } ''
+            touch "$out"
+          '';
+
         claude-swap-launchd =
           let
             disabled = self.darwinConfigurations.personal.config.home-manager.users.laszlohoranszky;

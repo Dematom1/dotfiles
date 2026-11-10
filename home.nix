@@ -60,7 +60,7 @@ in
     "/usr/local/bin"
   ];
 
-  home.packages = with pkgs; [
+  home.packages = lib.optionals pkgs.stdenv.isDarwin [ pkgs.berth ] ++ (with pkgs; [
     # core cli - portable across macOS and the Linux sandbox
     just doppler tmux jq yq bat fd fzf eza zoxide atuin direnv delta glab backblaze-b2 b2
     # git
@@ -107,7 +107,7 @@ in
     # work-only nix packages
     awscli2
     slack-axi aws-axi gws-axi notion-axi
-  ];
+  ]);
   # Desktop fonts only matter where there's a GUI.
   fonts.fontconfig.enable = pkgs.stdenv.isDarwin;
   home.sessionVariables = {
@@ -325,9 +325,9 @@ in
         "/usr/local/zig"
         ${lib.concatStringsSep "\n        " (map (path: ''"${path}"'') homebrewPath)}
         "$HOME/.bun/bin"
+        "/etc/profiles/per-user/$USER/bin"
         "$HOME/go/bin"
         "$HOME/.local/bin"
-        "/etc/profiles/per-user/$USER/bin"
         $path
       )
       ${securePathOrder}
