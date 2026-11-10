@@ -51,6 +51,15 @@ in
     finder.CreateDesktop = false;          # clean desktop
     trackpad.Clicking = true;              # tap to click
   };
+  launchd.user.agents.berth-sweep.serviceConfig = {
+    ProgramArguments = [ "${pkgs.berth}/bin/berth" "sweep" "--confirm" ];
+    StartInterval = 600;
+    RunAtLoad = true;
+    EnvironmentVariables.PATH = "/etc/profiles/per-user/${username}/bin:/Users/${username}/.nix-profile/bin:/run/current-system/sw/bin:/opt/homebrew/bin:/usr/local/bin:/Applications/Docker.app/Contents/Resources/bin:/Users/${username}/.docker/bin:/usr/bin:/bin:/usr/sbin:/sbin";
+    StandardOutPath = "/Users/${username}/Library/Logs/berth-sweep.log";
+    StandardErrorPath = "/Users/${username}/Library/Logs/berth-sweep.log";
+  };
+
   launchd.user.agents.ice.serviceConfig = {
     ProgramArguments = [ "/usr/bin/open" "-a" "/Applications/Ice.app" ];
     RunAtLoad = true;
