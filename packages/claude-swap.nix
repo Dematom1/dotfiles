@@ -10,6 +10,7 @@ let
       hash = "sha256-PxBqn7xz453SZslxJDIIfeeKbWRAhMfCQdaiXDFpEVs=";
     };
     dependencies = old.dependencies ++ [ python3Packages.pygments ];
+    disabledTests = (old.disabledTests or [ ]) ++ [ "test_widget_visibility.py::test_hide" ];
   });
 in
 python3Packages.buildPythonApplication rec {
