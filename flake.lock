@@ -1,25 +1,5 @@
 {
   "nodes": {
-    "berth": {
-      "inputs": {
-        "flake-compat": "flake-compat",
-        "nixpkgs": "nixpkgs"
-      },
-      "locked": {
-        "lastModified": 1794352699,
-        "narHash": "sha256-FXpUzekToTwZ1gEvS9xHbEJszU4EZG6gYiYpv0OEOJI=",
-        "owner": "Dematom1",
-        "repo": "berth",
-        "rev": "7f2310c1f2836244a49ff46138c4eca0619a386a",
-        "type": "github"
-      },
-      "original": {
-        "owner": "Dematom1",
-        "ref": "v0.2.1",
-        "repo": "berth",
-        "type": "github"
-      }
-    },
     "brew-src": {
       "flake": false,
       "locked": {
@@ -34,6 +14,26 @@
         "owner": "Homebrew",
         "ref": "6.0.11",
         "repo": "brew",
+        "type": "github"
+      }
+    },
+    "dibs": {
+      "inputs": {
+        "flake-compat": "flake-compat",
+        "nixpkgs": "nixpkgs"
+      },
+      "locked": {
+        "lastModified": 1794440196,
+        "narHash": "sha256-dcBmvhCDcDJxTitoO9eq1gFXPudBqVTvPKk4mnouoTs=",
+        "owner": "Dematom1",
+        "repo": "dibs",
+        "rev": "5636063e1d1721337e4acfbec19ee15f6f28215e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Dematom1",
+        "ref": "v0.2.2",
+        "repo": "dibs",
         "type": "github"
       }
     },
@@ -259,7 +259,7 @@
     },
     "root": {
       "inputs": {
-        "berth": "berth",
+        "dibs": "dibs",
         "docker-axi": "docker-axi",
         "home-manager": "home-manager",
         "kubernetes-axi": "kubernetes-axi",

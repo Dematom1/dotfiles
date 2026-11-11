@@ -57,7 +57,7 @@
     treehouse.url = "github:kunchenguid/treehouse/v3.1.5";
 
     # Upstream owns the vendor hash and release version stamp.
-    berth.url = "github:Dematom1/berth/v0.2.1";
+    dibs.url = "github:Dematom1/dibs/v0.2.2";
 
     # Builds only the signoff signer. Its Keychain access list names one exact
     # build, so the signer must not change when nixpkgs does. The URL pins a
@@ -67,7 +67,7 @@
     nixpkgs-signoff.url = "github:NixOS/nixpkgs/fc51889f81924f15fba77a3c0b79cfb3f78fe0d4";
   };
 
-  outputs = inputs@{ self, nix-darwin, nix-homebrew, home-manager, nixpkgs, nixpkgs-unstable, nixpkgs-bun, nixpkgs-signoff, kubernetes-axi, docker-axi, treehouse, berth }:
+  outputs = inputs@{ self, nix-darwin, nix-homebrew, home-manager, nixpkgs, nixpkgs-unstable, nixpkgs-bun, nixpkgs-signoff, kubernetes-axi, docker-axi, treehouse, dibs }:
   let
     supportedSystems = [
       "aarch64-darwin"
@@ -91,7 +91,7 @@
         kubernetes-axi = final.callPackage ./packages/node-source-tool.nix { src = kubernetes-axi; };
         docker-axi = final.callPackage ./packages/node-source-tool.nix { src = docker-axi; };
         treehouse = treehouse.packages.${final.stdenv.hostPlatform.system}.default;
-        berth = berth.packages.${final.stdenv.hostPlatform.system}.default;
+        dibs = dibs.packages.${final.stdenv.hostPlatform.system}.default;
         claude-swap = final.callPackage ./packages/claude-swap.nix { };
         # A Pi extension, not a CLI: home.nix links its entrypoint directory.
         pi-fff = (final.callPackage ./packages/npm-tool.nix { npmRoot = ./packages/npm/pi-fff; }).overrideAttrs (old: {
@@ -208,7 +208,7 @@
         inherit (pkgs) kubernetes-axi docker-axi treehouse claude-swap;
         default = pkgs.kubernetes-axi;
       } // nixpkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
-        inherit (pkgs) signoff berth;
+        inherit (pkgs) signoff dibs;
       });
 
     # The package build runs upstream's unit suite. This additional bounded
@@ -254,22 +254,22 @@
           mkdir "$out"
         '';
       } // nixpkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
-        berth-version = pkgs.runCommand "berth-version" { } ''
-          ${pkgs.berth}/bin/berth --version > "$out"
-          test "$(cat "$out")" = "${pkgs.berth.version}"
+        dibs-version = pkgs.runCommand "dibs-version" { } ''
+          ${pkgs.dibs}/bin/dibs --version > "$out"
+          test "$(cat "$out")" = "${pkgs.dibs.version}"
           test "$(cat "$out")" != "devel"
         '';
 
-        berth-sweep-launchd =
+        dibs-sweep-launchd =
           let
-            agent = self.darwinConfigurations.personal.config.launchd.user.agents.berth-sweep.serviceConfig;
+            agent = self.darwinConfigurations.personal.config.launchd.user.agents.dibs-sweep.serviceConfig;
           in
           assert agent.StartInterval == 600;
           assert agent.RunAtLoad;
-          assert agent.ProgramArguments == [ "${pkgs.berth}/bin/berth" "sweep" "--confirm" ];
-          assert agent.StandardOutPath == "/Users/laszlohoranszky/Library/Logs/berth-sweep.log";
-          assert agent.StandardErrorPath == "/Users/laszlohoranszky/Library/Logs/berth-sweep.log";
-          pkgs.runCommand "berth-sweep-launchd" { } ''
+          assert agent.ProgramArguments == [ "${pkgs.dibs}/bin/dibs" "sweep" "--confirm" ];
+          assert agent.StandardOutPath == "/Users/laszlohoranszky/Library/Logs/dibs-sweep.log";
+          assert agent.StandardErrorPath == "/Users/laszlohoranszky/Library/Logs/dibs-sweep.log";
+          pkgs.runCommand "dibs-sweep-launchd" { } ''
             touch "$out"
           '';
 
