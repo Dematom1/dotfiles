@@ -56,6 +56,9 @@
     # follow nixpkgs: upstream builds and tests only against its own pin.
     treehouse.url = "github:kunchenguid/treehouse/v3.1.5";
 
+    # Upstream owns the vendor hash and release version stamp.
+    berth.url = "github:Dematom1/berth/v0.2.1";
+
     # Builds only the signoff signer. Its Keychain access list names one exact
     # build, so the signer must not change when nixpkgs does. The URL pins a
     # commit, so `nix flake update` and Renovate lock file maintenance cannot
@@ -64,7 +67,7 @@
     nixpkgs-signoff.url = "github:NixOS/nixpkgs/fc51889f81924f15fba77a3c0b79cfb3f78fe0d4";
   };
 
-  outputs = inputs@{ self, nix-darwin, nix-homebrew, home-manager, nixpkgs, nixpkgs-unstable, nixpkgs-bun, nixpkgs-signoff, kubernetes-axi, docker-axi, treehouse }:
+  outputs = inputs@{ self, nix-darwin, nix-homebrew, home-manager, nixpkgs, nixpkgs-unstable, nixpkgs-bun, nixpkgs-signoff, kubernetes-axi, docker-axi, treehouse, berth }:
   let
     supportedSystems = [
       "aarch64-darwin"
@@ -88,7 +91,7 @@
         kubernetes-axi = final.callPackage ./packages/node-source-tool.nix { src = kubernetes-axi; };
         docker-axi = final.callPackage ./packages/node-source-tool.nix { src = docker-axi; };
         treehouse = treehouse.packages.${final.stdenv.hostPlatform.system}.default;
-        berth = final.callPackage ./packages/berth.nix { };
+        berth = berth.packages.${final.stdenv.hostPlatform.system}.default;
         claude-swap = final.callPackage ./packages/claude-swap.nix { };
         # A Pi extension, not a CLI: home.nix links its entrypoint directory.
         pi-fff = (final.callPackage ./packages/npm-tool.nix { npmRoot = ./packages/npm/pi-fff; }).overrideAttrs (old: {
@@ -251,6 +254,12 @@
           mkdir "$out"
         '';
       } // nixpkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
+        berth-version = pkgs.runCommand "berth-version" { } ''
+          ${pkgs.berth}/bin/berth --version > "$out"
+          test "$(cat "$out")" = "${pkgs.berth.version}"
+          test "$(cat "$out")" != "devel"
+        '';
+
         berth-sweep-launchd =
           let
             agent = self.darwinConfigurations.personal.config.launchd.user.agents.berth-sweep.serviceConfig;
