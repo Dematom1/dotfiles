@@ -57,7 +57,7 @@
     treehouse.url = "github:kunchenguid/treehouse/v3.1.5";
 
     # Upstream owns the vendor hash and release version stamp.
-    dibs.url = "github:Dematom1/dibs/v0.2.2";
+    dibs.url = "github:Dematom1/dibs/v0.2.3";
 
     # Builds only the signoff signer. Its Keychain access list names one exact
     # build, so the signer must not change when nixpkgs does. The URL pins a
@@ -258,6 +258,8 @@
           ${pkgs.dibs}/bin/dibs --version > "$out"
           test "$(cat "$out")" = "${pkgs.dibs.version}"
           test "$(cat "$out")" != "devel"
+          test -x ${pkgs.dibs}/bin/berth
+          test "$(${pkgs.dibs}/bin/berth --version)" = "$(cat "$out")"
         '';
 
         dibs-sweep-launchd =
