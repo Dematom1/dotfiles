@@ -135,6 +135,14 @@ in
   # Homebrew owns the app bundle and runs before postActivation. Keep the
   # PATH-visible CLI byte-for-byte aligned with the signed bundle binary.
   system.activationScripts.postActivation.text = ''
+      # Retired berth agent: setupLaunchAgents deletes its plist, but its unload
+      # runs without asuser and its failure is ignored, so the job can outlive
+      # the switch. Boot it out by label in the user's GUI domain; absent is fine.
+      retiredUid=$(/usr/bin/id -u ${username}) || exit 1
+      if /bin/launchctl asuser "$retiredUid" /usr/bin/sudo --user=${username} -- /bin/launchctl print "gui/$retiredUid/org.nixos.berth-sweep" >/dev/null 2>&1; then
+        /bin/launchctl asuser "$retiredUid" /usr/bin/sudo --user=${username} -- /bin/launchctl bootout "gui/$retiredUid/org.nixos.berth-sweep" || exit 1
+      fi
+
       /usr/bin/sudo -u ${username} /opt/homebrew/bin/brew upgrade --cask automic-vault || true
 
       app="/Applications/Automic Vault.app"
