@@ -60,7 +60,7 @@ in
     "/usr/local/bin"
   ];
 
-  home.packages = lib.optionals pkgs.stdenv.isDarwin [ pkgs.berth ] ++ (with pkgs; [
+  home.packages = lib.optionals pkgs.stdenv.isDarwin [ pkgs.dibs ] ++ (with pkgs; [
     # core cli - portable across macOS and the Linux sandbox
     just doppler tmux jq yq bat fd fzf eza zoxide atuin direnv delta glab backblaze-b2 b2
     # git
