@@ -54,7 +54,7 @@
     # bump is a tag edit plus `nix flake lock`, which
     # .github/workflows/flake-update.yml does daily. It deliberately does not
     # follow nixpkgs: upstream builds and tests only against its own pin.
-    treehouse.url = "github:kunchenguid/treehouse/v3.1.5";
+    treehouse.url = "github:kunchenguid/treehouse/v3.1.8";
 
     # Upstream owns the vendor hash and release version stamp.
     dibs.url = "github:Dematom1/dibs/v0.2.3";
