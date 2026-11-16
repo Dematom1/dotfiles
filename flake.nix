@@ -262,6 +262,22 @@
           test "$(${pkgs.dibs}/bin/berth --version)" = "$(cat "$out")"
         '';
 
+        # dibs has no config-validation command, so this is a JSON-parse check plus
+        # the week-1 settings asserted against the file home-manager links.
+        dibs-config = pkgs.runCommand "dibs-config" { nativeBuildInputs = [ pkgs.jq ]; } ''
+          jq -e '
+            .consumer_contract == true
+            and .exec_owner == true
+            and .shell_adapter == true
+            and .live_owner_protection == true
+            and .treehouse_worktree_adapter == true
+            and .lease_policies == true
+            and .policies.shell.action == "report"
+            and (has("pr_owner") | not)
+          ' ${self.darwinConfigurations.personal.config.home-manager.users.laszlohoranszky.home.file.".config/dibs/config.json".source} > /dev/null
+          touch "$out"
+        '';
+
         dibs-sweep-launchd =
           let
             agent = self.darwinConfigurations.personal.config.launchd.user.agents.dibs-sweep.serviceConfig;
