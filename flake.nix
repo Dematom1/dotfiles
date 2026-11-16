@@ -278,7 +278,12 @@
 
         claude-swap-launchd =
           let
-            disabled = self.darwinConfigurations.personal.config.home-manager.users.laszlohoranszky;
+            # Force both states so the check tests the module, not the committed home.nix value.
+            disabled = (self.darwinConfigurations.personal.extendModules {
+              modules = [ ({ lib, ... }: {
+                home-manager.users.laszlohoranszky.services.claude-swap.autoEnable = lib.mkForce false;
+              }) ];
+            }).config.home-manager.users.laszlohoranszky;
             enabled = (self.darwinConfigurations.personal.extendModules {
               modules = [ ({ lib, ... }: {
                 home-manager.users.laszlohoranszky.services.claude-swap.autoEnable = lib.mkForce true;
