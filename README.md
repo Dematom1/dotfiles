@@ -70,16 +70,15 @@ including Textual 8.2.8 because the nixpkgs version is too old. Rebuild with
 switch` with Home Manager attached, not a separate `home-manager switch`.
 Do not use `cswap upgrade` for this Nix-managed installation.
 
-The macOS auto agent is **off by default**. Set up both accounts manually:
+The macOS auto agent is enabled by default. Set up both accounts manually:
 
 1. With the current account logged into Claude Code, run `cswap add`.
 2. In Claude Code, use `/login` to log into the other account, then run
    `cswap add` again. Do **not** `/logout` first: it can revoke the saved
    account's refresh token.
 3. Run `cswap list` and `cswap status` to verify the accounts and active login.
-4. In `home.nix`, change `services.claude-swap.autoEnable = false;` to
-   `services.claude-swap.autoEnable = true;`, then run `just rebuild personal`
-   (or `just rebuild work`) again.
+4. Run `just rebuild personal` (or `just rebuild work`) again to apply the
+   account setup.
 
 The Home Manager agent `org.nix-community.home.claude-swap` runs
 `cswap auto --interval 60 --threshold 90` at login and restarts if it exits.
