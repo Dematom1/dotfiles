@@ -42,6 +42,24 @@ let
   tailscaleAppCli = pkgs.writeShellScript "tailscale" ''
     exec /Applications/Tailscale.app/Contents/MacOS/Tailscale "$@"
   '';
+  # dibs user config (v0.2.4 README "Lease policies"). pr_owner stays absent (off).
+  # A configured policy row replaces the built-in row, so the shell row restates
+  # every built-in field and changes only action: report (shadow mode: due shells
+  # are listed under held in sweep, never reclaimed automatically).
+  dibsConfig = (pkgs.formats.json { }).generate "dibs-config.json" {
+    consumer_contract = true;
+    exec_owner = true;
+    shell_adapter = true;
+    live_owner_protection = true;
+    treehouse_worktree_adapter = true;
+    lease_policies = true;
+    policies.shell = {
+      binding = "hybrid";
+      ttl = "8h";
+      idle = "30m";
+      action = "report";
+    };
+  };
 in
 {
   imports = [ ./modules/m87-notify.nix ./modules/claude-swap.nix ];
@@ -166,6 +184,9 @@ in
     ".config/ghostty".source    = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/ghostty";
     ".config/aerospace".source  = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/aerospace";
     ".config/sketchybar".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/sketchybar";
+    # dibs is installed only on Darwin (home.packages). A store file, not a link:
+    # the config is declared in home.nix and changes on rebuild.
+    ".config/dibs/config.json".source = dibsConfig;
     # only the JSON - let Karabiner keep its assets/ + automatic_backups/ out of the repo
     ".config/karabiner/karabiner.json".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/karabiner/karabiner.json";
     ".wezterm.lua".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/.wezterm.lua";
