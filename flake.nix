@@ -284,7 +284,7 @@
           in
           assert agent.StartInterval == 600;
           assert agent.RunAtLoad;
-          assert agent.ProgramArguments == [ "${pkgs.dibs}/bin/dibs" "sweep" "--confirm" ];
+          assert agent.ProgramArguments == [ "/bin/sh" "-c" "date -u +%FT%TZ; exec ${pkgs.dibs}/bin/dibs sweep --confirm --json" ];
           assert agent.StandardOutPath == "/Users/laszlohoranszky/Library/Logs/dibs-sweep.log";
           assert agent.StandardErrorPath == "/Users/laszlohoranszky/Library/Logs/dibs-sweep.log";
           assert nixpkgs.lib.hasInfix ''/bin/launchctl bootout "gui/$retiredUid/org.nixos.berth-sweep"'' self.darwinConfigurations.personal.config.system.activationScripts.postActivation.text;

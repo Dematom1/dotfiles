@@ -52,7 +52,7 @@ in
     trackpad.Clicking = true;              # tap to click
   };
   launchd.user.agents.dibs-sweep.serviceConfig = {
-    ProgramArguments = [ "${pkgs.dibs}/bin/dibs" "sweep" "--confirm" ];
+    ProgramArguments = [ "/bin/sh" "-c" "date -u +%FT%TZ; exec ${pkgs.dibs}/bin/dibs sweep --confirm --json" ];
     StartInterval = 600;
     RunAtLoad = true;
     EnvironmentVariables.PATH = "/etc/profiles/per-user/${username}/bin:/Users/${username}/.nix-profile/bin:/run/current-system/sw/bin:/opt/homebrew/bin:/usr/local/bin:/Applications/Docker.app/Contents/Resources/bin:/Users/${username}/.docker/bin:/usr/bin:/bin:/usr/sbin:/sbin";
