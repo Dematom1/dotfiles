@@ -57,7 +57,7 @@
     treehouse.url = "github:kunchenguid/treehouse/v3.1.5";
 
     # Upstream owns the vendor hash and release version stamp.
-    dibs.url = "github:Dematom1/dibs/v0.2.6";
+    dibs.url = "github:Dematom1/dibs/v0.2.7";
 
     # Builds only the signoff signer. Its Keychain access list names one exact
     # build, so the signer must not change when nixpkgs does. The URL pins a
@@ -275,6 +275,9 @@
             and .scopes == true
             and .handoff == true
             and .pr_owner == true
+            and .shims == true
+            and .orphan_audit == true
+            and (has("orphan_evidence_roots") | not)
             and .policies.shell.action == "report"
             and .policies."shell/scope".binding == "hybrid"
             and .policies."shell/scope".ttl == "30m"
@@ -286,13 +289,25 @@
           touch "$out"
         '';
 
+        # The create guard's own test, plus the shim directory leading the zsh PATH.
+        dibs-enforcement =
+          let
+            hm = self.darwinConfigurations.personal.config.home-manager.users.laszlohoranszky;
+          in
+          assert builtins.match ".*\npath=\\(\n *\"/nix/store/[^\"]*-dibs-shims/bin\"\n.*" hm.programs.zsh.envExtra != null;
+          pkgs.runCommand "dibs-enforcement" { } ''
+            test -x ${hm.home.file.".claude/hooks/dibs-create-guard".source}
+            ${pkgs.python311}/bin/python3 ${./tests/dibs-create-guard.py} ${./claude/hooks/dibs-create-guard.py}
+            touch "$out"
+          '';
+
         dibs-sweep-launchd =
           let
             agent = self.darwinConfigurations.personal.config.launchd.user.agents.dibs-sweep.serviceConfig;
           in
           assert agent.StartInterval == 600;
           assert agent.RunAtLoad;
-          assert agent.ProgramArguments == [ "/bin/sh" "-c" "date -u +%FT%TZ; exec ${pkgs.dibs}/bin/dibs sweep --confirm --json" ];
+          assert agent.ProgramArguments == [ "/bin/sh" "-c" "date -u +%FT%TZ; ${pkgs.dibs}/bin/dibs sweep --confirm --json; exec ${pkgs.dibs}/bin/dibs orphans --adopt --ttl 30m --json" ];
           assert agent.StandardOutPath == "/Users/laszlohoranszky/Library/Logs/dibs-sweep.log";
           assert agent.StandardErrorPath == "/Users/laszlohoranszky/Library/Logs/dibs-sweep.log";
           assert nixpkgs.lib.hasInfix ''/bin/launchctl bootout "gui/$retiredUid/org.nixos.berth-sweep"'' self.darwinConfigurations.personal.config.system.activationScripts.postActivation.text;

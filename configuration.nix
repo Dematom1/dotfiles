@@ -51,8 +51,11 @@ in
     finder.CreateDesktop = false;          # clean desktop
     trackpad.Clicking = true;              # tap to click
   };
+  # Each run logs the sweep, then the opt-in orphan audit (dibs v0.2.7 docs/adapters.md
+  # "Adopting agent orphans"): Compose projects with agent evidence get a 30m lease
+  # owned by the exiting audit process, so a later sweep reclaims them.
   launchd.user.agents.dibs-sweep.serviceConfig = {
-    ProgramArguments = [ "/bin/sh" "-c" "date -u +%FT%TZ; exec ${pkgs.dibs}/bin/dibs sweep --confirm --json" ];
+    ProgramArguments = [ "/bin/sh" "-c" "date -u +%FT%TZ; ${pkgs.dibs}/bin/dibs sweep --confirm --json; exec ${pkgs.dibs}/bin/dibs orphans --adopt --ttl 30m --json" ];
     StartInterval = 600;
     RunAtLoad = true;
     EnvironmentVariables.PATH = "/etc/profiles/per-user/${username}/bin:/Users/${username}/.nix-profile/bin:/run/current-system/sw/bin:/opt/homebrew/bin:/usr/local/bin:/Applications/Docker.app/Contents/Resources/bin:/Users/${username}/.docker/bin:/usr/bin:/bin:/usr/sbin:/sbin";

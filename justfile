@@ -164,6 +164,7 @@ check-regressions:
     ./tests/terraform.sh
     ./tests/agent-tools.sh
     ./tests/agent-tooling.py
+    ./tests/dibs-create-guard.py
     ./tests/pi-signed.sh
     python3 ./tests/m87-notify.py
     ./tests/ponytail.sh
