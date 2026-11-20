@@ -32,6 +32,9 @@ DENY = [
     "echo hi\n/usr/local/bin/orbctl create ubuntu",
     "echo `/usr/local/bin/docker compose up -d`",
     "{ /usr/local/bin/docker compose up -d; }",
+    "echo $(/usr/local/bin/docker compose up -d)",
+    "x=$(/usr/local/bin/docker compose up -d)",
+    "! /usr/local/bin/docker compose up -d",
 ]
 ALLOW = [
     "docker compose up -d",
@@ -48,6 +51,7 @@ ALLOW = [
     "echo 'unbalanced",
     'echo "{}"',
     "git commit -m 'a `docker run -d x` b'",
+    "echo hi | grep !",
 ]
 
 
