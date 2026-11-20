@@ -4,6 +4,7 @@
 import json
 import os
 from pathlib import Path
+import shlex
 import subprocess
 import sys
 
@@ -43,6 +44,8 @@ DENY = [
     "if true; then docker run -d nginx; fi",
     "eval '/usr/local/bin/docker compose up -d'",
     "eval docker run -d nginx",
+    "docker -H run run -d nginx",
+    "/usr/local/bin/docker -H compose compose up -d",
     "while false; do orb create ubuntu x; done",
     "until true; do :; done; if x; then :; else /usr/local/bin/k3d cluster create; fi",
 ]
@@ -67,6 +70,7 @@ ALLOW = [
     "for i in 1; do docker ps; done",
     "if true; then docker compose up -d; fi",
     "eval 'docker ps'",
+    "docker --context compose compose up -d",
 ]
 
 
@@ -78,6 +82,11 @@ def run(command, task="fm-task", tool="Bash", raw=None):
     result = subprocess.run([sys.executable, str(HOOK)], input=stdin, capture_output=True, text=True, env=env)
     return result.returncode, result.stderr
 
+
+nested = "/usr/local/bin/docker compose up -d"
+for _ in range(4):
+    nested = f"bash -c {shlex.quote(nested)}"
+DENY.append(nested)
 
 failures = []
 for command in DENY:

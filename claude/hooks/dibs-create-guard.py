@@ -14,6 +14,7 @@ Exit 2 with a stderr reason is the deny form both Claude Code and Codex honor.
 
 import json
 import os
+import re
 import shlex
 import sys
 
@@ -39,6 +40,18 @@ WRAPPER_VALUE_FLAGS = {
              "-C", "--close-from", "-D", "--chdir", "-R", "--chroot", "-T", "--command-timeout",
              "-r", "--role", "-t", "--type"},
 }
+
+
+def positional_tail(args, value_flags):
+    skip = False
+    for i, arg in enumerate(args):
+        if skip:
+            skip = False
+        elif arg.startswith("-"):
+            skip = arg in value_flags
+        else:
+            return args[i:]
+    return []
 
 
 def positionals(args, value_flags):
@@ -80,11 +93,17 @@ def create_kind(tool, args):
     if tool == "docker":
         pos = positionals(args, DOCKER_GLOBAL_VALUE_FLAGS)
         if pos[:1] == ["compose"]:
-            rest = args[args.index("compose") + 1:]
+            rest = positional_tail(args, DOCKER_GLOBAL_VALUE_FLAGS)[1:]
             if positionals(rest, COMPOSE_VALUE_FLAGS)[:1] == ["up"]:
                 return "docker compose up", True
-        if pos[:1] == ["run"] or pos[:2] == ["container", "run"]:
-            if run_detached(args[args.index("run") + 1:]):
+        if pos[:1] == ["run"]:
+            rest = positional_tail(args, DOCKER_GLOBAL_VALUE_FLAGS)[1:]
+            if run_detached(rest):
+                return "docker run -d", False
+        if pos[:2] == ["container", "run"]:
+            rest = positional_tail(args, DOCKER_GLOBAL_VALUE_FLAGS)[1:]
+            rest = positional_tail(rest, set())[1:]
+            if run_detached(rest):
                 return "docker run -d", False
     elif tool == "docker-compose":
         if positionals(args, COMPOSE_VALUE_FLAGS)[:1] == ["up"]:
@@ -178,16 +197,17 @@ def check(command, depth=0):
             continue
         program, args = words[0], words[1:]
         tool = os.path.basename(program)
-        if tool == "eval" and depth < 3:
-            nested = check(" ".join(args), depth + 1)
-            if nested:
-                return nested
-            continue
         flag = next((i for i, a in enumerate(args[:-1]) if a[:1] == "-" and a[1:2] != "-" and "c" in a), None)
-        if tool in SHELLS and depth < 3 and flag is not None:
-            nested = check(args[flag + 1], depth + 1)
-            if nested:
-                return nested
+        nested_command = " ".join(args) if tool == "eval" else (args[flag + 1] if tool in SHELLS and flag is not None else None)
+        if nested_command is not None:
+            if depth >= 3:
+                if any(shlex_word in {"docker", "docker-compose", "kind", "k3d", "orb", "orbctl"}
+                       for shlex_word in re.findall(r"(?<![\w-])(?:docker|docker-compose|kind|k3d|orb|orbctl)(?![\w-])", nested_command)):
+                    return "DIBS_TASK is set: command nests too deeply to check safely; run the create directly by its bare name or via dibs create."
+            else:
+                nested = check(nested_command, depth + 1)
+                if nested:
+                    return nested
             continue
         if "/" in program:
             bypass = bypass or f"the path {program}"
