@@ -35,6 +35,14 @@ DENY = [
     "echo $(/usr/local/bin/docker compose up -d)",
     "x=$(/usr/local/bin/docker compose up -d)",
     "! /usr/local/bin/docker compose up -d",
+    "docker-compose up -d",
+    "docker-compose -f c.yml up",
+    "docker run -e A=${X} -d nginx",
+    "/usr/local/bin/docker compose -f ${F} up -d",
+    "for i in 1; do /usr/local/bin/kind create cluster; done",
+    "if true; then docker run -d nginx; fi",
+    "while false; do orb create ubuntu x; done",
+    "until true; do :; done; if x; then :; else /usr/local/bin/k3d cluster create; fi",
 ]
 ALLOW = [
     "docker compose up -d",
@@ -52,6 +60,10 @@ ALLOW = [
     'echo "{}"',
     "git commit -m 'a `docker run -d x` b'",
     "echo hi | grep !",
+    "docker-compose version",
+    "docker run -e A=${X} nginx",
+    "for i in 1; do docker ps; done",
+    "if true; then docker compose up -d; fi",
 ]
 
 

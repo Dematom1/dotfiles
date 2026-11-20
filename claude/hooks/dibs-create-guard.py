@@ -29,6 +29,8 @@ RUN_BOOL_LONG = {"--detach", "--rm", "--interactive", "--tty", "--init", "--priv
                  "--read-only", "--disable-content-trust", "--no-healthcheck", "--oom-kill-disable",
                  "--publish-all", "--quiet", "--help"}
 RUN_BOOL_SHORT = set("dtiPq")
+# Prefixes that leave the next word as the program: command modifiers and shell reserved words.
+SKIPPED_WORDS = {"exec", "nohup", "time", "{", "}", "!", "if", "then", "else", "elif", "while", "until", "do"}
 SHELLS = {"sh", "bash", "zsh", "dash"}
 WRAPPER_VALUE_FLAGS = {
     "command": {"-p"},
@@ -86,7 +88,7 @@ def create_kind(tool, args):
                 return "docker run -d", False
     elif tool == "docker-compose":
         if positionals(args, COMPOSE_VALUE_FLAGS)[:1] == ["up"]:
-            return "docker compose up", True
+            return "docker-compose up", False  # dibs installs no docker-compose shim
     elif tool == "kind" and positionals(args, set())[:2] == ["create", "cluster"]:
         return "kind create cluster", True
     elif tool == "k3d" and positionals(args, set())[:2] == ["cluster", "create"]:
@@ -108,6 +110,9 @@ def reason(kind, bypass):
     if kind == "docker run -d":
         why = "dibs has no adapter for a detached container"
         fix = f"Describe the container in a Compose file and run {COMPOSE_FILE_HINT}, or run it in the foreground with --rm"
+    elif kind == "docker-compose up":
+        why = "dibs installs no shim for the standalone docker-compose binary"
+        fix = f"Use `docker compose up` so the dibs shim leases it, or run {COMPOSE_FILE_HINT}"
     elif kind.endswith("orb create") or kind.endswith("orbctl create"):
         why = "dibs has no OrbStack machine adapter"
         fix = "Lease a Compose project, kind or k3d cluster with dibs create --adapter compose|kind|k3d instead"
@@ -119,7 +124,8 @@ def reason(kind, bypass):
 
 def segments(command):
     """Split a shell command into simple commands' word lists."""
-    punctuation = "();<>|&\n`{}!"
+    # `{`, `}` and `!` are reserved words, not separators (check skips them), so `${VAR}` stays one word.
+    punctuation = "();<>|&\n`"
     lex = shlex.shlex(command, posix=True, punctuation_chars=punctuation)
     lex.whitespace = " \t\r"
     lex.whitespace_split = True
@@ -145,7 +151,7 @@ def check(command, depth=0):
                 if head.startswith("PATH="):
                     bypass = "a PATH= override"
                 words = words[1:]
-            elif head in ("exec", "nohup", "time"):
+            elif head in SKIPPED_WORDS:
                 words = words[1:]
             elif head in WRAPPER_VALUE_FLAGS:
                 wrapper = head

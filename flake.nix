@@ -92,6 +92,17 @@
         docker-axi = final.callPackage ./packages/node-source-tool.nix { src = docker-axi; };
         treehouse = treehouse.packages.${final.stdenv.hostPlatform.system}.default;
         dibs = dibs.packages.${final.stdenv.hostPlatform.system}.default;
+        # dibs create shims (v0.2.7 docs/shims.md) for docker, kind, k3d, orb and orbctl.
+        # Upstream's script runs whatever `dibs` is on PATH under DIBS_TASK; pin it to
+        # the dibs that generated it, so an older dibs earlier on PATH cannot break it.
+        dibs-shims = final.runCommand "dibs-shims" { } ''
+          HOME=$TMPDIR DIBS_SHIMS=1 ${final.dibs}/bin/dibs setup shims --dir $out/bin
+          for shim in $out/bin/*; do
+            substituteInPlace "$shim" \
+              --replace-fail 'command -v dibs >' 'command -v ${final.dibs}/bin/dibs >' \
+              --replace-fail 'exec dibs __shim' 'exec ${final.dibs}/bin/dibs __shim'
+          done
+        '';
         claude-swap = final.callPackage ./packages/claude-swap.nix { };
         # A Pi extension, not a CLI: home.nix links its entrypoint directory.
         pi-fff = (final.callPackage ./packages/npm-tool.nix { npmRoot = ./packages/npm/pi-fff; }).overrideAttrs (old: {
@@ -208,7 +219,7 @@
         inherit (pkgs) kubernetes-axi docker-axi treehouse claude-swap;
         default = pkgs.kubernetes-axi;
       } // nixpkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
-        inherit (pkgs) signoff dibs;
+        inherit (pkgs) signoff dibs dibs-shims;
       });
 
     # The package build runs upstream's unit suite. This additional bounded
@@ -294,9 +305,13 @@
           let
             hm = self.darwinConfigurations.personal.config.home-manager.users.laszlohoranszky;
           in
-          assert builtins.match ".*\npath=\\(\n *\"/nix/store/[^\"]*-dibs-shims/bin\"\n.*" hm.programs.zsh.envExtra != null;
+          # The shim directory must be the first entry the zsh PATH guard sees.
+          assert nixpkgs.lib.hasInfix
+            (builtins.unsafeDiscardStringContext "path=(\n  \"${pkgs.dibs-shims}/bin\"\n")
+            (builtins.unsafeDiscardStringContext hm.programs.zsh.envExtra);
           pkgs.runCommand "dibs-enforcement" { } ''
             test -x ${hm.home.file.".claude/hooks/dibs-create-guard".source}
+            ${pkgs.bash}/bin/bash ${./tests/dibs-shims.sh} ${pkgs.dibs-shims}/bin
             ${pkgs.python311}/bin/python3 ${./tests/dibs-create-guard.py} ${./claude/hooks/dibs-create-guard.py}
             touch "$out"
           '';
@@ -307,7 +322,7 @@
           in
           assert agent.StartInterval == 600;
           assert agent.RunAtLoad;
-          assert agent.ProgramArguments == [ "/bin/sh" "-c" "date -u +%FT%TZ; ${pkgs.dibs}/bin/dibs sweep --confirm --json; exec ${pkgs.dibs}/bin/dibs orphans --adopt --ttl 30m --json" ];
+          assert agent.ProgramArguments == [ "/bin/sh" "-c" "date -u +%FT%TZ; ${pkgs.dibs}/bin/dibs sweep --confirm --json; sweep=$?; ${pkgs.dibs}/bin/dibs orphans --adopt --ttl 30m --json; audit=$?; [ $sweep -eq 0 ] || exit $sweep; exit $audit" ];
           assert agent.StandardOutPath == "/Users/laszlohoranszky/Library/Logs/dibs-sweep.log";
           assert agent.StandardErrorPath == "/Users/laszlohoranszky/Library/Logs/dibs-sweep.log";
           assert nixpkgs.lib.hasInfix ''/bin/launchctl bootout "gui/$retiredUid/org.nixos.berth-sweep"'' self.darwinConfigurations.personal.config.system.activationScripts.postActivation.text;
