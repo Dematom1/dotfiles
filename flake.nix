@@ -327,6 +327,8 @@
           assert agent.StandardErrorPath == "/Users/laszlohoranszky/Library/Logs/dibs-sweep.log";
           assert nixpkgs.lib.hasInfix ''/bin/launchctl bootout "gui/$retiredUid/org.nixos.berth-sweep"'' self.darwinConfigurations.personal.config.system.activationScripts.postActivation.text;
           pkgs.runCommand "dibs-sweep-launchd" { } ''
+            ${pkgs.bash}/bin/bash ${./tests/dibs-sweep-job.sh} \
+              ${nixpkgs.lib.escapeShellArg (builtins.elemAt agent.ProgramArguments 2)} ${pkgs.dibs}/bin/dibs
             touch "$out"
           '';
 
