@@ -30,6 +30,13 @@ RUN_BOOL_LONG = {"--detach", "--rm", "--interactive", "--tty", "--init", "--priv
                  "--publish-all", "--quiet", "--help"}
 RUN_BOOL_SHORT = set("dtiPq")
 SHELLS = {"sh", "bash", "zsh", "dash"}
+WRAPPER_VALUE_FLAGS = {
+    "command": {"-p"},
+    "env": {"-u", "--unset", "-C", "--chdir", "-a", "--argv0"},
+    "sudo": {"-u", "--user", "-g", "--group", "-h", "--host", "-p", "--prompt",
+             "-C", "--close-from", "-D", "--chdir", "-R", "--chroot", "-T", "--command-timeout",
+             "-r", "--role", "-t", "--type"},
+}
 
 
 def positionals(args, value_flags):
@@ -139,11 +146,25 @@ def check(command, depth=0):
                 words = words[1:]
             elif head in ("exec", "nohup", "time"):
                 words = words[1:]
-            elif head in ("command", "env", "sudo"):
-                bypass = bypass or f"the `{head}` wrapper"
+            elif head in WRAPPER_VALUE_FLAGS:
+                wrapper = head
+                bypass = bypass or f"the `{wrapper}` wrapper"
                 words = words[1:]
-                while words and words[0].startswith("-"):
-                    words = words[1:]
+                while words:
+                    option = words[0]
+                    if wrapper == "env" and option in ("-S", "--split-string"):
+                        words = shlex.split(words[1]) + words[2:]
+                        continue
+                    if wrapper == "env" and option.startswith(("-S", "--split-string=")):
+                        split = option[2:] if option.startswith("-S") else option.split("=", 1)[1]
+                        words = shlex.split(split) + words[1:]
+                        continue
+                    if option in WRAPPER_VALUE_FLAGS[wrapper]:
+                        words = words[2:]
+                    elif option.startswith("-") or (wrapper == "env" and "=" in option):
+                        words = words[1:]
+                    else:
+                        break
             else:
                 break
         if not words:
