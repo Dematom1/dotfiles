@@ -42,7 +42,10 @@ let
   tailscaleAppCli = pkgs.writeShellScript "tailscale" ''
     exec /Applications/Tailscale.app/Contents/MacOS/Tailscale "$@"
   '';
-  # dibs user config (v0.2.6 docs/config.md, docs/guides/owners.md "Lease policies").
+  # dibs user config (v0.2.7 docs/config.md, docs/guides/owners.md "Lease policies").
+  # shims gates `dibs setup shims` (the dibs-shims build uses DIBS_SHIMS=1); orphan_audit allows the
+  # `dibs orphans --adopt` step of the dibs-sweep job (configuration.nix), with the
+  # default orphan_evidence_roots (treehouse slots and no-mistakes worktrees).
   # A configured policy row replaces the built-in row, so the shell and shell/scope
   # rows restate every built-in field and change only action: report (shadow mode:
   # due shells are listed under held in sweep, never reclaimed automatically).
@@ -57,6 +60,8 @@ let
     scopes = true;
     handoff = true;
     pr_owner = true;
+    shims = true;
+    orphan_audit = true;
     policies.shell = {
       binding = "hybrid";
       ttl = "8h";
@@ -72,6 +77,19 @@ let
       action = "report";
     };
   };
+  # The dibs create shims (pkgs.dibs-shims, flake.nix) live in a read-only store
+  # directory, so the zsh PATH guard keeps it ahead of /usr/local/bin. Without
+  # DIBS_TASK they exec the real tool.
+  dibsShimPath = lib.optionals pkgs.stdenv.isDarwin [ "${pkgs.dibs-shims}/bin" ];
+  # PreToolUse guard (claude/hooks/dibs-create-guard.py, declared in agent-tooling.json
+  # for Claude and Codex). Exits before starting Python unless DIBS_TASK is set.
+  # Codex skips a new or changed hook until it is trusted, and the reconciler does
+  # not record trust on the user's behalf: trust it once in Codex `/hooks` after a
+  # rebuild, or Codex sessions run without the guard.
+  dibsCreateGuard = pkgs.writeShellScript "dibs-create-guard" ''
+    [ -n "''${DIBS_TASK:-}" ] || exit 0
+    exec ${lib.getExe pkgs.python311} ${./claude/hooks/dibs-create-guard.py}
+  '';
 in
 {
   imports = [ ./modules/m87-notify.nix ./modules/claude-swap.nix ];
@@ -199,6 +217,7 @@ in
     # dibs is installed only on Darwin (home.packages). A store file, not a link:
     # the config is declared in home.nix and changes on rebuild.
     ".config/dibs/config.json".source = dibsConfig;
+    ".claude/hooks/dibs-create-guard".source = dibsCreateGuard;
     # only the JSON - let Karabiner keep its assets/ + automatic_backups/ out of the repo
     ".config/karabiner/karabiner.json".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/karabiner/karabiner.json";
     ".wezterm.lua".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/.wezterm.lua";
@@ -353,6 +372,7 @@ in
       # shells, then place protected directories ahead of user-writable ones.
       typeset -U path PATH
       path=(
+        ${lib.concatStringsSep "\n        " (map (path: ''"${path}"'') dibsShimPath)}
         "$HOME/.opencode/bin"
         "$HOME/.lmstudio/bin"
         "/usr/local/zig"

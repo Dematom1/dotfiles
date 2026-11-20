@@ -16,14 +16,20 @@
     "retiredProjectHooks": ["headroom"],
     "projectPaths": ["~/Code/firstmate", "~/Code/dotfiles", "~/Code/bytebytego-ebook"],
     "hooks": {
-      "ensure": [],
+      "ensure": [
+        {"event": "PreToolUse", "matcher": "Bash", "match": "dibs-create-guard",
+         "hook": {"type": "command", "command": "\"$HOME/.claude/hooks/dibs-create-guard\"", "timeout": 10}}
+      ],
       "keep": ["rtk hook claude", "herdr-agent-state.sh", "rex __internal session-start"]
     }
   },
   "codex": {
     "mcpServers": {},
     "hooks": {
-      "ensure": [],
+      "ensure": [
+        {"event": "PreToolUse", "matcher": "Bash", "match": "dibs-create-guard",
+         "hook": {"type": "command", "command": "\"$HOME/.claude/hooks/dibs-create-guard\"", "timeout": 10}}
+      ],
       "keep": ["herdr-agent-state.sh", "rex __internal session-start"]
     }
   },

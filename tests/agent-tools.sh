@@ -65,9 +65,9 @@ for target in "${targets[@]}"; do
     # Activation's own PATH has no curl; the install step must bring its tools.
     claude_install=$(nix eval --raw "$repo#$prefix.home.activation.claudeNativeInstall.data")
     install_path=$(sed -n 's/^ *PATH="\([^"]*\)".*/\1/p' <<<"$claude_install")
-    [[ $(env -i PATH="$install_path" "$bash_bin" -c 'command -v curl') == /nix/store/*/bin/curl ]] \
+    [[ $(env -i PATH="$install_path" "$bash_bin" --norc -c 'command -v curl') == /nix/store/*/bin/curl ]] \
       || fail "$profile Claude install step does not run Nix's curl"
-    env -i PATH="$install_path" "$bash_bin" -c 'command -v shasum sysctl uname' >/dev/null \
+    env -i PATH="$install_path" "$bash_bin" --norc -c 'command -v shasum sysctl uname' >/dev/null \
       || fail "$profile Claude install step lacks the installer's macOS tools"
     [[ ",$packages," != *,tailscale,* ]] || fail "$profile still installs nixpkgs tailscale on darwin"
     tailscale_wrapper=$(nix build --no-link --print-out-paths "$repo#$prefix.home.file.\".local/bin/tailscale\".source")
@@ -86,7 +86,7 @@ for target in "${targets[@]}"; do
     hook_commands+=" $(just --justfile "$repo/justfile" --evaluate axi-tools-work)"
   fi
   axi_commands="$hook_commands $(just --justfile "$repo/justfile" --evaluate axi-tools-no-hooks)"
-  for command in backpass acpx treehouse kubernetes-axi $axi_commands; do
+  for command in backpass acpx treehouse $axi_commands; do
     [[ -x "$home_path/bin/$command" ]] || fail "$profile Home Manager path has no $command executable"
     [[ $(PATH="$home_path/bin" command -v "$command") == "$home_path/bin/$command" ]] \
       || fail "$profile Home Manager path does not resolve $command"
@@ -94,7 +94,7 @@ for target in "${targets[@]}"; do
   # A hook-list tool without `setup hooks` warns on every rebuild; list it in
   # axi-tools-no-hooks instead.
   for command in $hook_commands; do
-    "$home_path/bin/$command" setup --help 2>&1 | grep -Eq '(^|[[:space:]])setup[[:space:]]+hooks([[:space:]]|$)' \
+    "$home_path/bin/$command" setup --help 2>&1 | grep -Eq '(^|[^[:alnum:]_-])setup[[:space:]]+hooks([^[:alnum:]_-]|$)' \
       || fail "$profile $command has no 'setup hooks'; move it to axi-tools-no-hooks"
   done
 
@@ -108,8 +108,10 @@ for target in "${targets[@]}"; do
 
   activation_file=$(mktemp "$repo/.agent-activation-shell.XXXXXX")
   printf '%s\n' "$agent_tooling" > "$activation_file"
-  bash "$repo/tests/agent-tooling-activation.sh" "$profile" "$activation_file"
+  activation_status=0
+  bash "$repo/tests/agent-tooling-activation.sh" "$profile" "$activation_file" || activation_status=$?
   rm -f "$activation_file"
+  ((activation_status == 0)) || exit "$activation_status"
 
   models_source=$(nix eval --raw "$repo#$prefix.home.file.\".pi/agent/models.json\".source")
   [[ -L "$models_source" && "$(readlink "$models_source")" == */pi/models.json ]] \

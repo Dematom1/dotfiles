@@ -862,9 +862,10 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
         not any(line.startswith(("hey-axi", "lavish-axi")) for line in first_calls),
         "a no-hook AXI tool was set up",
     )
+    dibs_guard = '"$HOME/.claude/hooks/dibs-create-guard"'
     check(
-        hook_commands(settings, "PreToolUse") == ["rtk hook claude"],
-        "Claude PreToolUse hooks",
+        hook_commands(settings, "PreToolUse") == ["rtk hook claude", dibs_guard],
+        f"Claude PreToolUse hooks: {hook_commands(settings, 'PreToolUse')}",
     )
     check(
         set(settings["hooks"]) == {"SessionStart", "PreToolUse"},
@@ -914,7 +915,12 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
         f"Codex SessionStart hooks: {hook_commands(codex_hooks, 'SessionStart')}",
     )
     check(
-        set(codex_hooks["hooks"]) == {"SessionStart"}, "Codex Xirp hook events survived"
+        hook_commands(codex_hooks, "PreToolUse") == [dibs_guard],
+        f"Codex PreToolUse hooks: {hook_commands(codex_hooks, 'PreToolUse')}",
+    )
+    check(
+        set(codex_hooks["hooks"]) == {"SessionStart", "PreToolUse"},
+        "Codex Xirp hook events survived",
     )
 
     pi_settings = home / ".pi/agent/settings.json"
@@ -1278,9 +1284,12 @@ with tempfile.TemporaryDirectory(dir=repo, prefix=".agent-tooling-") as director
         == manifest["pi"]["packages"],
         "fresh Pi packages missing",
     )
+    # A fresh home gets only the declared ensure hooks, never AXI hooks.
     for name in [".claude/settings.json", ".codex/hooks.json"]:
+        fresh_hooks = json.loads((fresh_home / name).read_text())["hooks"]
         check(
-            not (fresh_home / name).exists(), f"unexpected fresh AXI hooks file: {name}"
+            fresh_hooks == {"PreToolUse": [hook_group(dibs_guard, "Bash", timeout=10)]},
+            f"unexpected fresh hooks in {name}: {fresh_hooks}",
         )
     check(
         set(

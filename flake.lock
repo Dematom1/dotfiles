@@ -23,16 +23,16 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1795120461,
-        "narHash": "sha256-SH6XEs/wxxLrmZDs2FR1kfsnIIOl4P7Fw0qouV/PbM4=",
+        "lastModified": 1795142807,
+        "narHash": "sha256-zJ4HgpLsPe9qxgmRtN6cGkhaI+8j0MmQyUgZDxSBsmQ=",
         "owner": "Dematom1",
         "repo": "dibs",
-        "rev": "ddc7309d573f9a358a87fe83a3c1982a52f579e5",
+        "rev": "eb29f6a2c0711e477f3249e3cebd1aba115d9c14",
         "type": "github"
       },
       "original": {
         "owner": "Dematom1",
-        "ref": "v0.2.6",
+        "ref": "v0.2.7",
         "repo": "dibs",
         "type": "github"
       }
