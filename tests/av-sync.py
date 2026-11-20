@@ -42,6 +42,13 @@ def check(case):
         script = activation.replace("/Applications/Automic Vault.app", str(app))
         script = script.replace("/usr/local/bin/av", str(target))
         script = script.replace("-o root -g wheel", f"-o {os.getuid()} -g {os.getgid()}")
+        # Keep the other activation steps off the live system: the profile user may
+        # not exist here, launchctl would reach the real GUI domain, and sudo would
+        # run a real brew upgrade. The stubbed launchctl reports no retired job.
+        for tool, body in (("/usr/bin/id", f"echo {os.getuid()}"), ("/bin/launchctl", "exit 1"), ("/usr/bin/sudo", "exit 0")):
+            stub = root / "stubs" / Path(tool).name
+            executable(stub, body)
+            script = script.replace(tool, shlex.quote(str(stub)))
         if case == "corrupt-install":
             installer = root / "install"
             executable(installer, f'printf "corrupt\\n" > {shlex.quote(str(target))}')
