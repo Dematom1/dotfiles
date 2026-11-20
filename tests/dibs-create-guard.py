@@ -20,6 +20,7 @@ DENY = [
     "sudo -u agent docker compose up -d",
     "env -u FOO docker compose up -d",
     "env -S 'docker compose up -d'",
+    "env --split-string='docker compose up -d'",
     "PATH=/usr/bin docker compose up",
     "docker run -d nginx",
     "docker run --rm -dit nginx",
@@ -29,6 +30,8 @@ DENY = [
     "cd /tmp && /usr/local/bin/docker compose up -d",
     "bash -lc '/usr/local/bin/kind create cluster'",
     "echo hi\n/usr/local/bin/orbctl create ubuntu",
+    "echo `/usr/local/bin/docker compose up -d`",
+    "{ /usr/local/bin/docker compose up -d; }",
 ]
 ALLOW = [
     "docker compose up -d",
@@ -43,6 +46,8 @@ ALLOW = [
     "docker run -e d=1 nginx",
     "git commit -m 'docker run -d nginx'",
     "echo 'unbalanced",
+    'echo "{}"',
+    "git commit -m 'a `docker run -d x` b'",
 ]
 
 

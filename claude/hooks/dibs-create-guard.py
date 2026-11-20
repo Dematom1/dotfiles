@@ -119,12 +119,13 @@ def reason(kind, bypass):
 
 def segments(command):
     """Split a shell command into simple commands' word lists."""
-    lex = shlex.shlex(command, posix=True, punctuation_chars="();<>|&\n")
+    punctuation = "();<>|&\n`{}!"
+    lex = shlex.shlex(command, posix=True, punctuation_chars=punctuation)
     lex.whitespace = " \t\r"
     lex.whitespace_split = True
     segment = []
     for token in lex:
-        if token and set(token) <= set("();<>|&\n"):
+        if token and set(token) <= set(punctuation):
             if segment:
                 yield segment
             segment = []
