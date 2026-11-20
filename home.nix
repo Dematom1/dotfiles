@@ -42,7 +42,7 @@ let
   tailscaleAppCli = pkgs.writeShellScript "tailscale" ''
     exec /Applications/Tailscale.app/Contents/MacOS/Tailscale "$@"
   '';
-  # dibs user config (v0.2.6 docs/guides/owners.md "Lease policies"). pr_owner stays absent (off).
+  # dibs user config (v0.2.6 docs/config.md, docs/guides/owners.md "Lease policies").
   # A configured policy row replaces the built-in row, so the shell row restates
   # every built-in field and changes only action: report (shadow mode: due shells
   # are listed under held in sweep, never reclaimed automatically).
@@ -53,6 +53,9 @@ let
     live_owner_protection = true;
     treehouse_worktree_adapter = true;
     lease_policies = true;
+    scopes = true;
+    handoff = true;
+    pr_owner = true;
     policies.shell = {
       binding = "hybrid";
       ttl = "8h";

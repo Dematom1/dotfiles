@@ -272,8 +272,10 @@
             and .live_owner_protection == true
             and .treehouse_worktree_adapter == true
             and .lease_policies == true
+            and .scopes == true
+            and .handoff == true
+            and .pr_owner == true
             and .policies.shell.action == "report"
-            and (has("pr_owner") | not)
           ' ${self.darwinConfigurations.personal.config.home-manager.users.laszlohoranszky.home.file.".config/dibs/config.json".source} > /dev/null
           touch "$out"
         '';
