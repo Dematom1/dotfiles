@@ -15,6 +15,8 @@ DENY = [
     "./k3d cluster create",
     "command docker compose up",
     "env docker compose -f c.yml up -d",
+    "env -i docker compose up",
+    "env --ignore-environment docker compose up",
     "PATH=/usr/bin docker compose up",
     "docker run -d nginx",
     "docker run --rm -dit nginx",
