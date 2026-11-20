@@ -178,6 +178,11 @@ def check(command, depth=0):
             continue
         program, args = words[0], words[1:]
         tool = os.path.basename(program)
+        if tool == "eval" and depth < 3:
+            nested = check(" ".join(args), depth + 1)
+            if nested:
+                return nested
+            continue
         flag = next((i for i, a in enumerate(args[:-1]) if a[:1] == "-" and a[1:2] != "-" and "c" in a), None)
         if tool in SHELLS and depth < 3 and flag is not None:
             nested = check(args[flag + 1], depth + 1)

@@ -41,6 +41,8 @@ DENY = [
     "/usr/local/bin/docker compose -f ${F} up -d",
     "for i in 1; do /usr/local/bin/kind create cluster; done",
     "if true; then docker run -d nginx; fi",
+    "eval '/usr/local/bin/docker compose up -d'",
+    "eval docker run -d nginx",
     "while false; do orb create ubuntu x; done",
     "until true; do :; done; if x; then :; else /usr/local/bin/k3d cluster create; fi",
 ]
@@ -64,6 +66,7 @@ ALLOW = [
     "docker run -e A=${X} nginx",
     "for i in 1; do docker ps; done",
     "if true; then docker compose up -d; fi",
+    "eval 'docker ps'",
 ]
 
 
