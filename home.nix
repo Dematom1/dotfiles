@@ -43,9 +43,10 @@ let
     exec /Applications/Tailscale.app/Contents/MacOS/Tailscale "$@"
   '';
   # dibs user config (v0.2.6 docs/config.md, docs/guides/owners.md "Lease policies").
-  # A configured policy row replaces the built-in row, so the shell row restates
-  # every built-in field and changes only action: report (shadow mode: due shells
-  # are listed under held in sweep, never reclaimed automatically).
+  # A configured policy row replaces the built-in row, so the shell and shell/scope
+  # rows restate every built-in field and change only action: report (shadow mode:
+  # due shells are listed under held in sweep, never reclaimed automatically).
+  # shell/scope is the built-in scoped(shell) row: 30m ttl and renew, 10m grace.
   dibsConfig = (pkgs.formats.json { }).generate "dibs-config.json" {
     consumer_contract = true;
     exec_owner = true;
@@ -59,6 +60,14 @@ let
     policies.shell = {
       binding = "hybrid";
       ttl = "8h";
+      idle = "30m";
+      action = "report";
+    };
+    policies."shell/scope" = {
+      binding = "hybrid";
+      ttl = "30m";
+      renew = "30m";
+      grace = "10m";
       idle = "30m";
       action = "report";
     };
