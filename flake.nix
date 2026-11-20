@@ -272,8 +272,16 @@
             and .live_owner_protection == true
             and .treehouse_worktree_adapter == true
             and .lease_policies == true
+            and .scopes == true
+            and .handoff == true
+            and .pr_owner == true
             and .policies.shell.action == "report"
-            and (has("pr_owner") | not)
+            and .policies."shell/scope".binding == "hybrid"
+            and .policies."shell/scope".ttl == "30m"
+            and .policies."shell/scope".renew == "30m"
+            and .policies."shell/scope".grace == "10m"
+            and .policies."shell/scope".idle == "30m"
+            and .policies."shell/scope".action == "report"
           ' ${self.darwinConfigurations.personal.config.home-manager.users.laszlohoranszky.home.file.".config/dibs/config.json".source} > /dev/null
           touch "$out"
         '';
